@@ -22,34 +22,28 @@
         
         .button-container {
             display: flex;
-            flex-direction: row;
-            flex-wrap: wrap;
+            flex-direction: column;
             gap: 15px;
-            justify-content: center;
             align-items: center;
-            max-width: 1200px;
-            margin: 0 auto;
         }
 
         .btn { 
             display: inline-block; 
-            padding: 12px 20px; 
+            width: 320px; /* Ancho fijo para mantener simetría y orden */
+            padding: 15px 20px; 
             background: #1e3a5f; 
             color: white; 
             text-decoration: none; 
             border-radius: 8px; 
             font-weight: bold; 
             font-size: 16px; 
-            white-space: nowrap;
+            white-space: nowrap; /* Evita que el texto baje a un segundo renglón */
             box-shadow: 0 4px 6px rgba(30, 58, 95, 0.2); 
             transition: transform 0.2s, background 0.3s ease; 
         }
         
         .btn:active { transform: scale(0.98); }
         .btn:hover { background: #142842; }
-        
-        .btn-secondary { background: #ef6c00; }
-        .btn-secondary:hover { background: #e65100; }
 
     </style>
 </head>
