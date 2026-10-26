@@ -3,22 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel Peñaflor/Ambalog- M2</title>
+    <title>Panel Central Peñaflor/Ambalog - M2</title>
 
     <link rel="icon" type="image/png" href="favicon-32x32.png">
-
     <link rel="manifest" href="manifest.json">
-
     <link rel="apple-touch-icon" href="apple-icon-180x180.png">
 
     <meta name="theme-color" content="#1e3a5f">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>Panel Central Peñaflor/Ambalog - M2</title>
-
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="apple-icon-180x180.png">
-<meta name="theme-color" content="#1e3a5f">
-<meta name="apple-mobile-web-app-capable" content="yes">
 
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; padding: 30px; background: #f9fbfd; color: #333; }
@@ -30,21 +22,25 @@
         
         .button-container {
             display: flex;
-            flex-direction: column;
-            gap: 20px;
+            flex-direction: row;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
             align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
         }
 
         .btn { 
             display: inline-block; 
-            width: 280px; 
-            padding: 15px 20px; 
+            padding: 12px 20px; 
             background: #1e3a5f; 
             color: white; 
             text-decoration: none; 
             border-radius: 8px; 
             font-weight: bold; 
-            font-size: 18px; 
+            font-size: 16px; 
+            white-space: nowrap;
             box-shadow: 0 4px 6px rgba(30, 58, 95, 0.2); 
             transition: transform 0.2s, background 0.3s ease; 
         }
@@ -66,18 +62,22 @@
     <p>Desarrollado por M2 Consultoría Digital</p>
     
     <div class="button-container">
-        <a href="cargafc/index.html" class="btn" style="white-space: nowrap; width: auto; display: inline-block; min-width: max-content; padding: 10px 20px;">Carga FC/RTO - GP</a>
-        <a href="cargapedidosgp/index.html" class="btn" style="white-space: nowrap; width: auto; display: inline-block; min-width: max-content; padding: 10px 20px;">Carga pedidos - GP</a>
+        <a href="cargafc/index.html" class="btn">Carga FC/RTO - GP</a>
+        <a href="cargapedidosgp/index.html" class="btn">Carga pedidos - GP</a>
+        <a href="cargarepartogp/index.html" class="btn">Carga reparto GP</a>
+        <a href="carganovedadesgp/index.html" class="btn">Carga novedades GP</a>
+        <a href="consultadespachogp/index.html" class="btn">Consulta despachos GP</a>
     </div>
+
     <script>
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register(""sw.js"")
-      .then(reg => console.log("✅ SW registrado", reg.scope))
-      .catch(err => console.error("❌ Error SW", err));
-  });
-}
-</script>
+        if ("serviceWorker" in navigator) {
+          window.addEventListener("load", () => {
+            navigator.serviceWorker.register("sw.js")
+              .then(reg => console.log("✅ SW registrado", reg.scope))
+              .catch(err => console.error("❌ Error SW", err));
+          });
+        }
+    </script>
 
 </body>
 </html>
