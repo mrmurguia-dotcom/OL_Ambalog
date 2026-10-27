@@ -106,18 +106,20 @@
                         
                         const cajas = parseFloat(txt.match(/Total\s+Cajas\s*:\s*([\d.,]+)/)?.[1]?.replaceAll('.','').replace(',','.')) || 0;
 
+                        // --- NUEVO CÁLCULO DE UNIDADES: Solo suma cuando la unidad de medida es "UN" en el detalle ---
                         let unidades = 0;
-                        const matchUnidades = txt.match(/Total\s+Unidades\s*:\s*([\d.,]+)/i);
-                        const matchBotellas = txt.match(/Botellas\s*:\s*([\d.,]+)/i);
-
-                        if (matchUnidades) {
-                            unidades = parseFloat(matchUnidades[1].replaceAll('.','').replace(',','.'));
-                        } else if (matchBotellas) {
-                            unidades = parseFloat(matchBotellas[1].replaceAll('.','').replace(',','.'));
-                        }
+                        const unMatches = [...txt.matchAll(/\bUN\b\s+([\d.,]+)/gi)];
+                        unMatches.forEach(m => {
+                            let val = parseFloat(m[1].replaceAll('.', '').replace(',', '.')) || 0;
+                            unidades += val;
+                        });
 
                         const total = parseFloat(txt.match(/Total:\s*([\d.,]+)/)?.[1]?.replaceAll('.','').replace(',','.')) || 0;
                         
+                        // Extraer código VI si existe (Ej: VI 6342 0001)
+                        const viMatch = txt.match(/VI\s+(\d[\d\s]+)/i);
+                        let viCode = viMatch ? viMatch[1].trim().replace(/\s+/g, ' ') : null;
+
                         if (!store[cp]) store[cp] = { docs: [] };
                         
                         let index = store[cp].docs.findIndex(d => d.numero === nro);
@@ -129,16 +131,39 @@
                                 direccion: dir, 
                                 cajas: cajas,
                                 unidades: unidades,
-                                importe: total 
+                                importe: total,
+                                vi: viCode
                             });
                         } else if (cajas > store[cp].docs[index].cajas) {
                             store[cp].docs[index].cajas = cajas;
                             store[cp].docs[index].unidades = unidades;
                             store[cp].docs[index].importe = total;
+                            store[cp].docs[index].vi = viCode;
                         }
                     }
                 }
             }
+
+            // --- FILTRO DE DUPLICADOS PARA PEDIDOS VI (Si están ambos RTO y FC para el mismo VI, se queda solo con la Factura) ---
+            for (let cp in store) {
+                let docs = store[cp].docs;
+                let viMap = {};
+                docs.forEach((d, idx) => {
+                    if (d.vi) {
+                        if (!viMap[d.vi]) viMap[d.vi] = { factura: null, remito: null };
+                        if (d.tipo === 'FACTURA') viMap[d.vi].factura = idx;
+                        if (d.tipo === 'REMITO') viMap[d.vi].remito = idx;
+                    }
+                });
+                let indicesAEliminar = [];
+                for (let vi in viMap) {
+                    if (viMap[vi].factura !== null && viMap[vi].remito !== null) {
+                        indicesAEliminar.push(viMap[vi].remito);
+                    }
+                }
+                store[cp].docs = docs.filter((d, idx) => !indicesAEliminar.includes(idx));
+            }
+
             dibujar();
         }
 
@@ -203,7 +228,7 @@
             if(!fechaInput) return alert("Por favor selecciona una fecha");
 
             const [y, m, d] = fechaInput.split('-');
-            const fechaFormateada = `${d}-${m}-${y}`; // Usamos guion para que sea válido como nombre de pestaña en Sheets
+            const fechaFormateada = `${d}-${m}-${y}`;
 
             if(Object.keys(store).length === 0) return alert("No hay datos para sincronizar");
 
