@@ -47,7 +47,7 @@
         <div id="results" class="hidden animate-in fade-in duration-500">
             <div class="bg-blue-900 text-white p-4 rounded-xl flex justify-between items-center mb-6 shadow-lg">
                 <span class="font-bold uppercase text-xs tracking-widest" id="resumenTexto">Resumen de Carga</span>
-                <button onclick="enviarALaNube()" id="btnSync" class="bg-orange-500 hover:bg-orange-600 px-8 py-2 rounded-lg font-black shadow-md active:scale-95 transition-all text-white">SINCRONIZAR SHEETS</button>
+                <button onclick="enviarALaNube()" id="btnSync" class="bg-orange-500 hover:bg-orange-600 px-8 py-2 rounded-lg font-black shadow-md active:scale-95 transition-all text-white">SINCRONIZAR DATOS</button>
             </div>
             <div id="contenedorTablas" class="space-y-6"></div>
         </div>
@@ -106,13 +106,26 @@
                         
                         const cajas = parseFloat(txt.match(/Total\s+Cajas\s*:\s*([\d.,]+)/)?.[1]?.replaceAll('.','').replace(',','.')) || 0;
 
-                        // --- NUEVO CÁLCULO DE UNIDADES: Solo suma cuando la unidad de medida es "UN" en el detalle ---
+                        // --- CÁLCULO DE UNIDADES DIFERENCIADO ---
                         let unidades = 0;
-                        const unMatches = [...txt.matchAll(/\bUN\b\s+([\d.,]+)/gi)];
-                        unMatches.forEach(m => {
-                            let val = parseFloat(m[1].replaceAll('.', '').replace(',', '.')) || 0;
-                            unidades += val;
-                        });
+                        if (esRemito) {
+                            // Para REMITOS: Suma estricta de las líneas del detalle que indican UM = UN
+                            const unMatches = [...txt.matchAll(/\bUN\b\s*(\d+[\.,]\d+)/gi)];
+                            unMatches.forEach(m => {
+                                let val = parseFloat(m[1].replaceAll('.', '').replace(',', '.')) || 0;
+                                unidades += val;
+                            });
+                        } else {
+                            // Para FACTURAS: Método original (busca el total de unidades o botellas del resumen al pie)
+                            const matchUnidades = txt.match(/Total\s+Unidades\s*:\s*([\d.,]+)/i);
+                            const matchBotellas = txt.match(/Botellas\s*:\s*([\d.,]+)/i);
+
+                            if (matchUnidades) {
+                                unidades = parseFloat(matchUnidades[1].replaceAll('.','').replace(',','.'));
+                            } else if (matchBotellas) {
+                                unidades = parseFloat(matchBotellas[1].replaceAll('.','').replace(',','.'));
+                            }
+                        }
 
                         const total = parseFloat(txt.match(/Total:\s*([\d.,]+)/)?.[1]?.replaceAll('.','').replace(',','.')) || 0;
                         
@@ -144,7 +157,7 @@
                 }
             }
 
-            // --- FILTRO DE DUPLICADOS PARA PEDIDOS VI (Si están ambos RTO y FC para el mismo VI, se queda solo con la Factura) ---
+            // --- FILTRO DE DUPLICADOS PARA PEDIDOS VI ---
             for (let cp in store) {
                 let docs = store[cp].docs;
                 let viMap = {};
@@ -191,7 +204,7 @@
                         <div class="bg-blue-50 px-4 py-3 border-b font-black text-blue-900 flex justify-between items-center">
                             <span>CP: ${cp}</span>
                             <div class="flex gap-2">
-                                <span class="text-xs bg-white px-2 py-1 rounded-full border border-blue-200">${store[cp].docs.length} ÍTEMS</span>
+                                <span class="text-xs bg-white px-2 py-1 rounded-full border border-blue-200">${store[cp].docs.length} COMPROBANTES</span>
                                 <button onclick="quitarCP('${cp}')" class="bg-red-100 text-red-600 hover:bg-red-600 hover:text-white px-3 py-1 rounded-lg text-xs transition-colors">✕ QUITAR</button>
                             </div>
                         </div>
@@ -209,7 +222,7 @@
                     </div>
                 `;
             }
-            document.getElementById('resumenTexto').innerText = `Resumen de Carga (${totalDocumentos} ítems listos)`;
+            document.getElementById('resumenTexto').innerText = `Resumen de Carga (${totalDocumentos} comprobantes listos)`;
             document.getElementById('results').classList.remove('hidden');
         }
 
@@ -247,7 +260,7 @@
             } catch (e) {
                 alert("Error de conexión al sincronizar.");
             }
-            btn.innerText = "SINCRONIZAR SHEETS";
+            btn.innerText = "SINCRONIZAR DATOS";
             btn.disabled = false;
         }
     </script>
