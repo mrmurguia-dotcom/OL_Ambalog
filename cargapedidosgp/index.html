@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#1e3a5f">
     
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Librería para procesar archivos Excel XLSX -->
+    <!-- Librería SheetJS para procesar archivos Excel (.xlsx/.xls) -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body class="bg-slate-100 p-4 md:p-10">
@@ -32,7 +32,7 @@
             </div>
         </div>
 
-        <!-- SELECCIÓN DE FECHA -->
+        <!-- SELECCIÓN DE FECHA DE ENTREGA -->
         <div class="mb-6 bg-blue-50 p-4 rounded-xl border border-blue-200 flex flex-wrap justify-between items-center gap-4">
             <div>
                 <label class="block text-blue-900 font-bold mb-1 text-sm">FECHA DE ENTREGA:</label>
@@ -47,7 +47,7 @@
         <div id="dropZone" class="border-4 border-dashed border-blue-200 rounded-2xl p-10 text-center cursor-pointer hover:bg-blue-50 transition-all mb-8 group">
             <div class="text-blue-400 text-4xl mb-2 group-hover:scale-110 transition-transform">📊</div>
             <p class="text-slate-700 font-bold uppercase tracking-tight text-sm">Arrastrá el archivo Excel de Pedidos (.xlsx) o hacé click aquí</p>
-            <p class="text-slate-400 text-xs mt-1">Se leerá únicamente la pestaña "Base pedidos". Las cargas adicionales se sumarán sin duplicar.</p>
+            <p class="text-slate-400 text-xs mt-1">Se leerá únicamente la pestaña "Base pedidos" (leyendo encabezados desde la fila 4). Las cargas adicionales se sumarán sin duplicar.</p>
             <input type="file" id="fileInput" accept=".xlsx, .xls" class="hidden">
         </div>
 
@@ -138,15 +138,16 @@
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, { type: 'array' });
                 
-                // Buscar exclusivamente la pestaña "Base pedidos"
+                // Buscar exclusivamente la pestaña "Base pedidos" (o usar la primera si no la encuentra)
                 const sheetName = workbook.SheetNames.find(n => n.trim().toLowerCase() === "base pedidos") || workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
                 
                 const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-                if (json.length < 2) return alert("El archivo no contiene filas suficientes.");
+                if (json.length < 5) return alert("El archivo no contiene suficientes filas (los encabezados comienzan en la fila 4).");
 
-                headersOriginales = json[0].slice(0, 29); // Columnas A a AC
-                filasProcesadas = json.slice(1).filter(r => r.length > 0 && r[0] != null).map(r => r.slice(0, 29));
+                // Encabezados en Fila 4 (índice 3) y Datos desde Fila 5 (índice 4)
+                headersOriginales = json[3].slice(0, 29); // Columnas A a AC
+                filasProcesadas = json.slice(4).filter(r => r.length > 0 && r[0] != null).map(r => r.slice(0, 29));
 
                 dibujarTabla();
             };
@@ -161,7 +162,7 @@
             
             tbody.innerHTML = filasProcesadas.map(row => `
                 <tr class="hover:bg-slate-50">
-                    ${row.map((cell, idx) => `<td class="p-3 whitespace-nowrap text-slate-700 ${idx === 4 ? 'font-bold text-blue-700' : ''}">${cell ?? ''}</td>`).join('')}
+                    ${row.map((cell, idx) => `<td class="p-3 whitespace-nowrap text-slate-700 ${idx === 13 ? 'font-bold text-blue-700' : ''}">${cell ?? ''}</td>`).join('')}
                 </tr>
             `).join('');
 
