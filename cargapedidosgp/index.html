@@ -1,1 +1,244 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carga Pedidos - GP - M2</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <meta name="theme-color" content="#1e3a5f">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Librería para procesar archivos Excel XLSX -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body class="bg-slate-100 p-4 md:p-10">
+    <div class="max-w-6xl mx-auto bg-white rounded-3xl shadow-2xl p-8 border border-slate-200">
+        
+        <!-- ENCABEZADO -->
+        <div class="flex flex-wrap justify-between items-center mb-8 border-b pb-4 gap-4">
+            <div>
+                <h1 class="text-3xl font-black text-blue-900 italic">CARGA PEDIDOS - GP</h1>
+                <p class="text-slate-500 text-sm mt-1">Panel Central Ambalog - M2</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <button onclick="abrirModalReprogramar()" class="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-2">
+                    🚨 REPROGRAMAR PEDIDOS
+                </button>
+                <a href="https://docs.google.com/spreadsheets/d/1RBnsNmmuosV45yb5gh_ODPYbAdIW7cDGocNQkXXVvRc/edit?usp=sharing" target="_blank" rel="noopener noreferrer" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-2">
+                    📊 VER PLANILLA SHEETS
+                </a>
+                <img src="logom2.jpg" alt="M2" class="h-10">
+            </div>
+        </div>
 
+        <!-- SELECCIÓN DE FECHA -->
+        <div class="mb-6 bg-blue-50 p-4 rounded-xl border border-blue-200 flex flex-wrap justify-between items-center gap-4">
+            <div>
+                <label class="block text-blue-900 font-bold mb-1 text-sm">FECHA DE ENTREGA:</label>
+                <input type="date" id="fechaEntrega" class="p-2 rounded-lg border-2 border-blue-300 focus:border-orange-500 outline-none bg-white font-bold text-blue-900">
+            </div>
+            <div class="text-right">
+                <span class="text-xs bg-blue-200 text-blue-800 px-3 py-1 rounded-full font-bold">Pestaña Destino & Acumulación Activa</span>
+            </div>
+        </div>
+
+        <!-- DROPZONE EXCEL -->
+        <div id="dropZone" class="border-4 border-dashed border-blue-200 rounded-2xl p-10 text-center cursor-pointer hover:bg-blue-50 transition-all mb-8 group">
+            <div class="text-blue-400 text-4xl mb-2 group-hover:scale-110 transition-transform">📊</div>
+            <p class="text-slate-700 font-bold uppercase tracking-tight text-sm">Arrastrá el archivo Excel de Pedidos (.xlsx) o hacé click aquí</p>
+            <p class="text-slate-400 text-xs mt-1">Se leerá únicamente la pestaña "Base pedidos". Las cargas adicionales se sumarán sin duplicar.</p>
+            <input type="file" id="fileInput" accept=".xlsx, .xls" class="hidden">
+        </div>
+
+        <!-- VISTA PREVIA -->
+        <div id="results" class="hidden animate-in fade-in duration-500">
+            <div class="bg-blue-900 text-white p-4 rounded-xl flex justify-between items-center mb-6 shadow-lg">
+                <span class="font-bold uppercase text-xs tracking-widest" id="resumenTexto">Resumen de Registro</span>
+                <button onclick="sincronizarPedidos()" id="btnSync" class="bg-orange-500 hover:bg-orange-600 px-8 py-2.5 rounded-lg font-black shadow-md active:scale-95 transition-all text-white">
+                    SINCRONIZAR DATOS
+                </button>
+            </div>
+            
+            <div id="tablaContenedor" class="overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-sm max-h-[450px]">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead class="bg-slate-100 text-slate-600 font-bold sticky top-0 border-b border-slate-200">
+                        <tr id="tableHeaders"></tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-100"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL REPROGRAMAR PEDIDOS (BOTÓN ROJO) -->
+    <div id="modalReprogramar" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 border border-slate-200">
+            <div class="flex justify-between items-center border-b pb-3 mb-4">
+                <h2 class="text-xl font-black text-red-600 flex items-center gap-2">🚨 Reprogramar Pedido</h2>
+                <button onclick="cerrarModalReprogramar()" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+            </div>
+            <form id="formReprogramar" onsubmit="guardarReprogramacion(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">NÚMERO / ID DE CLIENTE:</label>
+                    <input type="text" id="repoCliente" required placeholder="Ej: 10023001" class="w-full p-2.5 rounded-xl border border-slate-300 focus:border-red-500 outline-none text-sm">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">FECHA ORIGINAL:</label>
+                        <input type="date" id="repoFechaOrig" required class="w-full p-2.5 rounded-xl border border-slate-300 focus:border-red-500 outline-none text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">FECHA REPROGRAMADA:</label>
+                        <input type="date" id="repoFechaNueva" required class="w-full p-2.5 rounded-xl border border-slate-300 focus:border-red-500 outline-none text-sm">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">CANTIDAD DE BULTOS / CAJAS:</label>
+                    <input type="number" id="repoBultos" required placeholder="Ej: 150" class="w-full p-2.5 rounded-xl border border-slate-300 focus:border-red-500 outline-none text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">MOTIVO DE REPROGRAMACIÓN:</label>
+                    <textarea id="repoMotivo" required rows="2" placeholder="Describa brevemente el motivo..." class="w-full p-2.5 rounded-xl border border-slate-300 focus:border-red-500 outline-none text-sm"></textarea>
+                </div>
+                <div class="flex justify-end gap-3 pt-3 border-t">
+                    <button type="button" onclick="cerrarModalReprogramar()" class="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold text-xs">Cancelar</button>
+                    <button type="submit" id="btnGuardarRepo" class="px-6 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-md">REGISTRAR CAMBIO</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzlPL8lhl8n_H2kioGd4CmBRrEG2X9mpa83eo0XgsMIbnxFD9ppAvWS7yT0NqKfNB-KLA/exec"; 
+        
+        let filasProcesadas = [];
+        let headersOriginales = [];
+
+        document.getElementById('fechaEntrega').valueAsDate = new Date();
+
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+
+        dropZone.onclick = () => fileInput.click();
+        fileInput.onchange = (e) => procesarExcel(e.target.files[0]);
+
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('bg-blue-100'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('bg-blue-100'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('bg-blue-100');
+            if (e.dataTransfer.files.length > 0) procesarExcel(e.dataTransfer.files[0]);
+        });
+
+        function procesarExcel(file) {
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                
+                // Buscar exclusivamente la pestaña "Base pedidos"
+                const sheetName = workbook.SheetNames.find(n => n.trim().toLowerCase() === "base pedidos") || workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                
+                const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                if (json.length < 2) return alert("El archivo no contiene filas suficientes.");
+
+                headersOriginales = json[0].slice(0, 29); // Columnas A a AC
+                filasProcesadas = json.slice(1).filter(r => r.length > 0 && r[0] != null).map(r => r.slice(0, 29));
+
+                dibujarTabla();
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function dibujarTabla() {
+            const thead = document.getElementById('tableHeaders');
+            const tbody = document.getElementById('tableBody');
+            
+            thead.innerHTML = headersOriginales.map(h => `<th class="p-3">${h || ''}</th>`).join('');
+            
+            tbody.innerHTML = filasProcesadas.map(row => `
+                <tr class="hover:bg-slate-50">
+                    ${row.map((cell, idx) => `<td class="p-3 whitespace-nowrap text-slate-700 ${idx === 4 ? 'font-bold text-blue-700' : ''}">${cell ?? ''}</td>`).join('')}
+                </tr>
+            `).join('');
+
+            document.getElementById('resumenTexto').innerText = `Pedidos leídos (${filasProcesadas.length} filas en "Base pedidos")`;
+            document.getElementById('results').classList.remove('hidden');
+        }
+
+        async function sincronizarPedidos() {
+            const fechaInput = document.getElementById('fechaEntrega').value;
+            if (!fechaInput) return alert("Selecciona la fecha de entrega");
+
+            const [y, m, d] = fechaInput.split('-');
+            const fechaFormateada = `${d}-${m}-${y}`;
+
+            if (filasProcesadas.length === 0) return alert("No hay pedidos para cargar");
+
+            const btn = document.getElementById('btnSync');
+            btn.innerText = "PROCESANDO...";
+            btn.disabled = true;
+
+            try {
+                await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    body: JSON.stringify({
+                        action: 'cargarPedidos',
+                        filas: filasProcesadas,
+                        headers: headersOriginales,
+                        fechaEntrega: fechaFormateada
+                    })
+                });
+                alert("✓ Pedidos sincronizados con éxito. Se guardaron en la pestaña del día y en el histórico.");
+                filasProcesadas = [];
+                document.getElementById('results').classList.add('hidden');
+            } catch (e) {
+                alert("Error al sincronizar los pedidos.");
+            }
+            btn.innerText = "SINCRONIZAR DATOS";
+            btn.disabled = false;
+        }
+
+        // --- FUNCIONES MODAL REPROGRAMAR ---
+        function abrirModalReprogramar() { document.getElementById('modalReprogramar').classList.remove('hidden'); }
+        function cerrarModalReprogramar() { document.getElementById('modalReprogramar').classList.add('hidden'); }
+
+        async function guardarReprogramacion(e) {
+            e.preventDefault();
+            const btn = document.getElementById('btnGuardarRepo');
+            btn.innerText = "GUARDANDO...";
+            btn.disabled = true;
+
+            const payload = {
+                action: 'reprogramarPedido',
+                info: {
+                    idCliente: document.getElementById('repoCliente').value,
+                    fechaOrig: document.getElementById('repoFechaOrig').value,
+                    fechaNueva: document.getElementById('repoFechaNueva').value,
+                    bultos: document.getElementById('repoBultos').value,
+                    motivo: document.getElementById('repoMotivo').value
+                }
+            };
+
+            try {
+                await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    body: JSON.stringify(payload)
+                });
+                alert("✓ Reprogramación registrada correctamente.");
+                document.getElementById('formReprogramar').reset();
+                cerrarModalReprogramar();
+            } catch(err) {
+                alert("Error al guardar reprogramación.");
+            }
+            btn.innerText = "REGISTRAR CAMBIO";
+            btn.disabled = false;
+        }
+    </script>
+</body>
+</html>
