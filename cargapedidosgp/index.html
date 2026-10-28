@@ -147,7 +147,7 @@
 
                 // Encabezados en Fila 4 (índice 3) y Datos desde Fila 5 (índice 4)
                 headersOriginales = json[3].slice(0, 29); // Columnas A a AC
-                filasProcesadas = json.slice(4).filter(r => r.length > 0 && r[0] != null).map(r => r.slice(0, 29));
+                filasProcesadas = json.slice(4).filter(r => r.length > 0 && r.some(cell => cell !== null && cell !== "")).map(r => r.slice(0, 29));
 
                 dibujarTabla();
             };
