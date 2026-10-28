@@ -132,36 +132,35 @@
         });
 
         function procesarExcel(file) {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-        
-        const sheetName = workbook.SheetNames.find(n => n.trim().toLowerCase() === "base pedidos") || workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        
-        // Convertimos la hoja asegurando que lea hasta el límite real de celdas utilizadas (range)
-        const json = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "", range: worksheet['!ref'] });
-        if (json.length < 5) return alert("El archivo no contiene suficientes filas.");
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                
+                const sheetName = workbook.SheetNames.find(n => n.trim().toLowerCase() === "base pedidos") || workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                
+                const json = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+                if (json.length < 5) return alert("El archivo no contiene suficientes filas.");
 
-        headersOriginales = json[3].slice(0, 29); // Fila 4 para los encabezados
+                headersOriginales = json[3].slice(0, 29); // Fila 4 para los encabezados
 
-        // Filtramos desde la fila 5 (índice 4) asegurando que no descarte filas que tengan al menos el ID de cliente o algún dato válido
-        filasProcesadas = json.slice(4)
-                              .filter(r => r && r.length > 0 && r.some(cell => cell !== null && String(cell).trim() !== ""))
-                              .map(r => {
-                                  let fila = [];
-                                  for (let c = 0; c < 29; c++) {
-                                      fila.push(r[c] !== undefined && r[c] !== null ? r[c] : "");
-                                  }
-                                  return fila;
-                              });
+                // Filtramos desde la fila 5 (índice 4) verificando que la columna A (ID Cliente) tenga datos válidos
+                filasProcesadas = json.slice(4)
+                                      .filter(r => r && r[0] !== undefined && r[0] !== null && String(r[0]).trim() !== "")
+                                      .map(r => {
+                                          let fila = [];
+                                          for (let c = 0; c < 29; c++) {
+                                              fila.push(r[c] !== undefined && r[c] !== null ? r[c] : "");
+                                          }
+                                          return fila;
+                                      });
 
-        dibujarTabla();
-    };
-    reader.readAsArrayBuffer(file);
-}
+                dibujarTabla();
+            };
+            reader.readAsArrayBuffer(file);
+        }
 
         function dibujarTabla() {
             const thead = document.getElementById('tableHeaders');
