@@ -18,7 +18,7 @@
         <!-- ENCABEZADO -->
         <div class="flex flex-wrap justify-between items-center mb-8 border-b pb-4 gap-4">
             <div>
-                <h1 class="text-3xl font-black text-blue-900 italic">CARGA PEDIDOS - GP</h1>
+                <h1 class="text-3xl font-black text-blue-900 italic">CARGA PEDIDOS - GP OK</h1>
                 <p class="text-slate-500 text-sm mt-1">Panel Central Ambalog - M2</p>
             </div>
             <div class="flex items-center gap-3">
@@ -135,29 +135,56 @@
             if (!file) return;
             const reader = new FileReader();
             reader.onload = (e) => {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-                
-                const sheetName = workbook.SheetNames.find(n => n.trim().toLowerCase() === "base pedidos") || workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[sheetName];
-                
-                const json = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-                if (json.length < 5) return alert("El archivo no contiene suficientes filas.");
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                    const sheetName = workbook.SheetNames.find(n => n.trim().toLowerCase() === "base pedidos");
+                    if (!sheetName) {
+                        alert('No se encontró la pestaña "Base pedidos". Pestañas disponibles: ' + workbook.SheetNames.join(', '));
+                        return;
+                    }
 
-                headersOriginales = json[3].slice(0, 29); // Fila 4 para los encabezados
+                    const worksheet = workbook.Sheets[sheetName];
+                    // Aseguramos que el índice 0 corresponda a la fila 1 real de Excel,
+                    // incluso si el rango guardado por Excel comienza en A4.
+                    const rango = XLSX.utils.decode_range(worksheet['!ref'] || 'A1:AC1');
+                    rango.s.r = 0;
+                    rango.s.c = 0;
 
-                // Filtramos desde la fila 5 (índice 4) verificando que la columna A (ID Cliente) tenga datos válidos
-                filasProcesadas = json.slice(4)
-                                      .filter(r => r && r[0] !== undefined && r[0] !== null && String(r[0]).trim() !== "")
-                                      .map(r => {
-                                          let fila = [];
-                                          for (let c = 0; c < 29; c++) {
-                                              fila.push(r[c] !== undefined && r[c] !== null ? r[c] : "");
-                                          }
-                                          return fila;
-                                      });
+                    const json = XLSX.utils.sheet_to_json(worksheet, {
+                        header: 1,
+                        defval: "",
+                        blankrows: true,
+                        range: rango
+                    });
 
-                dibujarTabla();
+                    if (json.length < 5) {
+                        alert('El archivo no contiene suficientes filas.');
+                        return;
+                    }
+
+                    headersOriginales = (json[3] || []).slice(0, 29); // Encabezados de la fila 4
+                    filasProcesadas = [];
+
+                    // Los pedidos empiezan en la fila 5. Solo omitimos filas completamente vacías.
+                    for (let i = 4; i < json.length; i++) {
+                        const r = json[i] || [];
+                        const tieneDatos = r.some(cell => cell !== null && cell !== undefined && String(cell).trim() !== "");
+                        if (!tieneDatos) continue;
+
+                        const fila = [];
+                        for (let c = 0; c < 29; c++) {
+                            fila.push(r[c] !== undefined && r[c] !== null ? r[c] : "");
+                        }
+                        filasProcesadas.push(fila);
+                    }
+
+                    console.info(`Lectura de pedidos: ${filasProcesadas.length} filas procesadas desde "${sheetName}" (rango original: ${worksheet['!ref'] || 'no informado'}).`);
+                    dibujarTabla();
+                } catch (err) {
+                    console.error(err);
+                    alert('No se pudo leer el Excel. Detalle: ' + (err && err.message ? err.message : err));
+                }
             };
             reader.readAsArrayBuffer(file);
         }
