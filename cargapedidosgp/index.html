@@ -132,27 +132,36 @@
         });
 
         function procesarExcel(file) {
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                
-                // Buscar exclusivamente la pestaña "Base pedidos" (o usar la primera si no la encuentra)
-                const sheetName = workbook.SheetNames.find(n => n.trim().toLowerCase() === "base pedidos") || workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[sheetName];
-                
-                const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-                if (json.length < 5) return alert("El archivo no contiene suficientes filas (los encabezados comienzan en la fila 4).");
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+        const data = new Uint8Array(e.target.result);
+        // Se activa defval: "" para evitar que SheetJS salte columnas/filas vacías
+        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+        
+        const sheetName = workbook.SheetNames.find(n => n.trim().toLowerCase() === "base pedidos") || workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        
+        const json = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+        if (json.length < 5) return alert("El archivo no contiene suficientes filas.");
 
-                // Encabezados en Fila 4 (índice 3) y Datos desde Fila 5 (índice 4)
-                headersOriginales = json[3].slice(0, 29); // Columnas A a AC
-                filasProcesadas = json.slice(4).filter(r => r.length > 0 && r.some(cell => cell !== null && cell !== "")).map(r => r.slice(0, 29));
+        headersOriginales = json[3].slice(0, 29); // Fila 4 para los títulos
+        
+        // Toma absolutamente todas las filas desde la fila 5 que no estén totalmente vacías
+        filasProcesadas = json.slice(4)
+                              .filter(r => r && r.length > 0 && r.some(cell => String(cell).trim() !== ""))
+                              .map(r => {
+                                  let fila = [];
+                                  for (let c = 0; c < 29; c++) {
+                                      fila.push(r[c] !== undefined && r[c] !== null ? r[c] : "");
+                                  }
+                                  return fila;
+                              });
 
-                dibujarTabla();
-            };
-            reader.readAsArrayBuffer(file);
-        }
+        dibujarTabla();
+    };
+    reader.readAsArrayBuffer(file);
+}
 
         function dibujarTabla() {
             const thead = document.getElementById('tableHeaders');
