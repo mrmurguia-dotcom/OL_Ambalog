@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#1e3a5f">
     
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Librería SheetJS para procesar archivos Excel (.xlsx/.xlsm/.xls) -->
+    <!-- Librería SheetJS para procesar archivos Excel (.xlsx/.xls) -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body class="bg-slate-100 p-4 md:p-10">
@@ -43,12 +43,12 @@
             </div>
         </div>
 
-        <!-- DROPZONE EXCEL (.xlsx / .xlsm) -->
+        <!-- DROPZONE EXCEL -->
         <div id="dropZone" class="border-4 border-dashed border-blue-200 rounded-2xl p-10 text-center cursor-pointer hover:bg-blue-50 transition-all mb-8 group">
             <div class="text-blue-400 text-4xl mb-2 group-hover:scale-110 transition-transform">📊</div>
-            <p class="text-slate-700 font-bold uppercase tracking-tight text-sm">Arrastrá el archivo Excel de Pedidos (.xlsx / .xlsm) o hacé click aquí</p>
-            <p class="text-slate-400 text-xs mt-1">Se leerá únicamente la pestaña "Base pedidos" (encabezados en fila 4). Las cargas adicionales se suman sin duplicar.</p>
-            <input type="file" id="fileInput" accept=".xlsx, .xls, .xlsm" class="hidden">
+            <p class="text-slate-700 font-bold uppercase tracking-tight text-sm">Arrastrá el archivo Excel de Pedidos (.xlsx) o hacé click aquí</p>
+            <p class="text-slate-400 text-xs mt-1">Se leerá únicamente la pestaña "Base pedidos" (leyendo encabezados desde la fila 4). Las cargas adicionales se sumarán sin duplicar.</p>
+            <input type="file" id="fileInput" accept=".xlsx, .xls" class="hidden">
         </div>
 
         <!-- VISTA PREVIA -->
@@ -142,31 +142,12 @@
                 const sheetName = workbook.SheetNames.find(n => n.trim().toLowerCase() === "base pedidos") || workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
                 
-                const json = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false });
-                if (json.length < 5) return alert("El archivo no contiene suficientes filas (encabezados en fila 4).");
+                const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                if (json.length < 5) return alert("El archivo no contiene suficientes filas (los encabezados comienzan en la fila 4).");
 
-                // Lista por defecto de resguardo por si los títulos de la fila 4 están vacíos o combinados
-                const headersFallback = [
-                    "ID del Cliente", "Embarque", "ID del Producto", "Cantidad 1 - Pallets", "Cantidad 2 - Bultos",
-                    "Cantidad 3- cantidad", "ID Ruta", "Secuencia", "Visita", "Codigo de Reparto",
-                    "Nombre del Reparto", "Precio total [$]", "Peso [kg]", "Numero del Pedido", "Prioridad",
-                    "Nombre Cliente", "Localidad", "Fecha de Envío a AMBA Log", "Fecha de Entrega a cliente",
-                    "Dirección", "Comentario - Turno (Hora)", "Canal", "Customer", "CP", "KG Por cliente",
-                    "Transporte2", "Concatenado", "Vehiculos", "Cliente Unicos"
-                ];
-
-                // Extraer fila 4 (índice 3) y completar con fallback si alguna celda está vacía o combinada
-                let rawHeaders = json[3] || [];
-                headersOriginales = headersFallback.map((def, i) => (rawHeaders[i] && String(rawHeaders[i]).trim() !== '') ? rawHeaders[i] : def);
-
-                // Filtrar datos desde la fila 5 (índice 4), omitiendo filas vacías o sin ID de cliente
-                filasProcesadas = json.slice(4).filter(r => r && r.length > 0 && r[0] != null && String(r[0]).trim() !== '').map(r => {
-                    let row29 = [];
-                    for (let col = 0; col < 29; col++) {
-                        row29.push(r[col] !== undefined && r[col] !== null ? r[col] : "");
-                    }
-                    return row29;
-                });
+                // Encabezados en Fila 4 (índice 3) y Datos desde Fila 5 (índice 4)
+                headersOriginales = json[3].slice(0, 29); // Columnas A a AC
+                filasProcesadas = json.slice(4).filter(r => r.length > 0 && r[0] != null).map(r => r.slice(0, 29));
 
                 dibujarTabla();
             };
