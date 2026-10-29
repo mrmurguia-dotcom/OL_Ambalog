@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Carga Pedidos - GP </title>
+    <title>Carga Pedidos - GP</title>
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
     <meta name="theme-color" content="#1e3a5f">
@@ -44,51 +44,64 @@
         </div>
 
         <!-- DROPZONE EXCEL -->
-        <div id="dropZone" class="border-4 border-dashed border-blue-200 rounded-2xl p-10 text-center cursor-pointer hover:bg-blue-50 transition-all mb-8 group">
-            <div class="text-blue-400 text-4xl mb-2 group-hover:scale-110 transition-transform">📊</div>
-            <p class="text-slate-700 font-bold uppercase tracking-tight text-sm">Arrastrá el archivo Excel de Pedidos (.xlsx) o hacé click aquí</p>
-            <p class="text-slate-400 text-xs mt-1">Se leerá únicamente la pestaña "Base pedidos" (leyendo encabezados desde la fila 4). Las cargas adicionales se sumarán sin duplicar.</p>
+        <div id="dropZone" class="border-4 border-dashed border-blue-200 rounded-2xl p-8 text-center cursor-pointer hover:bg-blue-50 transition-all mb-6 group">
+            <div class="text-blue-400 text-3xl mb-1 group-hover:scale-110 transition-transform">📊</div>
+            <p class="text-slate-700 font-bold uppercase tracking-tight text-xs">Arrastrá el archivo Excel de Pedidos (.xlsx) o hacé click aquí</p>
+            <p class="text-slate-400 text-xs mt-0.5">Se leerá únicamente la pestaña "Base pedidos". Las cargas adicionales se sumarán sin duplicar.</p>
             <input type="file" id="fileInput" accept=".xlsx, .xls, .xlsm" class="hidden">
         </div>
 
         <!-- VISTA PREVIA Y PESTAÑAS DINÁMICAS -->
         <div id="results" class="hidden animate-in fade-in duration-500">
+            
+            <!-- BARRA SUPERIOR DE PESTAÑAS Y BOTÓN SINCRONIZAR SEPARADOS -->
             <div class="bg-blue-900 text-white p-4 rounded-xl flex flex-wrap justify-between items-center mb-4 shadow-lg gap-4">
                 <span class="font-bold uppercase text-xs tracking-widest" id="resumenTexto">Resumen de Registro</span>
                 
-                <!-- BOTONES DE PESTAÑAS DINÁMICAS -->
+                <!-- SÓLO 2 PESTAÑAS: GENERAL Y CLIENTE -->
                 <div class="flex flex-wrap gap-2">
-                    <button onclick="cambiarVistaDinamica('general')" id="tab-general" class="px-4 py-2 rounded-lg text-xs font-black bg-orange-500 text-white shadow transition-all">General</button>
-                    <button onclick="cambiarVistaDinamica('vehiculo')" id="tab-vehiculo" class="px-4 py-2 rounded-lg text-xs font-black bg-blue-800 hover:bg-blue-700 text-white shadow transition-all">Vehículo</button>
-                    <button onclick="cambiarVistaDinamica('canal')" id="tab-canal" class="px-4 py-2 rounded-lg text-xs font-black bg-blue-800 hover:bg-blue-700 text-white shadow transition-all">Canal</button>
-                    <button onclick="cambiarVistaDinamica('cliente')" id="tab-cliente" class="px-4 py-2 rounded-lg text-xs font-black bg-blue-800 hover:bg-blue-700 text-white shadow transition-all">Cliente</button>
+                    <button onclick="cambiarVistaDinamica('general')" id="tab-general" class="px-5 py-2 rounded-lg text-xs font-black bg-orange-500 text-white shadow transition-all">General</button>
+                    <button onclick="cambiarVistaDinamica('cliente')" id="tab-cliente" class="px-5 py-2 rounded-lg text-xs font-black bg-blue-800 hover:bg-blue-700 text-white shadow transition-all">Cliente</button>
                 </div>
 
-                <button onclick="sincronizarPedidos()" id="btnSync" class="bg-orange-500 hover:bg-orange-600 px-8 py-2.5 rounded-lg font-black shadow-md active:scale-95 transition-all text-white">
+                <!-- BOTÓN SINCRONIZAR DATOS INDEPENDIENTE -->
+                <button onclick="sincronizarPedidos()" id="btnSync" class="bg-orange-500 hover:bg-orange-600 px-6 py-2.5 rounded-lg font-black shadow-md active:scale-95 transition-all text-white text-xs">
                     SINCRONIZAR DATOS
                 </button>
             </div>
 
-            <!-- FILTRO DE FECHA PARA CONSULTAR Y TOTAL DE BULTOS DESTACADO -->
+            <!-- FILTRO DE FECHA DE CONSULTA, FILTRO CUSTOMER Y TOTAL DE BULTOS -->
             <div class="flex flex-wrap justify-between items-center bg-slate-200/70 p-4 rounded-xl mb-4 border border-slate-300 gap-4">
-                <div class="flex items-center gap-3">
-                    <label for="filtroFechaConsulta" class="text-xs font-bold text-slate-700 uppercase">📅 Consultar Fecha:</label>
-                    <input type="date" id="filtroFechaConsulta" onchange="actualizarConsultaFecha()" class="p-2 rounded-lg border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none">
+                <div class="flex flex-wrap items-center gap-4">
+                    <div class="flex items-center gap-2">
+                        <label for="filtroFechaConsulta" class="text-xs font-bold text-slate-700 uppercase">📅 Consultar Fecha:</label>
+                        <input type="date" id="filtroFechaConsulta" onchange="actualizarConsultaFecha()" class="p-2 rounded-lg border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none">
+                    </div>
+                    
+                    <!-- FILTRO POR CUSTOMER (SÓLO VISIBLE EN GENERAL) -->
+                    <div id="contenedorFiltroCustomer" class="flex items-center gap-2">
+                        <label for="filtroCustomer" class="text-xs font-bold text-slate-700 uppercase">Filter Customer:</label>
+                        <select id="filtroCustomer" onchange="dibujarTablaDinamica()" class="p-2 rounded-lg border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none">
+                            <option value="TODOS">-- Todos los Customers --</option>
+                        </select>
+                    </div>
                 </div>
                 
                 <!-- TOTAL DE BULTOS RESALTADO (Verde < 9000 / Rojo >= 9000) -->
-                <div class="bg-white px-6 py-2 rounded-xl shadow-sm border border-slate-300 flex items-center gap-3">
+                <div class="bg-white px-5 py-2 rounded-xl shadow-sm border border-slate-300 flex items-center gap-3">
                     <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">Total Bultos:</span>
                     <span id="badgeBultosTotal" class="text-2xl font-black text-emerald-600">0</span>
                 </div>
             </div>
             
-            <div id="tablaContenedor" class="overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-sm max-h-[450px]">
-                <table class="w-full text-left border-collapse text-xs">
-                    <thead class="bg-slate-100 text-slate-600 font-bold sticky top-0 border-b border-slate-200">
+            <!-- CONTENEDOR DE TABLA CON FUENTE AMPLIADA (text-sm) -->
+            <div id="tablaContenedor" class="overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-sm max-h-[480px]">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead class="bg-slate-100 text-slate-700 font-bold sticky top-0 border-b border-slate-200 text-xs">
                         <tr id="tableHeaders"></tr>
                     </thead>
-                    <tbody id="tableBody" class="divide-y divide-slate-100"></tbody>
+                    <tbody id="tableBody" class="divide-y divide-slate-100 text-slate-800"></tbody>
+                    <tfoot id="tableFooter" class="bg-slate-50 font-bold text-slate-900 sticky bottom-0 border-t-2 border-slate-300"></tfoot>
                 </table>
             </div>
         </div>
@@ -202,6 +215,7 @@
                         filasProcesadas.push(fila);
                     }
 
+                    poblarFiltroCustomer();
                     cambiarVistaDinamica('general');
                     document.getElementById('results').classList.remove('hidden');
                 } catch (err) {
@@ -212,36 +226,40 @@
             reader.readAsArrayBuffer(file);
         }
 
-        function cambiarVistaDinamica(tipo) {
-            vistaActual = tipo;
-            ['general', 'vehiculo', 'canal', 'cliente'].forEach(t => {
-                const btn = document.getElementById(`tab-${t}`);
-                if (t === tipo) {
-                    btn.className = "px-4 py-2 rounded-lg text-xs font-black bg-orange-500 text-white shadow transition-all";
-                } else {
-                    btn.className = "px-4 py-2 rounded-lg text-xs font-black bg-blue-800 hover:bg-blue-700 text-white shadow transition-all";
-                }
+        function poblarFiltroCustomer() {
+            const select = document.getElementById('filtroCustomer');
+            const customers = new Set();
+            filasProcesadas.forEach(r => {
+                let cust = String(r[22] || '').trim();
+                if (cust) customers.add(cust);
             });
-            dibujarTablaDinamica();
+
+            select.innerHTML = '<option value="TODOS">-- Todos los Customers --</option>';
+            Array.from(customers).sort().forEach(c => {
+                select.innerHTML += `<option value="${c}">${c}</option>`;
+            });
         }
 
-        function calcularVehiculosUsados(pesoTotal, palletsTotal) {
-            let vSemi = Math.max(pesoTotal / 28000, palletsTotal / 28);
-            let vBalancin = Math.max(pesoTotal / 14000, palletsTotal / 14);
-            let vChasis = Math.max(pesoTotal / 9000, palletsTotal / 10);
-            let vCamioneta = Math.max(pesoTotal / 1500, palletsTotal / 2);
+        function cambiarVistaDinamica(tipo) {
+            vistaActual = tipo;
+            ['general', 'cliente'].forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                if (t === tipo) {
+                    btn.className = "px-5 py-2 rounded-lg text-xs font-black bg-orange-500 text-white shadow transition-all";
+                } else {
+                    btn.className = "px-5 py-2 rounded-lg text-xs font-black bg-blue-800 hover:bg-blue-700 text-white shadow transition-all";
+                }
+            });
 
-            if (vSemi >= 1) return `${Math.ceil(vSemi)} Semi`;
-            if (vBalancin >= 1) return `${Math.ceil(vBalancin)} Balancín`;
-            if (vChasis >= 1) return `${Math.ceil(vChasis)} Chasis`;
-            return `${Math.ceil(vCamioneta)} Camioneta`;
+            // Mostrar u ocultar el selector de Customer dependiendo si estamos en General
+            document.getElementById('contenedorFiltroCustomer').style.display = (tipo === 'general') ? 'flex' : 'none';
+            dibujarTablaDinamica();
         }
 
         function actualizarTotalBultos(totalBultos) {
             const badge = document.getElementById('badgeBultosTotal');
             badge.innerText = totalBultos.toLocaleString('es-ES', { maximumFractionDigits: 2 });
             
-            // Si es menor a 9000 -> Verde, si es mayor o igual a 9000 -> Rojo
             if (totalBultos < 9000) {
                 badge.className = "text-2xl font-black text-emerald-600";
             } else {
@@ -251,25 +269,42 @@
 
         function actualizarConsultaFecha() {
             const fechaSeleccionada = document.getElementById('filtroFechaConsulta').value;
-            // Sincroniza la fecha de entrega principal con la fecha consultada seleccionada
             if (fechaSeleccionada) {
                 document.getElementById('fechaEntrega').value = fechaSeleccionada;
             }
+            // Aquí puedes conectar también la consulta directa a Google Sheets si lo deseas sin subir archivo
             dibujarTablaDinamica();
         }
 
         function dibujarTablaDinamica() {
             const thead = document.getElementById('tableHeaders');
             const tbody = document.getElementById('tableBody');
+            const tfoot = document.getElementById('tableFooter');
+            
             let acumuladoBultos = 0;
+            let acumuladoPeso = 0;
+            let acumuladoPallets = 0;
+            let filasFiltradas = [...filasProcesadas];
 
             if (vistaActual === 'general') {
+                // Filtro por Customer seleccionado
+                const customerFiltro = document.getElementById('filtroCustomer').value;
+                if (customerFiltro && customerFiltro !== 'TODOS') {
+                    filasFiltradas = filasFiltradas.filter(r => String(r[22] || '').trim() === customerFiltro);
+                }
+
                 const cols = ["CP", "Transporte 2", "ID del Cliente", "Nombre Cliente", "Prioridad", "Canal", "Customer", "Localidad", "Dirección", "Turno (Hora)", "Bultos", "Peso [kg]", "Pallets"];
                 thead.innerHTML = cols.map(c => `<th class="p-3">${c}</th>`).join('');
 
-                tbody.innerHTML = filasProcesadas.map(r => {
+                tbody.innerHTML = filasFiltradas.map(r => {
                     let bultos = Number(r[4]) || 0;
+                    let peso = Number(r[12]) || 0;
+                    let pallets = Number(r[3]) || 0;
+
                     acumuladoBultos += bultos;
+                    acumuladoPeso += peso;
+                    acumuladoPallets += pallets;
+
                     return `
                         <tr class="hover:bg-slate-50">
                             <td class="p-3">${r[23] || ''}</td>
@@ -283,70 +318,23 @@
                             <td class="p-3">${r[19] || ''}</td>
                             <td class="p-3">${r[20] || ''}</td>
                             <td class="p-3">${bultos}</td>
-                            <td class="p-3">${r[12] || 0}</td>
-                            <td class="p-3">${r[3] || 0}</td>
+                            <td class="p-3">${peso.toFixed(2)}</td>
+                            <td class="p-3">${pallets.toFixed(2)}</td>
                         </tr>
                     `;
                 }).join('');
-                document.getElementById('resumenTexto').innerText = `Vista General (${filasProcesadas.length} registros)`;
 
-            } else if (vistaActual === 'vehiculo') {
-                let agrupar = {};
-                filasProcesadas.forEach(r => {
-                    let transporte = String(r[25] || 'SIN TRANSPORTE').trim();
-                    let localidad = String(r[16] || 'SIN LOCALIDAD').trim();
-                    let key = `${transporte}___${localidad}`;
-
-                    if (!agrupar[key]) {
-                        agrupar[key] = { transporte, localidad, bultos: 0, peso: 0, pallets: 0 };
-                    }
-                    let b = Number(r[4]) || 0;
-                    agrupar[key].bultos += b;
-                    agrupar[key].peso += Number(r[12]) || 0;
-                    agrupar[key].pallets += Number(r[3]) || 0;
-                    acumuladoBultos += b;
-                });
-
-                const cols = ["Transporte 2", "Localidad", "Bultos", "Peso [kg]", "Vehículos Usados"];
-                thead.innerHTML = cols.map(c => `<th class="p-3">${c}</th>`).join('');
-
-                tbody.innerHTML = Object.values(agrupar).map(item => `
-                    <tr class="hover:bg-slate-50">
-                        <td class="p-3 font-bold text-blue-900">${item.transporte}</td>
-                        <td class="p-3">${item.localidad}</td>
-                        <td class="p-3">${item.bultos.toFixed(2)}</td>
-                        <td class="p-3">${item.peso.toFixed(2)}</td>
-                        <td class="p-3 font-semibold text-orange-600">${calcularVehiculosUsados(item.peso, item.pallets)}</td>
+                // Fila de Totales Generales
+                tfoot.innerHTML = `
+                    <tr>
+                        <td colspan="10" class="p-3 text-right uppercase">TOTALES:</td>
+                        <td class="p-3">${acumuladoBultos.toFixed(2)}</td>
+                        <td class="p-3">${acumuladoPeso.toFixed(2)}</td>
+                        <td class="p-3">${acumuladoPallets.toFixed(2)}</td>
                     </tr>
-                `).join('');
-                document.getElementById('resumenTexto').innerText = `Dinámica por Vehículo (${Object.keys(agrupar).length} grupos)`;
+                `;
 
-            } else if (vistaActual === 'canal') {
-                let agrupar = {};
-                filasProcesadas.forEach(r => {
-                    let canal = String(r[21] || 'SIN CANAL').trim();
-                    if (!agrupar[canal]) {
-                        agrupar[canal] = { canal, bultos: 0, peso: 0, pallets: 0 };
-                    }
-                    let b = Number(r[4]) || 0;
-                    agrupar[canal].bultos += b;
-                    agrupar[canal].peso += Number(r[12]) || 0;
-                    agrupar[canal].pallets += Number(r[3]) || 0;
-                    acumuladoBultos += b;
-                });
-
-                const cols = ["Canal", "Bultos", "Peso [kg]", "Vehículos Usados"];
-                thead.innerHTML = cols.map(c => `<th class="p-3">${c}</th>`).join('');
-
-                tbody.innerHTML = Object.values(agrupar).map(item => `
-                    <tr class="hover:bg-slate-50">
-                        <td class="p-3 font-bold text-blue-900">${item.canal}</td>
-                        <td class="p-3">${item.bultos.toFixed(2)}</td>
-                        <td class="p-3">${item.peso.toFixed(2)}</td>
-                        <td class="p-3 font-semibold text-orange-600">${calcularVehiculosUsados(item.peso, item.pallets)}</td>
-                    </tr>
-                `).join('');
-                document.getElementById('resumenTexto').innerText = `Dinámica por Canal (${Object.keys(agrupar).length} canales)`;
+                document.getElementById('resumenTexto').innerText = `Vista General (${filasFiltradas.length} de ${filasProcesadas.length} registros)`;
 
             } else if (vistaActual === 'cliente') {
                 let agrupar = {};
@@ -361,15 +349,25 @@
                         agrupar[key] = { cp, transporte, reparto, clientesSet: new Set(), bultos: 0, peso: 0, pallets: 0 };
                     }
                     if (idCliente) agrupar[key].clientesSet.add(idCliente);
+                    
                     let b = Number(r[4]) || 0;
+                    let p = Number(r[12]) || 0;
+                    let pal = Number(r[3]) || 0;
+
                     agrupar[key].bultos += b;
-                    agrupar[key].peso += Number(r[12]) || 0;
-                    agrupar[key].pallets += Number(r[3]) || 0;
+                    agrupar[key].peso += p;
+                    agrupar[key].pallets += pal;
+
                     acumuladoBultos += b;
+                    acumuladoPeso += p;
+                    acumuladoPallets += pal;
                 });
 
                 const cols = ["CP", "Transporte 2", "Nombre del Reparto", "Cantidad de Clientes", "Bultos", "Peso [kg]", "Pallets"];
                 thead.innerHTML = cols.map(c => `<th class="p-3">${c}</th>`).join('');
+
+                let totalClientesUnicos = new Set();
+                filasProcesadas.forEach(r => { if(r[0]) totalClientesUnicos.add(r[0]); });
 
                 tbody.innerHTML = Object.values(agrupar).map(item => `
                     <tr class="hover:bg-slate-50">
@@ -382,6 +380,17 @@
                         <td class="p-3">${item.pallets.toFixed(2)}</td>
                     </tr>
                 `).join('');
+
+                tfoot.innerHTML = `
+                    <tr>
+                        <td colspan="3" class="p-3 text-right uppercase">TOTALES (${totalClientesUnicos.size} Clientes Únicos):</td>
+                        <td class="p-3">${totalClientesUnicos.size}</td>
+                        <td class="p-3">${acumuladoBultos.toFixed(2)}</td>
+                        <td class="p-3">${acumuladoPeso.toFixed(2)}</td>
+                        <td class="p-3">${acumuladoPallets.toFixed(2)}</td>
+                    </tr>
+                `;
+
                 document.getElementById('resumenTexto').innerText = `Dinámica por Cliente / Reparto (${Object.keys(agrupar).length} grupos)`;
             }
 
