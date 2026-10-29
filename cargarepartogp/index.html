@@ -32,7 +32,7 @@
             </div>
         </div>
 
-        <!-- ================= SECCIÓN 1: ASIGNAR CARTA DE PORTE (CP) ================= -->
+        <!-- SECCIÓN 1: ASIGNAR CARTA DE PORTE (CP) -->
         <div id="seccionAsignarCP" class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 space-y-6">
             <div class="border-b pb-3 flex justify-between items-center flex-wrap gap-4">
                 <div>
@@ -102,7 +102,7 @@
             </div>
         </div>
 
-        <!-- ================= SECCIÓN 2: GRILLA DE REPARTO (ORDENADA: REGISTRADOS ARRIBA / PREPARACIÓN ABAJO) ================= -->
+        <!-- SECCIÓN 2: GRILLA DE REPARTO -->
         <div id="seccionGrillaReparto" class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 space-y-6 hidden">
             <div class="border-b pb-3 flex justify-between items-center flex-wrap gap-4">
                 <div>
@@ -122,7 +122,7 @@
                 <span class="text-xs text-slate-500 italic mt-4">Esta fecha define dónde se visualizará y registrará el viaje en la grilla superior.</span>
             </div>
 
-            <!-- 1. VIAJES YA REGISTRADOS EN LA GRILLA (AHORA ARRIBA) -->
+            <!-- 1. VIAJES YA REGISTRADOS EN LA GRILLA (ARRIBA) -->
             <div class="space-y-3">
                 <h3 class="text-xs font-bold text-slate-800 uppercase">Viajes Ya Registrados en la Grilla (Fecha Seleccionada):</h3>
                 <div class="overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-sm max-h-60">
@@ -174,7 +174,7 @@
                 </div>
             </div>
 
-            <!-- 3. CARTAS DE PORTE PENDIENTES (MÁS ABAJO) -->
+            <!-- 3. CARTAS DE PORTE PENDIENTES -->
             <div>
                 <h3 class="text-xs font-bold text-slate-700 mb-3 uppercase">Cartas de Porte Pendientes (Disponibles):</h3>
                 <div id="contenedorTarjetasCP" class="grid grid-cols-1 md:grid-cols-3 gap-4 max-h-60 overflow-y-auto p-1"></div>
@@ -182,7 +182,7 @@
         </div>
     </div>
 
-    <!-- MODAL DETALLE CLIENTE (DEDUPLICADO) -->
+    <!-- MODAL DETALLE CLIENTE -->
     <div id="modalDetalle" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 border border-slate-200 space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
@@ -352,7 +352,6 @@
             tfoot.innerHTML = `<tr><td colspan="8" class="p-3 text-right uppercase">TOTALES:</td><td class="p-3 text-center">${totBultos}</td><td class="p-3 text-center">${totPeso.toFixed(2)}</td><td class="p-3 text-center">${totPallets.toFixed(2)}</td><td></td></tr>`;
         }
 
-        // Deduplicación en el modal
         function verDetalleGrupo(idx) {
             const grupo = gruposAgrupados[idx];
             const contenido = document.getElementById('contenidoModalDetalle');
@@ -571,7 +570,7 @@
                 const res = await resp.json();
                 alert(res.message);
 
-                // Actualización instantánea local
+                // Actualización instantánea local limpia y segura
                 grillaRegistrada.push({
                     fechaGrilla: viajeActual.datos.fechaGrilla,
                     fechaPedido: viajeActual.datos.fechaPedido,
@@ -592,9 +591,6 @@
                 actualizarTablaViaje();
                 renderizarTarjetasCP();
                 renderizarTablaGrillaRegistrada();
-
-                // Sincronizar de fondo
-                cargarGrillaYCPs();
             } catch (err) { alert("Error al registrar viaje."); }
             btn.innerText = "🚚 CERRAR Y REGISTRAR VIAJE";
             btn.disabled = false;
@@ -623,7 +619,7 @@
                         <td class="p-3 text-center">${Number(g.peso).toFixed(2)}</td>
                         <td class="p-3 text-center">${g.bultos}</td>
                         <td class="p-3 text-center">
-                            <button onclick="quitarDeGrilla('${g.cpPrincipal}', '${g.cpComplementos}', '${g.fechaPedido}')" class="bg-red-100 hover:bg-red-200 text-red-700 font-bold px-3 py-1 rounded-lg text-xs transition-all">
+                            <button onclick="preguntarQuitarDeGrilla('${g.cpPrincipal}', '${g.cpComplementos}', '${g.fechaPedido}')" class="bg-red-100 hover:bg-red-200 text-red-700 font-bold px-3 py-1 rounded-lg text-xs transition-all">
                                 🗑️ Quitar
                             </button>
                         </td>
@@ -632,13 +628,36 @@
             }).join('');
         }
 
-        async function quitarDeGrilla(cpPrincipal, cpComplementos, fechaPedido) {
-            if (!confirm(`¿Estás seguro de quitar la CP ${cpPrincipal} de la Grilla y devolverla a pendientes?`)) return;
+        // --- OPCIÓN DE BORRADO TOTAL O PARCIAL ---
+        function preguntarQuitarDeGrilla(cpPrincipal, cpComplementos, fechaPedido) {
+            let listaCPs = [cpPrincipal];
+            if (cpComplementos) {
+                cpComplementos.split(',').forEach(c => { let t = c.trim(); if(t) listaCPs.push(t); });
+            }
 
+            if (listaCPs.length === 1) {
+                if (!confirm(`¿Estás seguro de quitar la CP ${cpPrincipal} de la Grilla y devolverla a pendientes?`)) return;
+                ejecutarQuitarDeGrilla(cpPrincipal, cpPrincipal, cpComplementos, fechaPedido);
+            } else {
+                let seleccion = prompt(`Este viaje tiene varias CPs: [ ${listaCPs.join(', ')} ].\n\nIngresá el número exacto de la CP que querés sacar (o escribí "TODAS" para borrar el viaje completo):`);
+                if (!seleccion) return;
+                seleccion = seleccion.trim();
+
+                if (seleccion.toUpperCase() === "TODAS") {
+                    ejecutarQuitarDeGrilla(cpPrincipal, cpPrincipal, cpComplementos, fechaPedido);
+                } else if (listaCPs.includes(seleccion)) {
+                    ejecutarQuitarDeGrilla(seleccion, cpPrincipal, cpComplementos, fechaPedido);
+                } else {
+                    alert("La CP ingresada no forma parte de este viaje.");
+                }
+            }
+        }
+
+        async function ejecutarQuitarDeGrilla(cpAQuitar, cpPrincipal, cpComplementos, fechaPedido) {
             try {
                 const resp = await fetch(WEB_APP_URL, {
                     method: 'POST',
-                    body: JSON.stringify({ action: 'quitarViajeGrilla', info: { cpPrincipal, cpComplementos, fechaPedido } })
+                    body: JSON.stringify({ action: 'quitarViajeGrilla', info: { cpAQuitar, cpPrincipal, cpComplementos, fechaPedido } })
                 });
                 const res = await resp.json();
                 alert(res.message);
