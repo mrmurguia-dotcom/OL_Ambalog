@@ -7,27 +7,39 @@
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-100 p-4 md:p-8">
-    <div class="max-w-7xl mx-auto space-y-8">
+    <div class="max-w-7xl mx-auto space-y-6">
         
-        <!-- ENCABEZADO PRINCIPAL -->
+        <!-- ENCABEZADO Y NAVEGACIÓN POR PESTAÑAS -->
         <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 flex flex-wrap justify-between items-center gap-4">
             <div>
                 <h1 class="text-3xl font-black text-blue-900 italic uppercase">CARGA REPARTO GP</h1>
-                <p class="text-slate-500 text-sm mt-1">Asignación de Cartas de Porte y Consolidación de Grilla</p>
+                <p class="text-slate-500 text-sm mt-1">Panel Operativo de Asignación y Grilla</p>
             </div>
+            
+            <!-- PESTAÑAS DE NAVEGACIÓN -->
+            <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
+                <button onclick="cambiarVistaTab('asignar')" id="tabBtnAsignar" class="px-5 py-2.5 rounded-xl text-xs font-black bg-blue-900 text-white shadow transition-all">
+                    📋 ASIGNAR CARTA DE PORTE (CP)
+                </button>
+                <button onclick="cambiarVistaTab('grilla')" id="tabBtnGrilla" class="px-5 py-2.5 rounded-xl text-xs font-black bg-transparent text-slate-600 hover:text-blue-900 transition-all">
+                    🚚 GRILLA DE REPARTO
+                </button>
+            </div>
+
             <div class="flex items-center gap-3">
                 <a href="https://docs.google.com/spreadsheets/d/1RBnsNmmuosV45yb5gh_ODPYbAdIW7cDGocNQkXXVvRc/edit?usp=sharing" target="_blank" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow transition-all">
-                    📊 VER PLANILLA SHEETS
+                    📊 VER SHEETS
                 </a>
             </div>
         </div>
 
-        <!-- SECCIÓN 1: ASIGNAR CARTA DE PORTE (CP) -->
-        <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 space-y-6">
-            <div class="border-b pb-3 flex justify-between items-center">
-                <h2 class="text-xl font-black text-blue-900 flex items-center gap-2">
-                    <span>1. Asignar Carta de Porte (CP)</span>
-                </h2>
+        <!-- ================= SECCIÓN 1: ASIGNAR CARTA DE PORTE (CP) ================= -->
+        <div id="seccionAsignarCP" class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 space-y-6">
+            <div class="border-b pb-3 flex justify-between items-center flex-wrap gap-4">
+                <div>
+                    <h2 class="text-xl font-black text-blue-900">1. Asignación de Carta de Porte (Vista Dinámica Agrupada)</h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Seleccioná uno o más grupos para asignar CP y novedades de forma masiva a todas sus líneas asociadas.</p>
+                </div>
                 <button onclick="sincronizarCambiosCP()" id="btnSyncCP" class="bg-orange-500 hover:bg-orange-600 text-white font-black text-xs px-6 py-2.5 rounded-xl shadow transition-all">
                     💾 SINCRONIZAR CAMBIOS
                 </button>
@@ -48,9 +60,9 @@
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">FILTRO POR CP:</label>
                     <select id="filtroEstadoCP" onchange="filtrarYRenderizarCP()" class="w-full p-2.5 rounded-xl border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none">
-                        <option value="SIN_CP">Solo Pedidos SIN CP</option>
-                        <option value="CON_CP">Solo Pedidos CON CP</option>
-                        <option value="TODOS">Todos los Pedidos</option>
+                        <option value="SIN_CP">Solo Grupos SIN CP</option>
+                        <option value="CON_CP">Solo Grupos CON CP</option>
+                        <option value="TODOS">Todos los Grupos</option>
                     </select>
                 </div>
                 <div class="flex items-end">
@@ -60,8 +72,8 @@
                 </div>
             </div>
 
-            <!-- TABLA DINÁMICA CP -->
-            <div class="overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-sm max-h-[420px]">
+            <!-- TABLA DINÁMICA AGRUPADA -->
+            <div class="overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-sm max-h-[460px]">
                 <table class="w-full text-left border-collapse text-xs">
                     <thead class="bg-slate-100 text-slate-700 font-bold sticky top-0 border-b border-slate-200">
                         <tr>
@@ -73,10 +85,10 @@
                             <th class="p-3">Localidad</th>
                             <th class="p-3">Turno (Hora)</th>
                             <th class="p-3">Dirección</th>
-                            <th class="p-3">Bultos</th>
-                            <th class="p-3">Peso [kg]</th>
-                            <th class="p-3">Pallets</th>
-                            <th class="p-3">Novedades</th>
+                            <th class="p-3 text-center">Bultos</th>
+                            <th class="p-3 text-center">Peso [kg]</th>
+                            <th class="p-3 text-center">Pallets</th>
+                            <th class="p-3">Novedades / Motivo</th>
                         </tr>
                     </thead>
                     <tbody id="tbodyAsignarCP" class="divide-y divide-slate-100"></tbody>
@@ -85,19 +97,22 @@
             </div>
 
             <!-- ASIGNACIÓN MASIVA RÁPIDA -->
-            <div class="flex flex-wrap items-center gap-3 bg-amber-50 p-3 rounded-xl border border-amber-200">
-                <span class="text-xs font-bold text-amber-900">Asignar CP a líneas seleccionadas:</span>
-                <input type="text" id="inputCPMasivo" placeholder="Número de CP" class="p-2 rounded-lg border border-slate-300 text-xs font-bold w-40 outline-none">
-                <button onclick="aplicarCPMasivo()" class="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-4 py-2 rounded-lg shadow">
-                    Aplicar CP
+            <div class="flex flex-wrap items-center gap-3 bg-amber-50 p-4 rounded-2xl border border-amber-200">
+                <span class="text-xs font-bold text-amber-900 uppercase">Asignación Masiva a Grupos Seleccionados:</span>
+                <input type="text" id="inputCPMasivo" placeholder="Número de CP a asignar" class="p-2.5 rounded-xl border border-slate-300 text-xs font-bold w-48 bg-white text-blue-900 outline-none">
+                <button onclick="aplicarCPMasivo()" class="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow transition-all">
+                    ⚡ APLICAR CP MASIVO
                 </button>
             </div>
         </div>
 
-        <!-- SECCIÓN 2: GRILLA DE REPARTO -->
-        <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 space-y-6">
-            <div class="border-b pb-3 flex justify-between items-center">
-                <h2 class="text-xl font-black text-blue-900">2. Grilla de Reparto</h2>
+        <!-- ================= SECCIÓN 2: GRILLA DE REPARTO ================= -->
+        <div id="seccionGrillaReparto" class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 space-y-6 hidden">
+            <div class="border-b pb-3 flex justify-between items-center flex-wrap gap-4">
+                <div>
+                    <h2 class="text-xl font-black text-blue-900">2. Consolidación de Grilla de Reparto</h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Armá tus viajes seleccionando una CP principal y sus complementos.</p>
+                </div>
                 <button onclick="guardarViajeEnGrilla()" id="btnCerrarViaje" class="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs px-6 py-2.5 rounded-xl shadow transition-all">
                     🚚 CERRAR Y REGISTRAR VIAJE
                 </button>
@@ -105,49 +120,49 @@
 
             <!-- TABLA DE VIAJE EN CONSTRUCCIÓN -->
             <div class="bg-blue-50 p-4 rounded-2xl border border-blue-200 space-y-2">
-                <h3 class="text-xs font-bold text-blue-900 uppercase">Viaje Actual en Carga:</h3>
-                <div class="overflow-x-auto bg-white rounded-xl border border-blue-200">
+                <h3 class="text-xs font-bold text-blue-900 uppercase">Viaje Actual en Preparación:</h3>
+                <div class="overflow-x-auto bg-white rounded-xl border border-blue-200 shadow-sm">
                     <table class="w-full text-left text-xs">
                         <thead class="bg-blue-100 text-blue-900 font-bold">
                             <tr>
-                                <th class="p-2.5">Fecha</th>
-                                <th class="p-2.5">Canal</th>
-                                <th class="p-2.5">Tipo de Viaje</th>
-                                <th class="p-2.5">Cliente</th>
-                                <th class="p-2.5">Zona Reparto</th>
-                                <th class="p-2.5">CP Principal</th>
-                                <th class="p-2.5">CP Complementos</th>
-                                <th class="p-2.5">Peso Total [kg]</th>
-                                <th class="p-2.5">Bultos Totales</th>
+                                <th class="p-3">Fecha</th>
+                                <th class="p-3">Canal</th>
+                                <th class="p-3">Tipo de Viaje</th>
+                                <th class="p-3">Cliente</th>
+                                <th class="p-3">Zona Reparto</th>
+                                <th class="p-3">CP Principal</th>
+                                <th class="p-3">CP Complementarias</th>
+                                <th class="p-3 text-center">Peso Total [kg]</th>
+                                <th class="p-3 text-center">Bultos Totales</th>
                             </tr>
                         </thead>
                         <tbody id="tbodyViajeActual">
                             <tr class="text-slate-400 italic">
-                                <td colspan="9" class="p-3 text-center">Hacé click sobre las CP disponibles abajo para armar el viaje.</td>
+                                <td colspan="9" class="p-4 text-center">Hacé click en las tarjetas de CP disponibles abajo para armar el viaje.</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
             </div>
 
-            <!-- TARJETAS DE CARTAS DE PORTE DISPONIBLES PARA AGREGAR A LA GRILLA -->
+            <!-- TARJETAS DE CARTAS DE PORTE DISPONIBLES -->
             <div>
-                <h3 class="text-xs font-bold text-slate-700 mb-3 uppercase">Seleccionar Cartas de Porte (CP) para Consolidar:</h3>
-                <div id="contenedorTarjetasCP" class="grid grid-cols-1 md:grid-cols-3 gap-4 max-h-60 overflow-y-auto"></div>
+                <h3 class="text-xs font-bold text-slate-700 mb-3 uppercase">Cartas de Porte (CP) Disponibles para la fecha seleccionada:</h3>
+                <div id="contenedorTarjetasCP" class="grid grid-cols-1 md:grid-cols-3 gap-4 max-h-72 overflow-y-auto p-1"></div>
             </div>
         </div>
     </div>
 
     <!-- MODAL DETALLE CLIENTE (VER PEDIDO Y EMBARQUE) -->
     <div id="modalDetalle" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 border border-slate-200">
-            <div class="flex justify-between items-center border-b pb-3 mb-4">
-                <h3 class="text-lg font-black text-blue-900">Detalle de Pedidos</h3>
-                <button onclick="cerrarModalDetalle()" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+        <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 border border-slate-200 space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-lg font-black text-blue-900">Detalle de Pedidos Asociados</h3>
+                <button onclick="cerrarModalDetalle()" class="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
             </div>
-            <div id="contenidoModalDetalle" class="space-y-3 max-h-60 overflow-y-auto text-xs"></div>
-            <div class="mt-4 pt-3 border-t flex justify-end">
-                <button onclick="cerrarModalDetalle()" class="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs px-4 py-2 rounded-xl">Cerrar</button>
+            <div id="contenidoModalDetalle" class="space-y-2 max-h-60 overflow-y-auto text-xs"></div>
+            <div class="pt-3 border-t flex justify-end">
+                <button onclick="cerrarModalDetalle()" class="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs px-5 py-2 rounded-xl">Cerrar</button>
             </div>
         </div>
     </div>
@@ -156,10 +171,9 @@
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyF9e6gme3wHTVO_RooY_xqbK9VFciCZ0jejU2Vmh9o1OUEKwzmn1WxERq7hFBo0Oo2/exec"; 
 
         let rawPedidos = [];
-        let pedidosFiltrados = [];
-        let cambiosCP = {}; // Guardar cambios temporales: { filaReal: { cpNuevo, novedad } }
+        let gruposAgrupados = []; // Grupos dinámicos basados en la combinación clave
+        let cambiosCP = {}; // Almacena cambios por grupo: { claveGrupo: { cpNuevo, novedad, filasReales: [...] } }
 
-        // Estado del Viaje Actual
         let viajeActual = {
             cpPrincipal: null,
             complementos: [],
@@ -169,8 +183,28 @@
         const hoy = new Date();
         document.getElementById('filtroFecha').valueAsDate = hoy;
 
-        // Cargar pedidos al iniciar
         window.onload = () => cargarPedidosServidor();
+
+        // --- NAVEGACIÓN POR PESTAÑAS ---
+        function cambiarVistaTab(vista) {
+            const btnAsignar = document.getElementById('tabBtnAsignar');
+            const btnGrilla = document.getElementById('tabBtnGrilla');
+            const secAsignar = document.getElementById('seccionAsignarCP');
+            const secGrilla = document.getElementById('seccionGrillaReparto');
+
+            if (vista === 'asignar') {
+                btnAsignar.className = "px-5 py-2.5 rounded-xl text-xs font-black bg-blue-900 text-white shadow transition-all";
+                btnGrilla.className = "px-5 py-2.5 rounded-xl text-xs font-black bg-transparent text-slate-600 hover:text-blue-900 transition-all";
+                secAsignar.classList.remove('hidden');
+                secGrilla.classList.add('hidden');
+            } else {
+                btnGrilla.className = "px-5 py-2.5 rounded-xl text-xs font-black bg-blue-900 text-white shadow transition-all";
+                btnAsignar.className = "px-5 py-2.5 rounded-xl text-xs font-black bg-transparent text-slate-600 hover:text-blue-900 transition-all";
+                secGrilla.classList.remove('hidden');
+                secAsignar.classList.add('hidden');
+                renderizarTarjetasCP();
+            }
+        }
 
         async function cargarPedidosServidor() {
             const fechaInput = document.getElementById('filtroFecha').value;
@@ -187,7 +221,6 @@
                 const res = await resp.json();
 
                 if (res.status === "success") {
-                    // Guardamos agregando el número de fila real (base 2)
                     rawPedidos = res.filas.map((r, idx) => ({ filaReal: idx + 2, data: r }));
                     poblarCanales();
                     filtrarYRenderizarCP();
@@ -211,76 +244,103 @@
             });
         }
 
+        // --- AGRUPAMIENTO TIPO TABLA DINÁMICA ---
         function filtrarYRenderizarCP() {
             const canalSel = document.getElementById('filtroCanal').value;
             const estadoCP = document.getElementById('filtroEstadoCP').value;
 
-            pedidosFiltrados = rawPedidos.filter(item => {
+            // Agrupar filas según criterio dinámico
+            let mapaGrupos = {};
+
+            rawPedidos.forEach(item => {
                 const r = item.data;
                 const canal = String(r[21] || '').trim();
-                const cp = cambiosCP[item.filaReal]?.cpNuevo !== undefined ? cambiosCP[item.filaReal].cpNuevo : String(r[23] || '').trim();
+                if (canalSel !== 'TODOS' && canal !== canalSel) return;
 
-                if (canalSel !== 'TODOS' && canal !== canalSel) return false;
-                if (estadoCP === 'SIN_CP' && cp !== "") return false;
-                if (estadoCP === 'CON_CP' && cp === "") return false;
+                const filaNum = item.filaReal;
+                const cpActual = cambiosCP[filaNum]?.cpNuevo !== undefined ? cambiosCP[filaNum].cpNuevo : String(r[23] || '').trim();
 
-                return true;
+                if (estadoCP === 'SIN_CP' && cpActual !== "") return;
+                if (estadoCP === 'CON_CP' && cpActual === "") return;
+
+                // Clave de agrupación (Cliente, Ruta, Localidad, CP actual, Turno, Dirección)
+                const idCliente = String(r[0] || '').trim();
+                const idRuta = String(r[6] || '').trim();
+                const localidad = String(r[16] || '').trim();
+                const turno = String(r[20] || '').trim();
+                const direccion = String(r[19] || '').trim();
+                const nombreCliente = String(r[15] || '').trim();
+
+                const claveGrupo = `${idCliente}_${idRuta}_${cpActual}_${localidad}_${turno}_${direccion}`;
+
+                if (!mapaGrupos[claveGrupo]) {
+                    mapaGrupos[claveGrupo] = {
+                        key: claveGrupo,
+                        cp: cpActual,
+                        idRuta: idRuta,
+                        idCliente: idCliente,
+                        nombreCliente: nombreCliente,
+                        localidad: localidad,
+                        turno: turno,
+                        direccion: direccion,
+                        bultos: 0,
+                        peso: 0,
+                        pallets: 0,
+                        novedad: String(r[29] || '').trim(),
+                        filasReales: [],
+                        pedidosEmbarques: []
+                    };
+                }
+
+                mapaGrupos[claveGrupo].bultos += Number(r[4]) || 0;
+                mapaGrupos[claveGrupo].peso += Number(r[12]) || 0;
+                mapaGrupos[claveGrupo].pallets += Number(r[3]) || 0;
+                mapaGrupos[claveGrupo].filasReales.push(filaNum);
+                mapaGrupos[claveGrupo].pedidosEmbarques.push({
+                    pedido: r[13] || 'N/A',
+                    embarque: r[1] || 'N/A'
+                });
             });
 
-            renderizarTablaCP();
-            renderizarTarjetasCP();
+            gruposAgrupados = Object.values(mapaGrupos);
+            renderizarTablaGrupos();
         }
 
-        function renderizarTablaCP() {
+        function renderizarTablaGrupos() {
             const tbody = document.getElementById('tbodyAsignarCP');
             const tfoot = document.getElementById('tfootAsignarCP');
 
             let totBultos = 0, totPeso = 0, totPallets = 0;
 
-            tbody.innerHTML = pedidosFiltrados.map(item => {
-                const r = item.data;
-                const filaNum = item.filaReal;
+            tbody.innerHTML = gruposAgrupados.map((g, idx) => {
+                totBultos += g.bultos;
+                totPeso += g.peso;
+                totPallets += g.pallets;
 
-                const cpActual = cambiosCP[filaNum]?.cpNuevo !== undefined ? cambiosCP[filaNum].cpNuevo : String(r[23] || '').trim();
-                const novedadActual = cambiosCP[filaNum]?.novedad !== undefined ? cambiosCP[filaNum].novedad : String(r[29] || '').trim();
-
-                const idCliente = String(r[0] || '');
-                const nombreCliente = String(r[15] || '');
-                const numPedido = String(r[13] || '');
-                const numEmbarque = String(r[1] || '');
-
-                const bultos = Number(r[4]) || 0;
-                const peso = Number(r[12]) || 0;
-                const pallets = Number(r[3]) || 0;
-
-                totBultos += bultos;
-                totPeso += peso;
-                totPallets += pallets;
-
-                // Si no tiene CP, la fuente del cliente se muestra ROJA
-                const colorClienteClass = (cpActual === "") ? "text-red-600 font-black cursor-pointer hover:underline" : "text-blue-900 font-bold cursor-pointer hover:underline";
+                // Si el grupo no tiene CP, el ID del cliente se muestra en ROJO
+                const colorClienteClass = (g.cp === "") ? "text-red-600 font-black cursor-pointer hover:underline" : "text-blue-900 font-bold cursor-pointer hover:underline";
 
                 return `
                     <tr class="hover:bg-slate-50">
                         <td class="p-3 text-center">
-                            <input type="checkbox" class="chkFila" value="${filaNum}">
+                            <input type="checkbox" class="chkGrupo" value="${idx}">
                         </td>
                         <td class="p-2">
-                            <input type="text" value="${cpActual}" onchange="actualizarCPLocal(${filaNum}, this.value)" placeholder="Sin CP" class="w-24 p-1 rounded border border-slate-300 font-bold text-xs text-blue-900">
+                            <input type="text" value="${g.cp}" onchange="actualizarCPGrupo(${idx}, this.value)" placeholder="Sin CP" class="w-24 p-1 rounded border border-slate-300 font-bold text-xs text-blue-900 outline-none">
                         </td>
-                        <td class="p-3">${r[6] || ''}</td>
-                        <td class="p-3 ${colorClienteClass}" onclick="verDetallePedido('${idCliente}', '${nombreCliente}', '${numPedido}', '${numEmbarque}')">
-                            ${idCliente}
+                        <td class="p-3">${g.idRuta}</td>
+                        <td class="p-3 ${colorClienteClass}" onclick="verDetalleGrupo(${idx})">
+                            ${g.idCliente}
                         </td>
-                        <td class="p-3 font-semibold">${nombreCliente}</td>
-                        <td class="p-3">${r[16] || ''}</td>
-                        <td class="p-3">${r[20] || ''}</td>
-                        <td class="p-3">${r[19] || ''}</td>
-                        <td class="p-3 font-bold">${bultos}</td>
-                        <td class="p-3">${peso.toFixed(2)}</td>
-                        <td class="p-3">${pallets.toFixed(2)}</td>
+                        <td class="p-3 font-semibold">${g.nombreCliente}</td>
+                        <td class="p-3">${g.localidad}</td>
+                        <td class="p-3">${g.turno}</td>
+                        <td class="p-3">${g.direccion}</td>
+                        <td class="p-3 text-center font-bold">${g.bultos}</td>
+                        <td class="p-3 text-center">${g.peso.toFixed(2)}</td>
+                        <td class="p-3 text-center">${g.pallets.toFixed(2)}</td>
                         <td class="p-2">
-                            <input type="text" value="${novedadActual}" onchange="actualizarNovedadLocal(${filaNum}, this.value)" placeholder="Agregar novedad..." class="w-full p-1 rounded border border-slate-300 text-xs">
+                            <input type="text" value="${g.novedad}" onchange="actualizarNovedadGrupo(${idx}, this.value)" placeholder="Novedad..." class="w-full p-1 rounded border border-slate-300 text-xs outline-none">
                         </td>
                     </tr>
                 `;
@@ -289,21 +349,31 @@
             tfoot.innerHTML = `
                 <tr>
                     <td colspan="8" class="p-3 text-right uppercase">TOTALES:</td>
-                    <td class="p-3">${totBultos}</td>
-                    <td class="p-3">${totPeso.toFixed(2)}</td>
-                    <td class="p-3">${totPallets.toFixed(2)}</td>
+                    <td class="p-3 text-center">${totBultos}</td>
+                    <td class="p-3 text-center">${totPeso.toFixed(2)}</td>
+                    <td class="p-3 text-center">${totPallets.toFixed(2)}</td>
                     <td></td>
                 </tr>
             `;
         }
 
-        function verDetallePedido(idCliente, nombreCliente, numPedido, numEmbarque) {
+        function verDetalleGrupo(idx) {
+            const grupo = gruposAgrupados[idx];
             const contenido = document.getElementById('contenidoModalDetalle');
+            
             contenido.innerHTML = `
-                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
-                    <p><strong>Cliente:</strong> ${idCliente} - ${nombreCliente}</p>
-                    <p><strong>Número de Pedido:</strong> <span class="bg-blue-100 text-blue-900 font-mono px-2 py-0.5 rounded">${numPedido || 'N/A'}</span></p>
-                    <p><strong>Número de Embarque:</strong> <span class="bg-emerald-100 text-emerald-900 font-mono px-2 py-0.5 rounded">${numEmbarque || 'N/A'}</span></p>
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1 mb-3">
+                    <p><strong>Cliente:</strong> ${grupo.idCliente} - ${grupo.nombreCliente}</p>
+                    <p><strong>Localidad / Dir:</strong> ${grupo.localidad} | ${grupo.direccion}</p>
+                </div>
+                <p class="font-bold text-slate-700 mb-1">Pedidos y Embarques asociados:</p>
+                <div class="space-y-1">
+                    ${grupo.pedidosEmbarques.map(p => `
+                        <div class="bg-blue-50 p-2 rounded-lg border border-blue-200 flex justify-between items-center text-xs">
+                            <span><strong>Pedido:</strong> ${p.pedido}</span>
+                            <span><strong>Embarque:</strong> ${p.embarque}</span>
+                        </div>
+                    `).join('')}
                 </div>
             `;
             document.getElementById('modalDetalle').classList.remove('hidden');
@@ -314,35 +384,42 @@
         }
 
         function toggleSelectAll(chkMaster) {
-            document.querySelectorAll('.chkFila').forEach(c => c.checked = chkMaster.checked);
+            document.querySelectorAll('.chkGrupo').forEach(c => c.checked = chkMaster.checked);
         }
 
-        function actualizarCPLocal(filaReal, valor) {
-            if (!cambiosCP[filaReal]) cambiosCP[filaReal] = {};
-            cambiosCP[filaReal].cpNuevo = valor.trim();
-            filtrarYRenderizarCP();
+        function actualizarCPGrupo(idx, valor) {
+            const grupo = gruposAgrupados[idx];
+            grupo.cp = valor.trim();
+            grupo.filasReales.forEach(fNum => {
+                if (!cambiosCP[fNum]) cambiosCP[fNum] = {};
+                cambiosCP[fNum].cpNuevo = valor.trim();
+            });
         }
 
-        function actualizarNovedadLocal(filaReal, valor) {
-            if (!cambiosCP[filaReal]) cambiosCP[filaReal] = {};
-            cambiosCP[filaReal].novedad = valor.trim();
+        function actualizarNovedadGrupo(idx, valor) {
+            const grupo = gruposAgrupados[idx];
+            grupo.novedad = valor.trim();
+            grupo.filasReales.forEach(fNum => {
+                if (!cambiosCP[fNum]) cambiosCP[fNum] = {};
+                cambiosCP[fNum].novedad = valor.trim();
+            });
         }
 
         function aplicarCPMasivo() {
             const cpVal = document.getElementById('inputCPMasivo').value.trim();
-            if (!cpVal) return alert("Ingresá un número de CP para aplicar");
+            if (!cpVal) return alert("Ingresá un número de CP para aplicar de forma masiva.");
 
-            const seleccionados = document.querySelectorAll('.chkFila:checked');
-            if (seleccionados.length === 0) return alert("Seleccioná al menos una fila");
+            const seleccionados = document.querySelectorAll('.chkGrupo:checked');
+            if (seleccionados.length === 0) return alert("Seleccioná al menos un grupo de la tabla.");
 
             seleccionados.forEach(chk => {
-                const filaReal = Number(chk.value);
-                if (!cambiosCP[filaReal]) cambiosCP[filaReal] = {};
-                cambiosCP[filaReal].cpNuevo = cpVal;
+                const idx = Number(chk.value);
+                actualizarCPGrupo(idx, cpVal);
             });
 
             document.getElementById('inputCPMasivo').value = '';
-            filtrarYRenderizarCP();
+            renderizarTablaGrupos();
+            alert(`✓ CP ${cpVal} aplicado a los grupos seleccionados.`);
         }
 
         async function sincronizarCambiosCP() {
@@ -382,16 +459,17 @@
             btn.disabled = false;
         }
 
-        // --- LÓGICA DE LA GRILLA DE REPARTO ---
+        // --- LÓGICA DE GRILLA DE REPARTO ---
         function renderizarTarjetasCP() {
             const contenedor = document.getElementById('contenedorTarjetasCP');
             let cpAgrupados = {};
 
             rawPedidos.forEach(item => {
                 const r = item.data;
-                const cp = cambiosCP[item.filaReal]?.cpNuevo !== undefined ? cambiosCP[item.filaReal].cpNuevo : String(r[23] || '').trim();
+                const filaNum = item.filaReal;
+                const cp = cambiosCP[filaNum]?.cpNuevo !== undefined ? cambiosCP[filaNum].cpNuevo : String(r[23] || '').trim();
 
-                if (!cp) return; // Solo CPs asignadas
+                if (!cp) return;
 
                 if (!cpAgrupados[cp]) {
                     cpAgrupados[cp] = {
@@ -435,7 +513,6 @@
 
         function seleccionarCPParaGrilla(cp, canal, cliente, zona, peso, bultos, numClientes) {
             if (!viajeActual.cpPrincipal) {
-                // Primer Click -> CP Principal
                 viajeActual.cpPrincipal = cp;
                 viajeActual.datos = {
                     fecha: document.getElementById('filtroFecha').value,
@@ -447,44 +524,42 @@
                     numClientes: numClientes
                 };
             } else if (viajeActual.cpPrincipal === cp || viajeActual.complementos.includes(cp)) {
-                return; // Evita duplicar
+                return;
             } else {
-                // Siguientes Clicks -> Complementos
                 viajeActual.complementos.push(cp);
                 viajeActual.datos.peso += peso;
                 viajeActual.datos.bultos += bultos;
                 viajeActual.datos.numClientes += numClientes;
             }
-
             actualizarTablaViaje();
         }
 
         function actualizarTablaViaje() {
             const tbody = document.getElementById('tbodyViajeActual');
             if (!viajeActual.cpPrincipal) {
-                tbody.innerHTML = `<tr class="text-slate-400 italic"><td colspan="9" class="p-3 text-center">Hacé click sobre las CP disponibles abajo para armar el viaje.</td></tr>`;
+                tbody.innerHTML = `<tr class="text-slate-400 italic"><td colspan="9" class="p-4 text-center">Hacé click en las tarjetas de CP disponibles abajo para armar el viaje.</td></tr>`;
                 return;
             }
 
-            const tipoViaje = (viajeActual.datos.numClientes > 1 || viajeActual.complementos.length > 0) ? "On Premise (Varios)" : "Directo (1 Cliente)";
+            const tipoViaje = (viajeActual.datos.numClientes > 1 || viajeActual.complementos.length > 0) ? "On Premise" : "Directo";
 
             tbody.innerHTML = `
                 <tr class="font-bold text-slate-800">
-                    <td class="p-2.5">${viajeActual.datos.fecha}</td>
-                    <td class="p-2.5">${viajeActual.datos.canal}</td>
-                    <td class="p-2.5 text-blue-900">${tipoViaje}</td>
-                    <td class="p-2.5">${viajeActual.datos.cliente}</td>
-                    <td class="p-2.5">${viajeActual.datos.zona}</td>
-                    <td class="p-2.5 font-black text-blue-900">${viajeActual.cpPrincipal}</td>
-                    <td class="p-2.5">${viajeActual.complementos.join(', ') || 'Sin complementos'}</td>
-                    <td class="p-2.5 text-emerald-600">${viajeActual.datos.peso.toFixed(2)} kg</td>
-                    <td class="p-2.5 text-emerald-600">${viajeActual.datos.bultos}</td>
+                    <td class="p-3">${viajeActual.datos.fecha}</td>
+                    <td class="p-3">${viajeActual.datos.canal}</td>
+                    <td class="p-3 text-blue-900">${tipoViaje}</td>
+                    <td class="p-3">${viajeActual.datos.cliente}</td>
+                    <td class="p-3">${viajeActual.datos.zona}</td>
+                    <td class="p-3 font-black text-blue-900">${viajeActual.cpPrincipal}</td>
+                    <td class="p-3">${viajeActual.complementos.join(', ') || 'Sin complementarias'}</td>
+                    <td class="p-3 text-center text-emerald-600">${viajeActual.datos.peso.toFixed(2)} kg</td>
+                    <td class="p-3 text-center text-emerald-600">${viajeActual.datos.bultos}</td>
                 </tr>
             `;
         }
 
         async function guardarViajeEnGrilla() {
-            if (!viajeActual.cpPrincipal) return alert("Primero armá un viaje haciendo click en al menos una CP");
+            if (!viajeActual.cpPrincipal) return alert("Primero armá un viaje seleccionando una CP principal.");
 
             const btn = document.getElementById('btnCerrarViaje');
             btn.innerText = "REGISTRANDO...";
@@ -515,11 +590,10 @@
                 const res = await resp.json();
                 alert(res.message);
 
-                // Resetear Viaje
                 viajeActual = { cpPrincipal: null, complementos: [], datos: {} };
                 actualizarTablaViaje();
             } catch (err) {
-                alert("Error al registrar viaje.");
+                alert("Error al registrar viaje en la grilla.");
             }
 
             btn.innerText = "🚚 CERRAR Y REGISTRAR VIAJE";
