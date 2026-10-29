@@ -44,7 +44,6 @@
                 </button>
             </div>
 
-            <!-- FILTROS -->
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200">
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">FECHA DE ENTREGA:</label>
@@ -71,7 +70,6 @@
                 </div>
             </div>
 
-            <!-- TABLA DINÁMICA AGRUPADA -->
             <div class="overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-sm max-h-[460px]">
                 <table class="w-full text-left border-collapse text-xs">
                     <thead class="bg-slate-100 text-slate-700 font-bold sticky top-0 border-b border-slate-200">
@@ -95,7 +93,6 @@
                 </table>
             </div>
 
-            <!-- ASIGNACIÓN MASIVA RÁPIDA -->
             <div class="flex flex-wrap items-center gap-3 bg-amber-50 p-4 rounded-2xl border border-amber-200">
                 <span class="text-xs font-bold text-amber-900 uppercase">Asignación Masiva a Grupos Seleccionados:</span>
                 <input type="text" id="inputCPMasivo" placeholder="Número de CP a asignar" class="p-2.5 rounded-xl border border-slate-300 text-xs font-bold w-48 bg-white text-blue-900 outline-none">
@@ -105,7 +102,7 @@
             </div>
         </div>
 
-        <!-- ================= SECCIÓN 2: GRILLA DE REPARTO ================= -->
+        <!-- ================= SECCIÓN 2: GRILLA DE REPARTO (ORDENADA: REGISTRADOS ARRIBA / PREPARACIÓN ABAJO) ================= -->
         <div id="seccionGrillaReparto" class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 space-y-6 hidden">
             <div class="border-b pb-3 flex justify-between items-center flex-wrap gap-4">
                 <div>
@@ -117,16 +114,40 @@
                 </button>
             </div>
 
-            <!-- FILTRO DE FECHA EXCLUSIVO PARA LA GRILLA -->
             <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-wrap items-center gap-4">
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">📅 FECHA DE GRILLA (Destino del Viaje):</label>
-                    <input type="date" id="filtroFechaGrilla" onchange="cargarGrillaYCPs()" class="p-2.5 rounded-xl border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none">
+                    <input type="date" id="filtroFechaGrilla" onchange="renderizarTablaGrillaRegistrada()" class="p-2.5 rounded-xl border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none">
                 </div>
-                <span class="text-xs text-slate-500 italic mt-4">Esta fecha define dónde se registrará el viaje en la grilla y no afecta a los pedidos pendientes.</span>
+                <span class="text-xs text-slate-500 italic mt-4">Esta fecha define dónde se visualizará y registrará el viaje en la grilla superior.</span>
             </div>
 
-            <!-- TABLA DE VIAJE EN CONSTRUCCIÓN -->
+            <!-- 1. VIAJES YA REGISTRADOS EN LA GRILLA (AHORA ARRIBA) -->
+            <div class="space-y-3">
+                <h3 class="text-xs font-bold text-slate-800 uppercase">Viajes Ya Registrados en la Grilla (Fecha Seleccionada):</h3>
+                <div class="overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-sm max-h-60">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead class="bg-slate-100 text-slate-700 font-bold sticky top-0">
+                            <tr>
+                                <th class="p-3">Canal</th>
+                                <th class="p-3">Tipo de Viaje</th>
+                                <th class="p-3">Cliente Principal</th>
+                                <th class="p-3">Zona</th>
+                                <th class="p-3">CP Principal</th>
+                                <th class="p-3">CP Complementos</th>
+                                <th class="p-3 text-center">Peso [kg]</th>
+                                <th class="p-3 text-center">Bultos</th>
+                                <th class="p-3 text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyGrillaRegistrada" class="divide-y divide-slate-100">
+                            <tr class="text-slate-400 italic"><td colspan="9" class="p-4 text-center">No hay viajes registrados para la fecha de grilla seleccionada.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 2. VIAJE ACTUAL EN PREPARACIÓN (ABAJO) -->
             <div class="bg-blue-50 p-4 rounded-2xl border border-blue-200 space-y-2">
                 <h3 class="text-xs font-bold text-blue-900 uppercase">Viaje Actual en Preparación:</h3>
                 <div class="overflow-x-auto bg-white rounded-xl border border-blue-200 shadow-sm">
@@ -153,35 +174,10 @@
                 </div>
             </div>
 
-            <!-- TARJETAS DE CARTAS DE PORTE PENDIENTES -->
+            <!-- 3. CARTAS DE PORTE PENDIENTES (MÁS ABAJO) -->
             <div>
                 <h3 class="text-xs font-bold text-slate-700 mb-3 uppercase">Cartas de Porte Pendientes (Disponibles):</h3>
                 <div id="contenedorTarjetasCP" class="grid grid-cols-1 md:grid-cols-3 gap-4 max-h-60 overflow-y-auto p-1"></div>
-            </div>
-
-            <!-- TABLA DE VIAJES YA REGISTRADOS EN LA GRILLA (CON FILTRO DE FECHA) -->
-            <div class="space-y-3 pt-4 border-t">
-                <h3 class="text-xs font-bold text-slate-800 uppercase">Viajes Ya Registrados en la Grilla (Fecha Seleccionada):</h3>
-                <div class="overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-sm max-h-60">
-                    <table class="w-full text-left border-collapse text-xs">
-                        <thead class="bg-slate-100 text-slate-700 font-bold sticky top-0">
-                            <tr>
-                                <th class="p-3">Canal</th>
-                                <th class="p-3">Tipo de Viaje</th>
-                                <th class="p-3">Cliente Principal</th>
-                                <th class="p-3">Zona</th>
-                                <th class="p-3">CP Principal</th>
-                                <th class="p-3">CP Complementos</th>
-                                <th class="p-3 text-center">Peso [kg]</th>
-                                <th class="p-3 text-center">Bultos</th>
-                                <th class="p-3 text-center">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tbodyGrillaRegistrada" class="divide-y divide-slate-100">
-                            <tr class="text-slate-400 italic"><td colspan="9" class="p-4 text-center">No hay viajes registrados para la fecha de grilla seleccionada.</td></tr>
-                        </tbody>
-                    </table>
-                </div>
             </div>
         </div>
     </div>
@@ -241,7 +237,6 @@
             }
         }
 
-        // --- PALETA DE COLORES POR CANAL ---
         function obtenerEstiloCanal(canal) {
             const palettes = [
                 { bg: 'bg-purple-100', text: 'text-purple-900', border: 'border-purple-300' },
@@ -253,49 +248,35 @@
                 { bg: 'bg-pink-100', text: 'text-pink-900', border: 'border-pink-300' }
             ];
             let hash = 0;
-            for (let i = 0; i < canal.length; i++) {
-                hash = canal.charCodeAt(i) + ((hash << 5) - hash);
-            }
-            let index = Math.abs(hash) % palettes.length;
-            return palettes[index];
+            for (let i = 0; i < canal.length; i++) { hash = canal.charCodeAt(i) + ((hash << 5) - hash); }
+            return palettes[Math.abs(hash) % palettes.length];
         }
 
         async function cargarPedidosServidor() {
             const fechaInput = document.getElementById('filtroFecha').value;
             if (!fechaInput) return;
-
             const [y, m, d] = fechaInput.split('-');
-            const fechaFormateada = `${d}-${m}-${y}`;
 
             try {
                 const resp = await fetch(WEB_APP_URL, {
                     method: 'POST',
-                    body: JSON.stringify({ action: 'obtenerPedidosParaCP', fecha: fechaFormateada })
+                    body: JSON.stringify({ action: 'obtenerPedidosParaCP', fecha: `${d}-${m}-${y}` })
                 });
                 const res = await resp.json();
-
                 if (res.status === "success") {
                     rawPedidos = res.filas.map((r, idx) => ({ filaReal: idx + 2, data: r }));
                     poblarCanales();
                     filtrarYRenderizarCP();
                 }
-            } catch (err) {
-                console.error("Error al cargar pedidos:", err);
-            }
+            } catch (err) { console.error("Error al cargar pedidos:", err); }
         }
 
         function poblarCanales() {
             const select = document.getElementById('filtroCanal');
             const canales = new Set();
-            rawPedidos.forEach(item => {
-                let canal = String(item.data[21] || '').trim();
-                if (canal) canales.add(canal);
-            });
-
+            rawPedidos.forEach(item => { let c = String(item.data[21] || '').trim(); if (c) canales.add(c); });
             select.innerHTML = '<option value="TODOS">-- Todos los Canales --</option>';
-            Array.from(canales).sort().forEach(c => {
-                select.innerHTML += `<option value="${c}">${c}</option>`;
-            });
+            Array.from(canales).sort().forEach(c => { select.innerHTML += `<option value="${c}">${c}</option>`; });
         }
 
         function filtrarYRenderizarCP() {
@@ -325,20 +306,8 @@
 
                 if (!mapaGrupos[claveGrupo]) {
                     mapaGrupos[claveGrupo] = {
-                        key: claveGrupo,
-                        cp: cpActual,
-                        idRuta: idRuta,
-                        idCliente: idCliente,
-                        nombreCliente: nombreCliente,
-                        localidad: localidad,
-                        turno: turno,
-                        direccion: direccion,
-                        bultos: 0,
-                        peso: 0,
-                        pallets: 0,
-                        novedad: String(r[29] || '').trim(),
-                        filasReales: [],
-                        pedidosEmbarques: []
+                        key: claveGrupo, cp: cpActual, idRuta, idCliente, nombreCliente, localidad, turno, direccion,
+                        bultos: 0, peso: 0, pallets: 0, novedad: String(r[29] || '').trim(), filasReales: [], pedidosEmbarques: []
                     };
                 }
 
@@ -346,10 +315,7 @@
                 mapaGrupos[claveGrupo].peso += Number(r[12]) || 0;
                 mapaGrupos[claveGrupo].pallets += Number(r[3]) || 0;
                 mapaGrupos[claveGrupo].filasReales.push(filaNum);
-                mapaGrupos[claveGrupo].pedidosEmbarques.push({
-                    pedido: r[13] || 'N/A',
-                    embarque: r[1] || 'N/A'
-                });
+                mapaGrupos[claveGrupo].pedidosEmbarques.push({ pedido: r[13] || 'N/A', embarque: r[1] || 'N/A' });
             });
 
             gruposAgrupados = Object.values(mapaGrupos);
@@ -362,10 +328,7 @@
             let totBultos = 0, totPeso = 0, totPallets = 0;
 
             tbody.innerHTML = gruposAgrupados.map((g, idx) => {
-                totBultos += g.bultos;
-                totPeso += g.peso;
-                totPallets += g.pallets;
-
+                totBultos += g.bultos; totPeso += g.peso; totPallets += g.pallets;
                 const colorClienteClass = (g.cp === "") ? "text-red-600 font-black cursor-pointer hover:underline" : "text-blue-900 font-bold cursor-pointer hover:underline";
 
                 return `
@@ -386,28 +349,15 @@
                 `;
             }).join('');
 
-            tfoot.innerHTML = `
-                <tr>
-                    <td colspan="8" class="p-3 text-right uppercase">TOTALES:</td>
-                    <td class="p-3 text-center">${totBultos}</td>
-                    <td class="p-3 text-center">${totPeso.toFixed(2)}</td>
-                    <td class="p-3 text-center">${totPallets.toFixed(2)}</td>
-                    <td></td>
-                </tr>
-            `;
+            tfoot.innerHTML = `<tr><td colspan="8" class="p-3 text-right uppercase">TOTALES:</td><td class="p-3 text-center">${totBultos}</td><td class="p-3 text-center">${totPeso.toFixed(2)}</td><td class="p-3 text-center">${totPallets.toFixed(2)}</td><td></td></tr>`;
         }
 
-        // --- DEDUPLICAR DATOS EN LA VENTANA EMERGENTE ---
+        // Deduplicación en el modal
         function verDetalleGrupo(idx) {
             const grupo = gruposAgrupados[idx];
             const contenido = document.getElementById('contenidoModalDetalle');
-            
-            // Deduplicar por pedido y embarque
             let unicosMap = new Map();
-            grupo.pedidosEmbarques.forEach(item => {
-                let key = `${item.pedido}_${item.embarque}`;
-                unicosMap.set(key, item);
-            });
+            grupo.pedidosEmbarques.forEach(item => { unicosMap.set(`${item.pedido}_${item.embarque}`, item); });
             let unicos = Array.from(unicosMap.values());
 
             contenido.innerHTML = `
@@ -464,9 +414,7 @@
             const fechaInput = document.getElementById('filtroFecha').value;
             const [y, m, d] = fechaInput.split('-');
             const listaCambios = Object.keys(cambiosCP).map(fNum => ({
-                filaReal: Number(fNum),
-                cpNuevo: cambiosCP[fNum].cpNuevo,
-                novedad: cambiosCP[fNum].novedad
+                filaReal: Number(fNum), cpNuevo: cambiosCP[fNum].cpNuevo, novedad: cambiosCP[fNum].novedad
             }));
 
             if (listaCambios.length === 0) return alert("No hay cambios pendientes.");
@@ -491,22 +439,14 @@
         // --- LÓGICA DE GRILLA DE REPARTO ---
         async function cargarGrillaYCPs() {
             try {
-                // 1. Cargar CPs pendientes de todas las fechas (donde Grilla !== "SI")
-                const respPend = await fetch(WEB_APP_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: 'obtenerTodasCPsPendientes' })
-                });
+                const respPend = await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'obtenerTodasCPsPendientes' }) });
                 const resPend = await respPend.json();
                 if (resPend.status === "success") {
                     cpsPendientesGrilla = resPend.pendientes;
                     renderizarTarjetasCP();
                 }
 
-                // 2. Cargar grilla registrada
-                const respGrilla = await fetch(WEB_APP_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: 'obtenerGrillaRegistrada' })
-                });
+                const respGrilla = await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'obtenerGrillaRegistrada' }) });
                 const resGrilla = await respGrilla.json();
                 if (resGrilla.status === "success") {
                     grillaRegistrada = resGrilla.grilla;
@@ -525,16 +465,7 @@
                 if (!cp) return;
 
                 if (!cpAgrupados[cp]) {
-                    cpAgrupados[cp] = {
-                        cp: cp,
-                        fechaPedido: item.fechaPedido,
-                        canal: r[21] || '',
-                        cliente: r[15] || '',
-                        zona: r[16] || '',
-                        bultos: 0,
-                        peso: 0,
-                        clientesSet: new Set()
-                    };
+                    cpAgrupados[cp] = { cp, fechaPedido: item.fechaPedido, canal: r[21] || '', cliente: r[15] || '', zona: r[16] || '', bultos: 0, peso: 0, clientesSet: new Set() };
                 }
                 cpAgrupados[cp].bultos += Number(r[4]) || 0;
                 cpAgrupados[cp].peso += Number(r[12]) || 0;
@@ -572,12 +503,7 @@
                 viajeActual.datos = {
                     fechaPedido: fechaPedido,
                     fechaGrilla: document.getElementById('filtroFechaGrilla').value,
-                    canal: canal,
-                    cliente: cliente,
-                    zona: zona,
-                    peso: peso,
-                    bultos: bultos,
-                    numClientes: numClientes
+                    canal: canal, cliente: cliente, zona: zona, peso: peso, bultos: bultos, numClientes: numClientes
                 };
             } else if (viajeActual.cpPrincipal === cp || viajeActual.complementos.includes(cp)) {
                 return;
@@ -622,7 +548,6 @@
             btn.disabled = true;
 
             const tipoViaje = (viajeActual.datos.numClientes > 1 || viajeActual.complementos.length > 0) ? "On Premise" : "Directo";
-            // Actualiza la fecha de grilla en caso de que el usuario la haya cambiado antes de cerrar
             viajeActual.datos.fechaGrilla = document.getElementById('filtroFechaGrilla').value;
 
             const payload = {
@@ -646,8 +571,29 @@
                 const res = await resp.json();
                 alert(res.message);
 
+                // Actualización instantánea local
+                grillaRegistrada.push({
+                    fechaGrilla: viajeActual.datos.fechaGrilla,
+                    fechaPedido: viajeActual.datos.fechaPedido,
+                    canal: viajeActual.datos.canal,
+                    tipoViaje: tipoViaje,
+                    cliente: viajeActual.datos.cliente,
+                    zona: viajeActual.datos.zona,
+                    cpPrincipal: viajeActual.cpPrincipal,
+                    cpComplementos: viajeActual.complementos.join(', '),
+                    peso: viajeActual.datos.peso,
+                    bultos: viajeActual.datos.bultos
+                });
+
+                let usadas = [viajeActual.cpPrincipal, ...viajeActual.complementos];
+                cpsPendientesGrilla = cpsPendientesGrilla.filter(item => !usadas.includes(String(item.data[23] || '').trim()));
+
                 viajeActual = { cpPrincipal: null, complementos: [], datos: {} };
                 actualizarTablaViaje();
+                renderizarTarjetasCP();
+                renderizarTablaGrillaRegistrada();
+
+                // Sincronizar de fondo
                 cargarGrillaYCPs();
             } catch (err) { alert("Error al registrar viaje."); }
             btn.innerText = "🚚 CERRAR Y REGISTRAR VIAJE";
@@ -656,10 +602,7 @@
 
         function renderizarTablaGrillaRegistrada() {
             const tbody = document.getElementById('tbodyGrillaRegistrada');
-            const fechaFiltroGrilla = document.getElementById('filtroFechaGrilla').value; // YYYY-MM-DD
-            
-            // Convertir fecha filtro a formato DD-MM-YYYY o YYYY-MM-DD según cómo se guardó
-            // Guardamos fechaGrilla tal como viene del input (YYYY-MM-DD)
+            const fechaFiltroGrilla = document.getElementById('filtroFechaGrilla').value;
             const filtrados = grillaRegistrada.filter(g => g.fechaGrilla === fechaFiltroGrilla);
 
             if (filtrados.length === 0) {
@@ -695,10 +638,7 @@
             try {
                 const resp = await fetch(WEB_APP_URL, {
                     method: 'POST',
-                    body: JSON.stringify({
-                        action: 'quitarViajeGrilla',
-                        info: { cpPrincipal, cpComplementos, fechaPedido }
-                    })
+                    body: JSON.stringify({ action: 'quitarViajeGrilla', info: { cpPrincipal, cpComplementos, fechaPedido } })
                 });
                 const res = await resp.json();
                 alert(res.message);
@@ -706,7 +646,6 @@
             } catch (err) { alert("Error al quitar de la grilla."); }
         }
 
-        // Al cambiar la fecha de la grilla, actualizamos qué viajes registrados se muestran
         document.getElementById('filtroFechaGrilla').addEventListener('change', () => {
             renderizarTablaGrillaRegistrada();
         });
