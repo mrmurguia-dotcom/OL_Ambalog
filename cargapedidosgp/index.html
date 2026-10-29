@@ -32,10 +32,10 @@
             </div>
         </div>
 
-        <!-- SELECCIÓN DE FECHA DE ENTREGA -->
+        <!-- SELECCIÓN DE FECHA DE ENTREGA & CARGA -->
         <div class="mb-6 bg-blue-50 p-4 rounded-xl border border-blue-200 flex flex-wrap justify-between items-center gap-4">
             <div>
-                <label class="block text-blue-900 font-bold mb-1 text-sm">FECHA DE ENTREGA:</label>
+                <label class="block text-blue-900 font-bold mb-1 text-sm">FECHA DE ENTREGA (Sincronización):</label>
                 <input type="date" id="fechaEntrega" class="p-2 rounded-lg border-2 border-blue-300 focus:border-orange-500 outline-none bg-white font-bold text-blue-900">
             </div>
             <div class="text-right">
@@ -43,8 +43,22 @@
             </div>
         </div>
 
+        <!-- SECCIÓN NUEVA: CONSULTAR PEDIDOS GUARDADOS (SIN SUBIR EXCEL) -->
+        <div class="mb-6 bg-slate-100 p-4 rounded-xl border border-slate-300 flex flex-wrap justify-between items-center gap-4 shadow-sm">
+            <div class="flex items-center gap-3">
+                <span class="text-xl">🔍</span>
+                <div>
+                    <label class="block text-slate-800 font-bold text-xs uppercase">Consultar Pedidos Guardados en Nube:</label>
+                    <input type="date" id="fechaConsultaRemota" class="p-2 rounded-lg border border-slate-400 font-bold text-xs bg-white text-blue-900 outline-none mt-1">
+                </div>
+            </div>
+            <button onclick="consultarPedidosRemotos()" id="btnConsultarRemoto" class="bg-blue-800 hover:bg-blue-900 text-white font-black px-6 py-2.5 rounded-xl shadow text-xs transition-all">
+                CONSULTAR PEDIDOS
+            </button>
+        </div>
+
         <!-- DROPZONE EXCEL -->
-        <div id="dropZone" class="border-4 border-dashed border-blue-200 rounded-2xl p-8 text-center cursor-pointer hover:bg-blue-50 transition-all mb-6 group">
+        <div id="dropZone" class="border-4 border-dashed border-blue-200 rounded-2xl p-6 text-center cursor-pointer hover:bg-blue-50 transition-all mb-6 group">
             <div class="text-blue-400 text-3xl mb-1 group-hover:scale-110 transition-transform">📊</div>
             <p class="text-slate-700 font-bold uppercase tracking-tight text-xs">Arrastrá el archivo Excel de Pedidos (.xlsx) o hacé click aquí</p>
             <p class="text-slate-400 text-xs mt-0.5">Se leerá únicamente la pestaña "Base pedidos". Las cargas adicionales se sumarán sin duplicar.</p>
@@ -60,27 +74,22 @@
                 
                 <!-- SÓLO 2 PESTAÑAS: GENERAL Y CLIENTE -->
                 <div class="flex flex-wrap gap-2">
-                    <button onclick="cambiarVistaDinamica('general')" id="tab-general" class="px-5 py-2 rounded-lg text-xs font-black bg-orange-500 text-white shadow transition-all">General</button>
-                    <button onclick="cambiarVistaDinamica('cliente')" id="tab-cliente" class="px-5 py-2 rounded-lg text-xs font-black bg-blue-800 hover:bg-blue-700 text-white shadow transition-all">Cliente</button>
+                    <button onclick="cambiarVistaDinamica('general')" id="tab-general" class="px-6 py-2 rounded-lg text-xs font-black bg-orange-500 text-white shadow transition-all">General (Dinámica)</button>
+                    <button onclick="cambiarVistaDinamica('cliente')" id="tab-cliente" class="px-6 py-2 rounded-lg text-xs font-black bg-blue-800 hover:bg-blue-700 text-white shadow transition-all">Cliente</button>
                 </div>
 
-                <!-- BOTÓN SINCRONIZAR DATOS INDEPENDIENTE -->
+                <!-- BOTÓN SINCRONIZAR DATOS INDEPENDIENTE FUERA DE LA LÍNEA -->
                 <button onclick="sincronizarPedidos()" id="btnSync" class="bg-orange-500 hover:bg-orange-600 px-6 py-2.5 rounded-lg font-black shadow-md active:scale-95 transition-all text-white text-xs">
                     SINCRONIZAR DATOS
                 </button>
             </div>
 
-            <!-- FILTRO DE FECHA DE CONSULTA, FILTRO CUSTOMER Y TOTAL DE BULTOS -->
+            <!-- FILTRO CUSTOMER Y TOTAL DE BULTOS -->
             <div class="flex flex-wrap justify-between items-center bg-slate-200/70 p-4 rounded-xl mb-4 border border-slate-300 gap-4">
                 <div class="flex flex-wrap items-center gap-4">
-                    <div class="flex items-center gap-2">
-                        <label for="filtroFechaConsulta" class="text-xs font-bold text-slate-700 uppercase">📅 Consultar Fecha:</label>
-                        <input type="date" id="filtroFechaConsulta" onchange="actualizarConsultaFecha()" class="p-2 rounded-lg border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none">
-                    </div>
-                    
                     <!-- FILTRO POR CUSTOMER (SÓLO VISIBLE EN GENERAL) -->
                     <div id="contenedorFiltroCustomer" class="flex items-center gap-2">
-                        <label for="filtroCustomer" class="text-xs font-bold text-slate-700 uppercase">Filter Customer:</label>
+                        <label for="filtroCustomer" class="text-xs font-bold text-slate-700 uppercase">Filtrar Customer:</label>
                         <select id="filtroCustomer" onchange="dibujarTablaDinamica()" class="p-2 rounded-lg border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none">
                             <option value="TODOS">-- Todos los Customers --</option>
                         </select>
@@ -154,7 +163,7 @@
 
         const hoy = new Date();
         document.getElementById('fechaEntrega').valueAsDate = hoy;
-        document.getElementById('filtroFechaConsulta').valueAsDate = hoy;
+        document.getElementById('fechaConsultaRemota').valueAsDate = hoy;
 
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
@@ -226,6 +235,44 @@
             reader.readAsArrayBuffer(file);
         }
 
+        async function consultarPedidosRemotos() {
+            const fechaInput = document.getElementById('fechaConsultaRemota').value;
+            if (!fechaInput) return alert("Selecciona una fecha para consultar");
+
+            const [y, m, d] = fechaInput.split('-');
+            const fechaFormateada = `${d}-${m}-${y}`;
+
+            const btn = document.getElementById('btnConsultarRemoto');
+            btn.innerText = "CONSULTANDO...";
+            btn.disabled = true;
+
+            try {
+                const response = await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'consultarPedidos',
+                        fecha: fechaFormateada
+                    })
+                });
+                const resJson = await response.json();
+                if (resJson.status === "success" && resJson.filas && resJson.filas.length > 0) {
+                    filasProcesadas = resJson.filas;
+                    headersOriginales = resJson.headers || [];
+                    poblarFiltroCustomer();
+                    cambiarVistaDinamica('general');
+                    document.getElementById('results').classList.remove('hidden');
+                    alert(`✓ Se consultaron ${filasProcesadas.length} registros para la fecha ${fechaFormateada}.`);
+                } else {
+                    alert(`No se encontraron registros guardados para la fecha ${fechaFormateada}.`);
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Error al consultar la nube. Comprueba la conexión o la URL de Apps Script.");
+            }
+            btn.innerText = "CONSULTAR PEDIDOS";
+            btn.disabled = false;
+        }
+
         function poblarFiltroCustomer() {
             const select = document.getElementById('filtroCustomer');
             const customers = new Set();
@@ -245,13 +292,12 @@
             ['general', 'cliente'].forEach(t => {
                 const btn = document.getElementById(`tab-${t}`);
                 if (t === tipo) {
-                    btn.className = "px-5 py-2 rounded-lg text-xs font-black bg-orange-500 text-white shadow transition-all";
+                    btn.className = "px-6 py-2 rounded-lg text-xs font-black bg-orange-500 text-white shadow transition-all";
                 } else {
-                    btn.className = "px-5 py-2 rounded-lg text-xs font-black bg-blue-800 hover:bg-blue-700 text-white shadow transition-all";
+                    btn.className = "px-6 py-2 rounded-lg text-xs font-black bg-blue-800 hover:bg-blue-700 text-white shadow transition-all";
                 }
             });
 
-            // Mostrar u ocultar el selector de Customer dependiendo si estamos en General
             document.getElementById('contenedorFiltroCustomer').style.display = (tipo === 'general') ? 'flex' : 'none';
             dibujarTablaDinamica();
         }
@@ -267,15 +313,6 @@
             }
         }
 
-        function actualizarConsultaFecha() {
-            const fechaSeleccionada = document.getElementById('filtroFechaConsulta').value;
-            if (fechaSeleccionada) {
-                document.getElementById('fechaEntrega').value = fechaSeleccionada;
-            }
-            // Aquí puedes conectar también la consulta directa a Google Sheets si lo deseas sin subir archivo
-            dibujarTablaDinamica();
-        }
-
         function dibujarTablaDinamica() {
             const thead = document.getElementById('tableHeaders');
             const tbody = document.getElementById('tableBody');
@@ -284,47 +321,64 @@
             let acumuladoBultos = 0;
             let acumuladoPeso = 0;
             let acumuladoPallets = 0;
-            let filasFiltradas = [...filasProcesadas];
 
             if (vistaActual === 'general') {
-                // Filtro por Customer seleccionado
+                // TABLA GENERAL CON COMPORTAMIENTO DE TABLA DINÁMICA (Agrupada)
                 const customerFiltro = document.getElementById('filtroCustomer').value;
-                if (customerFiltro && customerFiltro !== 'TODOS') {
-                    filasFiltradas = filasFiltradas.filter(r => String(r[22] || '').trim() === customerFiltro);
-                }
+                
+                let agruparGeneral = {};
+                filasProcesadas.forEach(r => {
+                    let customer = String(r[22] || '').trim();
+                    if (customerFiltro && customerFiltro !== 'TODOS' && customer !== customerFiltro) return;
+
+                    let cp = String(r[23] || '').trim();
+                    let transporte = String(r[25] || '').trim();
+                    let idCliente = String(r[0] || '').trim();
+                    let nombreCliente = String(r[15] || '').trim();
+                    let prioridad = String(r[14] || '').trim();
+                    let canal = String(r[21] || '').trim();
+                    let localidad = String(r[16] || '').trim();
+                    let direccion = String(r[19] || '').trim();
+                    let turno = String(r[20] || '').trim();
+
+                    let key = `${cp}_${transporte}_${idCliente}_${nombreCliente}_${prioridad}_${canal}_${customer}_${localidad}_${direccion}_${turno}`;
+
+                    if (!agruparGeneral[key]) {
+                        agruparGeneral[key] = { cp, transporte, idCliente, nombreCliente, prioridad, canal, customer, localidad, direccion, turno, bultos: 0, peso: 0, pallets: 0 };
+                    }
+                    agruparGeneral[key].bultos += Number(r[4]) || 0;
+                    agruparGeneral[key].peso += Number(r[12]) || 0;
+                    agruparGeneral[key].pallets += Number(r[3]) || 0;
+                });
 
                 const cols = ["CP", "Transporte 2", "ID del Cliente", "Nombre Cliente", "Prioridad", "Canal", "Customer", "Localidad", "Dirección", "Turno (Hora)", "Bultos", "Peso [kg]", "Pallets"];
                 thead.innerHTML = cols.map(c => `<th class="p-3">${c}</th>`).join('');
 
-                tbody.innerHTML = filasFiltradas.map(r => {
-                    let bultos = Number(r[4]) || 0;
-                    let peso = Number(r[12]) || 0;
-                    let pallets = Number(r[3]) || 0;
-
-                    acumuladoBultos += bultos;
-                    acumuladoPeso += peso;
-                    acumuladoPallets += pallets;
+                const itemsGeneral = Object.values(agruparGeneral);
+                tbody.innerHTML = itemsGeneral.map(item => {
+                    acumuladoBultos += item.bultos;
+                    acumuladoPeso += item.peso;
+                    acumuladoPallets += item.pallets;
 
                     return `
                         <tr class="hover:bg-slate-50">
-                            <td class="p-3">${r[23] || ''}</td>
-                            <td class="p-3">${r[25] || ''}</td>
-                            <td class="p-3 font-bold text-blue-900">${r[0] || ''}</td>
-                            <td class="p-3">${r[15] || ''}</td>
-                            <td class="p-3">${r[14] || ''}</td>
-                            <td class="p-3">${r[21] || ''}</td>
-                            <td class="p-3">${r[22] || ''}</td>
-                            <td class="p-3">${r[16] || ''}</td>
-                            <td class="p-3">${r[19] || ''}</td>
-                            <td class="p-3">${r[20] || ''}</td>
-                            <td class="p-3">${bultos}</td>
-                            <td class="p-3">${peso.toFixed(2)}</td>
-                            <td class="p-3">${pallets.toFixed(2)}</td>
+                            <td class="p-3">${item.cp}</td>
+                            <td class="p-3">${item.transporte}</td>
+                            <td class="p-3 font-bold text-blue-900">${item.idCliente}</td>
+                            <td class="p-3">${item.nombreCliente}</td>
+                            <td class="p-3">${item.prioridad}</td>
+                            <td class="p-3">${item.canal}</td>
+                            <td class="p-3">${item.customer}</td>
+                            <td class="p-3">${item.localidad}</td>
+                            <td class="p-3">${item.direccion}</td>
+                            <td class="p-3">${item.turno}</td>
+                            <td class="p-3">${item.bultos.toFixed(2)}</td>
+                            <td class="p-3">${item.peso.toFixed(2)}</td>
+                            <td class="p-3">${item.pallets.toFixed(2)}</td>
                         </tr>
                     `;
                 }).join('');
 
-                // Fila de Totales Generales
                 tfoot.innerHTML = `
                     <tr>
                         <td colspan="10" class="p-3 text-right uppercase">TOTALES:</td>
@@ -334,7 +388,7 @@
                     </tr>
                 `;
 
-                document.getElementById('resumenTexto').innerText = `Vista General (${filasFiltradas.length} de ${filasProcesadas.length} registros)`;
+                document.getElementById('resumenTexto').innerText = `Vista General Dinámica (${itemsGeneral.length} grupos agrupados)`;
 
             } else if (vistaActual === 'cliente') {
                 let agrupar = {};
