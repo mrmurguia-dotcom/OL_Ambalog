@@ -9,19 +9,21 @@
     <meta name="theme-color" content="#1e3a5f">
     
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Librería SheetJS para procesar archivos Excel (.xlsx/.xls) -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body class="bg-slate-100 p-4 md:p-10">
     <div class="max-w-7xl mx-auto bg-white rounded-3xl shadow-2xl p-8 border border-slate-200">
         
-        <!-- ENCABEZADO -->
+        <!-- ENCABEZADO CON BOTONES DE ACCIONES -->
         <div class="flex flex-wrap justify-between items-center mb-8 border-b pb-4 gap-4">
             <div>
                 <h1 class="text-3xl font-black text-blue-900 italic">CARGA PEDIDOS - GP OK</h1>
                 <p class="text-slate-500 text-sm mt-1">Panel Central Ambalog - M2</p>
             </div>
-            <div class="flex items-center gap-3">
+            <div class="flex flex-wrap items-center gap-3">
+                <button onclick="abrirModalCP()" class="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-2">
+                    ✏️ MODIFICA CP
+                </button>
                 <button onclick="abrirModalReprogramar()" class="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-2">
                     🚨 REPROGRAMAR PEDIDOS
                 </button>
@@ -32,7 +34,7 @@
             </div>
         </div>
 
-        <!-- SELECCIÓN DE FECHA DE ENTREGA & CARGA -->
+        <!-- SELECCIÓN DE FECHA DE ENTREGA -->
         <div class="mb-6 bg-blue-50 p-4 rounded-xl border border-blue-200 flex flex-wrap justify-between items-center gap-4">
             <div>
                 <label class="block text-blue-900 font-bold mb-1 text-sm">FECHA DE ENTREGA (Sincronización):</label>
@@ -43,12 +45,20 @@
             </div>
         </div>
 
-        <!-- SECCIÓN NUEVA: CONSULTAR PEDIDOS GUARDADOS (SIN SUBIR EXCEL) -->
+        <!-- DROPZONE EXCEL DE CARGA DE PEDIDOS -->
+        <div id="dropZone" class="border-4 border-dashed border-blue-200 rounded-2xl p-6 text-center cursor-pointer hover:bg-blue-50 transition-all mb-6 group">
+            <div class="text-blue-400 text-3xl mb-1 group-hover:scale-110 transition-transform">📊</div>
+            <p class="text-slate-700 font-bold uppercase tracking-tight text-xs">Arrastrá el archivo Excel de Pedidos (.xlsx) o hacé click aquí</p>
+            <p class="text-slate-400 text-xs mt-0.5">Se leerá únicamente la pestaña "Base pedidos". Las cargas adicionales se sumarán sin duplicar.</p>
+            <input type="file" id="fileInput" accept=".xlsx, .xls, .xlsm" class="hidden">
+        </div>
+
+        <!-- CONSULTAR PEDIDOS GUARDADOS EN NUBE (DEBAJO DE LA CARGA DE PEDIDOS) -->
         <div class="mb-6 bg-slate-100 p-4 rounded-xl border border-slate-300 flex flex-wrap justify-between items-center gap-4 shadow-sm">
             <div class="flex items-center gap-3">
                 <span class="text-xl">🔍</span>
                 <div>
-                    <label class="block text-slate-800 font-bold text-xs uppercase">Consultar Pedidos Guardados en Nube:</label>
+                    <label class="block text-slate-800 font-bold text-xs uppercase">CONSULTAR PEDIDOS GUARDADOS EN NUBE:</label>
                     <input type="date" id="fechaConsultaRemota" class="p-2 rounded-lg border border-slate-400 font-bold text-xs bg-white text-blue-900 outline-none mt-1">
                 </div>
             </div>
@@ -57,28 +67,17 @@
             </button>
         </div>
 
-        <!-- DROPZONE EXCEL -->
-        <div id="dropZone" class="border-4 border-dashed border-blue-200 rounded-2xl p-6 text-center cursor-pointer hover:bg-blue-50 transition-all mb-6 group">
-            <div class="text-blue-400 text-3xl mb-1 group-hover:scale-110 transition-transform">📊</div>
-            <p class="text-slate-700 font-bold uppercase tracking-tight text-xs">Arrastrá el archivo Excel de Pedidos (.xlsx) o hacé click aquí</p>
-            <p class="text-slate-400 text-xs mt-0.5">Se leerá únicamente la pestaña "Base pedidos". Las cargas adicionales se sumarán sin duplicar.</p>
-            <input type="file" id="fileInput" accept=".xlsx, .xls, .xlsm" class="hidden">
-        </div>
-
         <!-- VISTA PREVIA Y PESTAÑAS DINÁMICAS -->
         <div id="results" class="hidden animate-in fade-in duration-500">
             
-            <!-- BARRA SUPERIOR DE PESTAÑAS Y BOTÓN SINCRONIZAR SEPARADOS -->
             <div class="bg-blue-900 text-white p-4 rounded-xl flex flex-wrap justify-between items-center mb-4 shadow-lg gap-4">
                 <span class="font-bold uppercase text-xs tracking-widest" id="resumenTexto">Resumen de Registro</span>
                 
-                <!-- SÓLO 2 PESTAÑAS: GENERAL Y CLIENTE -->
                 <div class="flex flex-wrap gap-2">
                     <button onclick="cambiarVistaDinamica('general')" id="tab-general" class="px-6 py-2 rounded-lg text-xs font-black bg-orange-500 text-white shadow transition-all">General (Dinámica)</button>
                     <button onclick="cambiarVistaDinamica('cliente')" id="tab-cliente" class="px-6 py-2 rounded-lg text-xs font-black bg-blue-800 hover:bg-blue-700 text-white shadow transition-all">Cliente</button>
                 </div>
 
-                <!-- BOTÓN SINCRONIZAR DATOS INDEPENDIENTE FUERA DE LA LÍNEA -->
                 <button onclick="sincronizarPedidos()" id="btnSync" class="bg-orange-500 hover:bg-orange-600 px-6 py-2.5 rounded-lg font-black shadow-md active:scale-95 transition-all text-white text-xs">
                     SINCRONIZAR DATOS
                 </button>
@@ -87,7 +86,6 @@
             <!-- FILTRO CUSTOMER Y TOTAL DE BULTOS -->
             <div class="flex flex-wrap justify-between items-center bg-slate-200/70 p-4 rounded-xl mb-4 border border-slate-300 gap-4">
                 <div class="flex flex-wrap items-center gap-4">
-                    <!-- FILTRO POR CUSTOMER (SÓLO VISIBLE EN GENERAL) -->
                     <div id="contenedorFiltroCustomer" class="flex items-center gap-2">
                         <label for="filtroCustomer" class="text-xs font-bold text-slate-700 uppercase">Filtrar Customer:</label>
                         <select id="filtroCustomer" onchange="dibujarTablaDinamica()" class="p-2 rounded-lg border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none">
@@ -96,14 +94,12 @@
                     </div>
                 </div>
                 
-                <!-- TOTAL DE BULTOS RESALTADO (Verde < 9000 / Rojo >= 9000) -->
                 <div class="bg-white px-5 py-2 rounded-xl shadow-sm border border-slate-300 flex items-center gap-3">
                     <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">Total Bultos:</span>
                     <span id="badgeBultosTotal" class="text-2xl font-black text-emerald-600">0</span>
                 </div>
             </div>
             
-            <!-- CONTENEDOR DE TABLA CON FUENTE AMPLIADA (text-sm) -->
             <div id="tablaContenedor" class="overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-sm max-h-[480px]">
                 <table class="w-full text-left border-collapse text-sm">
                     <thead class="bg-slate-100 text-slate-700 font-bold sticky top-0 border-b border-slate-200 text-xs">
@@ -125,8 +121,8 @@
             </div>
             <form id="formReprogramar" onsubmit="guardarReprogramacion(event)" class="space-y-4">
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">NÚMERO / ID DE CLIENTE:</label>
-                    <input type="text" id="repoCliente" required placeholder="Ej: 10023001" class="w-full p-2.5 rounded-xl border border-slate-300 focus:border-red-500 outline-none text-sm">
+                    <label class="block text-xs font-bold text-slate-700 mb-1">ID DEL CLIENTE:</label>
+                    <input type="text" id="repoCliente" required placeholder="Ej: 41002005" class="w-full p-2.5 rounded-xl border border-slate-300 focus:border-red-500 outline-none text-sm">
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
@@ -139,16 +135,62 @@
                     </div>
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">CANTIDAD DE BULTOS / CAJAS:</label>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">CANTIDAD DE BULTOS TOTALES DEL PEDIDO:</label>
                     <input type="number" id="repoBultos" required placeholder="Ej: 150" class="w-full p-2.5 rounded-xl border border-slate-300 focus:border-red-500 outline-none text-sm">
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">MOTIVO DE REPROGRAMACIÓN:</label>
-                    <textarea id="repoMotivo" required rows="2" placeholder="Describa brevemente el motivo..." class="w-full p-2.5 rounded-xl border border-slate-300 focus:border-red-500 outline-none text-sm"></textarea>
+                    <textarea id="repoMotivo" required rows="2" placeholder="Describa el motivo..." class="w-full p-2.5 rounded-xl border border-slate-300 focus:border-red-500 outline-none text-sm"></textarea>
                 </div>
                 <div class="flex justify-end gap-3 pt-3 border-t">
                     <button type="button" onclick="cerrarModalReprogramar()" class="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold text-xs">Cancelar</button>
                     <button type="submit" id="btnGuardarRepo" class="px-6 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-md">REGISTRAR CAMBIO</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL MODIFICAR CP (CARTA DE PORTE) -->
+    <div id="modalCP" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-xl w-full p-6 border border-slate-200">
+            <div class="flex justify-between items-center border-b pb-3 mb-4">
+                <h2 class="text-xl font-black text-amber-600 flex items-center gap-2">✏️ Modificar Carta de Porte (CP)</h2>
+                <button onclick="cerrarModalCP()" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+            </div>
+            <form id="formCP" onsubmit="procesarModificacionCP(event)" class="space-y-4">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">FECHA DE ENTREGA:</label>
+                        <input type="date" id="cpFecha" required class="w-full p-2.5 rounded-xl border border-slate-300 focus:border-amber-500 outline-none text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">TIPO DE CAMBIO:</label>
+                        <select id="cpTipoCambio" onchange="evaluarTipoCambioCP()" class="w-full p-2.5 rounded-xl border border-slate-300 focus:border-amber-500 outline-none text-sm font-bold">
+                            <option value="TOTAL">Cambio Total (Todo el CP)</option>
+                            <option value="PARCIAL">Cambio Parcial (Seleccionar líneas)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">CP ACTUAL (A buscar):</label>
+                        <input type="text" id="cpActual" required placeholder="Ej: 357041" class="w-full p-2.5 rounded-xl border border-slate-300 focus:border-amber-500 outline-none text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">CP NUEVO:</label>
+                        <input type="text" id="cpNuevo" required placeholder="Ej: 357099" class="w-full p-2.5 rounded-xl border border-slate-300 focus:border-amber-500 outline-none text-sm">
+                    </div>
+                </div>
+
+                <!-- SECCIÓN PARCIAL DENTRO DEL MODAL CP -->
+                <div id="seccionParcialCP" class="hidden border p-3 rounded-xl bg-amber-50">
+                    <p class="text-xs font-bold text-amber-900 mb-2">Seleccioná las líneas específicas a las que querés aplicar la nueva Carta de Porte (CP):</p>
+                    <div id="listaLineasCP" class="max-h-40 overflow-y-auto space-y-1 text-xs"></div>
+                </div>
+
+                <div class="flex justify-end gap-3 pt-3 border-t">
+                    <button type="button" onclick="cerrarModalCP()" class="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold text-xs">Cancelar</button>
+                    <button type="submit" id="btnGuardarCP" class="px-6 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-md">APLICAR CAMBIO DE CP</button>
                 </div>
             </form>
         </div>
@@ -164,6 +206,7 @@
         const hoy = new Date();
         document.getElementById('fechaEntrega').valueAsDate = hoy;
         document.getElementById('fechaConsultaRemota').valueAsDate = hoy;
+        document.getElementById('cpFecha').valueAsDate = hoy;
 
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
@@ -267,7 +310,7 @@
                 }
             } catch (err) {
                 console.error(err);
-                alert("Error al consultar la nube. Comprueba la conexión o la URL de Apps Script.");
+                alert("Error al consultar la nube.");
             }
             btn.innerText = "CONSULTAR PEDIDOS";
             btn.disabled = false;
@@ -323,7 +366,6 @@
             let acumuladoPallets = 0;
 
             if (vistaActual === 'general') {
-                // TABLA GENERAL CON COMPORTAMIENTO DE TABLA DINÁMICA (Agrupada)
                 const customerFiltro = document.getElementById('filtroCustomer').value;
                 
                 let agruparGeneral = {};
@@ -475,7 +517,7 @@
                         fechaEntrega: fechaFormateada
                     })
                 });
-                alert("✓ Pedidos sincronizados con éxito. Se guardaron en la pestaña del día y en el histórico.");
+                alert("✓ Pedidos sincronizados con éxito.");
                 filasProcesadas = [];
                 document.getElementById('results').classList.add('hidden');
             } catch (e) {
@@ -485,40 +527,140 @@
             btn.disabled = false;
         }
 
-        // --- FUNCIONES MODAL REPROGRAMAR ---
+        // --- MANEJO DE MODALES ---
         function abrirModalReprogramar() { document.getElementById('modalReprogramar').classList.remove('hidden'); }
         function cerrarModalReprogramar() { document.getElementById('modalReprogramar').classList.add('hidden'); }
 
         async function guardarReprogramacion(e) {
             e.preventDefault();
             const btn = document.getElementById('btnGuardarRepo');
-            btn.innerText = "GUARDANDO...";
+            btn.innerText = "VERIFICANDO Y PROCESANDO...";
             btn.disabled = true;
+
+            const [y1, m1, d1] = document.getElementById('repoFechaOrig').value.split('-');
+            const [y2, m2, d2] = document.getElementById('repoFechaNueva').value.split('-');
 
             const payload = {
                 action: 'reprogramarPedido',
                 info: {
                     idCliente: document.getElementById('repoCliente').value,
-                    fechaOrig: document.getElementById('repoFechaOrig').value,
-                    fechaNueva: document.getElementById('repoFechaNueva').value,
+                    fechaOrig: `${d1}-${m1}-${y1}`,
+                    fechaNueva: `${d2}-${m2}-${y2}`,
                     bultos: document.getElementById('repoBultos').value,
                     motivo: document.getElementById('repoMotivo').value
                 }
             };
 
             try {
-                await fetch(WEB_APP_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    body: JSON.stringify(payload)
-                });
-                alert("✓ Reprogramación registrada correctamente.");
-                document.getElementById('formReprogramar').reset();
-                cerrarModalReprogramar();
+                const res = await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(payload) });
+                const resJson = await res.json();
+                
+                if (resJson.status === "success") {
+                    alert(resJson.message);
+                    document.getElementById('formReprogramar').reset();
+                    cerrarModalReprogramar();
+                } else if (resJson.status === "invalid_quantity") {
+                    alert(resJson.message);
+                } else {
+                    alert(resJson.message || "Error al reprogramar.");
+                }
             } catch(err) {
-                alert("Error al guardar reprogramación.");
+                alert("Error al comunicarse con la base.");
             }
             btn.innerText = "REGISTRAR CAMBIO";
+            btn.disabled = false;
+        }
+
+        function abrirModalCP() { document.getElementById('modalCP').classList.remove('hidden'); }
+        function cerrarModalCP() { document.getElementById('modalCP').classList.add('hidden'); }
+
+        async function evaluarTipoCambioCP() {
+            const tipo = document.getElementById('cpTipoCambio').value;
+            const contenedor = document.getElementById('seccionParcialCP');
+            
+            if (tipo === 'PARCIAL') {
+                const cpAct = document.getElementById('cpActual').value;
+                const fVal = document.getElementById('cpFecha').value;
+                if (!cpAct || !fVal) {
+                    alert("Ingresá primero el CP Actual y la Fecha de Entrega para buscar las líneas.");
+                    document.getElementById('cpTipoCambio').value = 'TOTAL';
+                    return;
+                }
+                const [y, m, d] = fVal.split('-');
+                contenedor.classList.remove('hidden');
+
+                const resp = await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'buscarLineasParaCP',
+                        info: { cpActual: cpAct, fecha: `${d}-${m}-${y}` }
+                    })
+                });
+                const resJson = await resp.json();
+                
+                const lista = document.getElementById('listaLineasCP');
+                if (resJson.status === "success" && resJson.lineas.length > 0) {
+                    lista.innerHTML = resJson.lineas.map(l => `
+                        <label class="flex items-center gap-2 p-1.5 bg-white rounded border cursor-pointer hover:bg-slate-50">
+                            <input type="checkbox" name="chkCP" value="${l.filaReal}" class="rounded">
+                            <span>Cliente: <b>${l.idCliente} - ${l.nombreCliente}</b> | Prod: <b>${l.prodId}</b> | Bultos: <b>${l.bultos}</b> | Dir: ${l.direccion} (CP: ${l.cpActual})</span>
+                        </label>
+                    `).join('');
+                } else {
+                    lista.innerHTML = '<p class="text-red-600 font-bold">No se encontraron líneas con ese CP Actual en esa fecha.</p>';
+                }
+            } else {
+                contenedor.classList.add('hidden');
+            }
+        }
+
+        async function procesarModificacionCP(e) {
+            e.preventDefault();
+            const btn = document.getElementById('btnGuardarCP');
+            btn.innerText = "GUARDANDO...";
+            btn.disabled = true;
+
+            const tipo = document.getElementById('cpTipoCambio').value;
+            const [y, m, d] = document.getElementById('cpFecha').value.split('-');
+            
+            let seleccionados = [];
+            if (tipo === 'PARCIAL') {
+                document.querySelectorAll('input[name="chkCP"]:checked').forEach(c => {
+                    seleccionados.push(Number(c.value));
+                });
+                if (seleccionados.length === 0) {
+                    alert("Seleccioná al menos una línea para modificar.");
+                    btn.innerText = "APLICAR CAMBIO DE CP";
+                    btn.disabled = false;
+                    return;
+                }
+            }
+
+            const payload = {
+                action: 'modificarCP',
+                info: {
+                    cpActual: document.getElementById('cpActual').value,
+                    cpNuevo: document.getElementById('cpNuevo').value,
+                    fecha: `${d}-${m}-${y}`,
+                    esTotal: (tipo === 'TOTAL'),
+                    filasSeleccionadas: seleccionados
+                }
+            };
+
+            try {
+                const res = await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(payload) });
+                const resJson = await res.json();
+                if (resJson.status === "success") {
+                    alert(resJson.message);
+                    document.getElementById('formCP').reset();
+                    cerrarModalCP();
+                } else {
+                    alert(resJson.message || "Error al actualizar CP.");
+                }
+            } catch(err) {
+                alert("Error al comunicarse con la base.");
+            }
+            btn.innerText = "APLICAR CAMBIO DE CP";
             btn.disabled = false;
         }
     </script>
