@@ -314,7 +314,7 @@
             <div class="border-b pb-3 flex justify-between items-center flex-wrap gap-4">
                 <div>
                     <h2 class="text-xl font-black text-blue-900">3. Emisión de Hojas de Ruta (Impresión y PDF)</h2>
-                    <p class="text-xs text-slate-500 mt-0.5">Seleccioná los viajes de la grilla para generar e imprimir las hojas de ruta en formato PDF.</p>
+                    <p class="text-xs text-slate-500 mt-0.5">Seleccioná las líneas específicas que deseas imprimir como Hojas de Ruta independientes.</p>
                 </div>
                 <button onclick="generarHojaRutaPDF()" class="bg-indigo-900 hover:bg-black text-white font-black text-xs px-6 py-2.5 rounded-xl shadow transition-all">
                     ⚡ GENERAR HOJA DE RUTA (PDF)
@@ -333,15 +333,15 @@
                 </div>
             </div>
 
-            <!-- TABLA ESTILO EXCEL -->
+            <!-- TABLA ESTILO EXCEL (AHORA DESGLOSADA POR CARTA DE PORTE INDIVIDUAL) -->
             <div class="overflow-x-auto border border-slate-300 rounded-2xl bg-white shadow-sm max-h-[460px]">
                 <table class="w-full text-left border-collapse text-xs font-sans">
                     <thead class="bg-slate-800 text-white font-bold sticky top-0 border-b border-slate-400">
                         <tr>
                             <th class="p-3 text-center border-r border-slate-700 w-12"><input type="checkbox" id="chkAllHR" onchange="toggleSelectAllHR(this)"></th>
                             <th class="p-3 border-r border-slate-700">FECHA</th>
-                            <th class="p-3 border-r border-slate-700">CP O CARTA DE PORTE</th>
-                            <th class="p-3 border-r border-slate-700">COMPLEMENTO</th>
+                            <th class="p-3 border-r border-slate-700">CARTA DE PORTE (CP)</th>
+                            <th class="p-3 border-r border-slate-700">TIPO / ROL</th>
                             <th class="p-3 border-r border-slate-700">VEHÍCULO</th>
                             <th class="p-3">CANAL</th>
                         </tr>
@@ -1148,8 +1148,8 @@
             } catch (err) { alert("Error al quitar de la grilla."); }
         }
 
-        // --- SECCIÓN 3: HOJA DE RUTA Y VISTA PREVIA PDF ---
-        let filasHojaRutaActuales = [];
+        // --- SECCIÓN 3: HOJA DE RUTA Y VISTA PREVIA PDF (DESGLOSE INDIVIDUAL POR CARTA DE PORTE) ---
+        let listaCPsHojaRutaIndividual = [];
 
         async function cargarHojasDeRutaProgramadas() {
             const fechaInput = document.getElementById('filtroFechaHojaRuta').value;
@@ -1161,7 +1161,38 @@
                 
                 if (resGrilla.status === "success") {
                     grillaRegistrada = resGrilla.grilla;
-                    filasHojaRutaActuales = grillaRegistrada.filter(g => String(g.fechaGrilla).trim() === String(fechaInput).trim());
+                    let viajesFecha = grillaRegistrada.filter(g => String(g.fechaGrilla).trim() === String(fechaInput).trim());
+                    
+                    // APLANAR LOS VIAJES: Desglosar CADA Carta de Porte (Principal y Complementarias) en su propia línea independiente
+                    listaCPsHojaRutaIndividual = [];
+                    viajesFecha.forEach(v => {
+                        // 1. CP Principal
+                        if (v.cpPrincipal) {
+                            listaCPsHojaRutaIndividual.push({
+                                fechaGrilla: v.fechaGrilla,
+                                cp: String(v.cpPrincipal).trim(),
+                                tipoRol: 'PRINCIPAL',
+                                tipoVehiculo: v.tipoVehiculo,
+                                canal: v.canal
+                            });
+                        }
+                        // 2. CPs Complementarias (cada una en su propia línea individual)
+                        if (v.cpComplementos) {
+                            v.cpComplementos.split(',').forEach(c => {
+                                let compClean = c.trim();
+                                if (compClean) {
+                                    listaCPsHojaRutaIndividual.push({
+                                        fechaGrilla: v.fechaGrilla,
+                                        cp: compClean,
+                                        tipoRol: 'COMPLEMENTO',
+                                        tipoVehiculo: v.tipoVehiculo,
+                                        canal: v.canal
+                                    });
+                                }
+                            });
+                        }
+                    });
+
                     renderizarTablaHojaRuta();
                 }
             } catch (err) { console.error("Error al cargar hojas de ruta:", err); }
@@ -1170,20 +1201,24 @@
         function renderizarTablaHojaRuta() {
             const tbody = document.getElementById('tbodyHojaRuta');
             
-            if (filasHojaRutaActuales.length === 0) {
+            if (listaCPsHojaRutaIndividual.length === 0) {
                 tbody.innerHTML = `<tr class="text-slate-400 italic"><td colspan="6" class="p-4 text-center">No hay cartas de porte programadas para esta fecha en la grilla.</td></tr>`;
                 return;
             }
 
-            tbody.innerHTML = filasHojaRutaActuales.map((g, idx) => {
+            tbody.innerHTML = listaCPsHojaRutaIndividual.map((item, idx) => {
+                let badgeRol = item.tipoRol === 'PRINCIPAL' 
+                    ? '<span class="bg-blue-100 text-blue-900 px-2 py-0.5 rounded font-bold">Principal</span>' 
+                    : '<span class="bg-amber-100 text-amber-900 px-2 py-0.5 rounded font-bold">Complemento</span>';
+
                 return `
                     <tr class="hover:bg-slate-50 font-bold text-xs border-b border-slate-200">
                         <td class="p-3 text-center border-r border-slate-200"><input type="checkbox" class="chkHR" value="${idx}"></td>
-                        <td class="p-3 border-r border-slate-200">${g.fechaGrilla}</td>
-                        <td class="p-3 font-black text-blue-900 border-r border-slate-200">${g.cpPrincipal}</td>
-                        <td class="p-3 border-r border-slate-200 text-slate-600">${g.cpComplementos || 'Sin complemento'}</td>
-                        <td class="p-3 border-r border-slate-200 font-bold text-indigo-900">${g.tipoVehiculo}</td>
-                        <td class="p-3 uppercase text-slate-700">${g.canal}</td>
+                        <td class="p-3 border-r border-slate-200">${item.fechaGrilla}</td>
+                        <td class="p-3 font-black text-blue-900 border-r border-slate-200">${item.cp}</td>
+                        <td class="p-3 border-r border-slate-200">${badgeRol}</td>
+                        <td class="p-3 border-r border-slate-200 font-bold text-indigo-900">${item.tipoVehiculo}</td>
+                        <td class="p-3 uppercase text-slate-700">${item.canal}</td>
                     </tr>
                 `;
             }).join('');
@@ -1201,114 +1236,107 @@
             contenedorHojas.innerHTML = '<p style="padding:20px; font-family:Arial; text-align:center;">Consultando datos de Ruteo a través del servidor...</p>';
             document.getElementById('modalVistaPreviaPDF').classList.remove('hidden');
 
-            let viajesSeleccionados = [];
-            chks.forEach(chk => viajesSeleccionados.push(filasHojaRutaActuales[Number(chk.value)]));
+            let itemsSeleccionados = [];
+            chks.forEach(chk => itemsSeleccionados.push(listaCPsHojaRutaIndividual[Number(chk.value)]));
 
             try {
                 let htmlHojas = '';
 
-                // RECORREMOS CADA VIAJE SELECCIONADO
-                for (let viaje of viajesSeleccionados) {
-                    // EXTRAEMOS TODAS LAS CP (Tanto la principal como las complementarias) Y LAS PROCESAMOS UNA POR UNA
-                    let cpsAObtener = [String(viaje.cpPrincipal).trim()];
-                    if (viaje.cpComplementos) {
-                        viaje.cpComplementos.split(',').forEach(c => { let t = c.trim(); if(t) cpsAObtener.push(t); });
-                    }
+                // CADA FILA TILDADA ES UNA CARTA DE PORTE INDEPENDIENTE -> GENERA EXACTAMENTE 1 HOJA POR CADA UNA
+                for (let item of itemsSeleccionados) {
+                    let cpItem = item.cp;
 
-                    for (let cpItem of cpsAObtener) {
-                        let respServer = await fetch(WEB_APP_URL, {
-                            method: 'POST',
-                            body: JSON.stringify({ action: 'obtenerDatosRuteoCP', cp: cpItem })
-                        });
-                        let resJson = await respServer.json();
-                        let datosCP = resJson.status === "success" ? resJson.data : null;
+                    let respServer = await fetch(WEB_APP_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ action: 'obtenerDatosRuteoCP', cp: cpItem })
+                    });
+                    let resJson = await respServer.json();
+                    let datosCP = resJson.status === "success" ? resJson.data : null;
 
-                        let docsList = [];
-                        if (datosCP && datosCP.listaClientes) {
-                            datosCP.listaClientes.forEach(cli => {
-                                cli.documentos.forEach(doc => {
-                                    docsList.push({
-                                        nroDoc: doc.numero || 'N/A',
-                                        tipo: doc.tipo || 'FACTURA',
-                                        cliente: cli.nombre || 'N/A',
-                                        direccion: cli.direccion || 'N/A',
-                                        cajas: doc.cajas || 0,
-                                        unidades: doc.unidades || 0,
-                                        importe: doc.importe || 0
-                                    });
+                    let docsList = [];
+                    if (datosCP && datosCP.listaClientes) {
+                        datosCP.listaClientes.forEach(cli => {
+                            cli.documentos.forEach(doc => {
+                                docsList.push({
+                                    nroDoc: doc.numero || 'N/A',
+                                    tipo: doc.tipo || 'FACTURA',
+                                    cliente: cli.nombre || 'N/A',
+                                    direccion: cli.direccion || 'N/A',
+                                    cajas: doc.cajas || 0,
+                                    unidades: doc.unidades || 0,
+                                    importe: doc.importe || 0
                                 });
                             });
-                        }
-
-                        let totCajas = 0, totUnidades = 0, totImporte = 0;
-                        let filasDocsHtml = docsList.map(d => {
-                            totCajas += Number(d.cajas) || 0;
-                            totUnidades += Number(d.unidades) || 0;
-                            totImporte += Number(d.importe) || 0;
-                            return `
-                                <tr style="border-bottom: 1px solid #cbd5e1; font-size: 11px;">
-                                    <td style="padding: 6px;">${d.nroDoc}</td>
-                                    <td style="padding: 6px;">${d.tipo}</td>
-                                    <td style="padding: 6px; font-weight: bold;">${d.cliente}</td>
-                                    <td style="padding: 6px;">${d.direccion}</td>
-                                    <td style="padding: 6px; text-align: center;">${d.cajas}</td>
-                                    <td style="padding: 6px; text-align: center;">${d.unidades}</td>
-                                    <td style="padding: 6px; text-align: right;">$${Number(d.importe).toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
-                                </tr>
-                            `;
-                        }).join('');
-
-                        if (docsList.length === 0) {
-                            filasDocsHtml = `<tr><td colspan="7" style="padding:15px; text-align:center; color:#94a3b8; font-style:italic;">No se encontraron documentos en la base de ruteo para la CP ${cpItem}.</td></tr>`;
-                        }
-
-                        // CADA CARTA DE PORTE (PRINCIPAL O COMPLEMENTO) TENDRÁ SU PROPIA HOJA INDEPENDIENTE
-                        htmlHojas += `
-                            <div class="hoja-pagina" style="page-break-after: always !important; break-after: page !important; font-family: Arial, sans-serif; color: #1e293b; background: white; padding: 25px; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
-                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #1e3a5f; padding-bottom: 10px; margin-bottom: 15px;">
-                                    <div>
-                                        <h1 style="margin: 0; font-size: 20px; font-weight: 900; color: #1e3a5f; text-transform: uppercase;">Reparto de Grupo Peñaflor</h1>
-                                        <p style="margin: 3px 0 0 0; font-size: 12px; color: #64748b;">Hoja de Ruta Oficial de Entregas</p>
-                                    </div>
-                                    <div style="text-align: right;">
-                                        <p style="margin: 0; font-size: 14px; font-weight: bold; color: #1e3a5f;">CARTA DE PORTE: ${cpItem}</p>
-                                        <p style="margin: 3px 0 0 0; font-size: 12px; font-weight: bold; color: #475569;">FECHA DE REPARTO: ${viaje.fechaGrilla}</p>
-                                    </div>
-                                </div>
-
-                                <div style="margin-bottom: 15px; font-size: 11px; background: #f8fafc; padding: 8px 12px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; gap: 20px;">
-                                    <span><strong>Vehículo:</strong> ${viaje.tipoVehiculo}</span>
-                                    <span><strong>Canal:</strong> ${viaje.canal}</span>
-                                    <span><strong>CP Principal del Viaje:</strong> ${viaje.cpPrincipal}</span>
-                                </div>
-
-                                <table style="width: 100%; border-collapse: collapse; text-align: left; margin-top: 10px;">
-                                    <thead>
-                                        <tr style="background-color: #1e3a5f; color: white; font-size: 11px; font-weight: bold;">
-                                            <th style="padding: 8px;">NRO DOC</th>
-                                            <th style="padding: 8px;">TIPO</th>
-                                            <th style="padding: 8px;">CLIENTE</th>
-                                            <th style="padding: 8px;">DIRECCIÓN</th>
-                                            <th style="padding: 8px; text-align: center;">CAJAS</th>
-                                            <th style="padding: 8px; text-align: center;">UNIDADES</th>
-                                            <th style="padding: 8px; text-align: right;">IMPORTE</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${filasDocsHtml}
-                                    </tbody>
-                                    <tfoot>
-                                        <tr style="background-color: #e2e8f0; font-weight: bold; font-size: 12px; border-top: 2px solid #94a3b8;">
-                                            <td colspan="4" style="padding: 8px; text-align: right; text-transform: uppercase;">TOTALES CP ${cpItem}:</td>
-                                            <td style="padding: 8px; text-align: center;">${totCajas}</td>
-                                            <td style="padding: 8px; text-align: center;">${totUnidades}</td>
-                                            <td style="padding: 8px; text-align: right;">$${totImporte.toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
-                                        </tr>
-                                    </tfoot>
-                                </table>
-                            </div>
-                        `;
+                        });
                     }
+
+                    let totCajas = 0, totUnidades = 0, totImporte = 0;
+                    let filasDocsHtml = docsList.map(d => {
+                        totCajas += Number(d.cajas) || 0;
+                        totUnidades += Number(d.unidades) || 0;
+                        totImporte += Number(d.importe) || 0;
+                        return `
+                            <tr style="border-bottom: 1px solid #cbd5e1; font-size: 11px;">
+                                <td style="padding: 6px;">${d.nroDoc}</td>
+                                <td style="padding: 6px;">${d.tipo}</td>
+                                <td style="padding: 6px; font-weight: bold;">${d.cliente}</td>
+                                <td style="padding: 6px;">${d.direccion}</td>
+                                <td style="padding: 6px; text-align: center;">${d.cajas}</td>
+                                <td style="padding: 6px; text-align: center;">${d.unidades}</td>
+                                <td style="padding: 6px; text-align: right;">$${Number(d.importe).toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
+                            </tr>
+                        `;
+                    }).join('');
+
+                    if (docsList.length === 0) {
+                        filasDocsHtml = `<tr><td colspan="7" style="padding:15px; text-align:center; color:#94a3b8; font-style:italic;">No se encontraron documentos en la base de ruteo para la CP ${cpItem}.</td></tr>`;
+                    }
+
+                    htmlHojas += `
+                        <div class="hoja-pagina" style="page-break-after: always !important; break-after: page !important; font-family: Arial, sans-serif; color: #1e293b; background: white; padding: 25px; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #1e3a5f; padding-bottom: 10px; margin-bottom: 15px;">
+                                <div>
+                                    <h1 style="margin: 0; font-size: 20px; font-weight: 900; color: #1e3a5f; text-transform: uppercase;">Reparto de Grupo Peñaflor</h1>
+                                    <p style="margin: 3px 0 0 0; font-size: 12px; color: #64748b;">Hoja de Ruta Oficial de Entregas</p>
+                                </div>
+                                <div style="text-align: right;">
+                                    <p style="margin: 0; font-size: 14px; font-weight: bold; color: #1e3a5f;">CARTA DE PORTE: ${cpItem}</p>
+                                    <p style="margin: 3px 0 0 0; font-size: 12px; font-weight: bold; color: #475569;">FECHA DE REPARTO: ${item.fechaGrilla}</p>
+                                </div>
+                            </div>
+
+                            <div style="margin-bottom: 15px; font-size: 11px; background: #f8fafc; padding: 8px 12px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; gap: 20px;">
+                                <span><strong>Vehículo:</strong> ${item.tipoVehiculo}</span>
+                                <span><strong>Canal:</strong> ${item.canal}</span>
+                                <span><strong>Rol de CP:</strong> ${item.tipoRol}</span>
+                            </div>
+
+                            <table style="width: 100%; border-collapse: collapse; text-align: left; margin-top: 10px;">
+                               <thead>
+                                    <tr style="background-color: #1e3a5f; color: white; font-size: 11px; font-weight: bold;">
+                                        <th style="padding: 8px;">NRO DOC</th>
+                                        <th style="padding: 8px;">TIPO</th>
+                                        <th style="padding: 8px;">CLIENTE</th>
+                                        <th style="padding: 8px;">DIRECCIÓN</th>
+                                        <th style="padding: 8px; text-align: center;">CAJAS</th>
+                                        <th style="padding: 8px; text-align: center;">UNIDADES</th>
+                                        <th style="padding: 8px; text-align: right;">IMPORTE</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${filasDocsHtml}
+                                </tbody>
+                                <tfoot>
+                                    <tr style="background-color: #e2e8f0; font-weight: bold; font-size: 12px; border-top: 2px solid #94a3b8;">
+                                        <td colspan="4" style="padding: 8px; text-align: right; text-transform: uppercase;">TOTALES CP ${cpItem}:</td>
+                                        <td style="padding: 8px; text-align: center;">${totCajas}</td>
+                                        <td style="padding: 8px; text-align: center;">${totUnidades}</td>
+                                        <td style="padding: 8px; text-align: right;">$${totImporte.toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    `;
                 }
 
                 contenedorHojas.innerHTML = htmlHojas;
@@ -1324,13 +1352,11 @@
         }
 
         function imprimirVentanaPDF() {
-            // ASIGNAR NOMBRE DINÁMICO "hoja de ruta GP dd/mm/aaaa" USANDO LA FECHA DE GRILLA SELECCIONADA
             const fechaGrillaInput = document.getElementById('filtroFechaHojaRuta').value;
-            let fechaFormateada = "2026-10-30"; 
+            let fechaFormateada = "30/10/2026"; 
             if (fechaGrillaInput) {
                 let partes = fechaGrillaInput.split('-');
                 if (partes.length === 3) {
-                    // Convierte de YYYY-MM-DD a DD/MM/YYYY
                     fechaFormateada = `${partes[2]}/${partes[1]}/${partes[0]}`;
                 }
             }
@@ -1340,7 +1366,6 @@
             
             window.print();
             
-            // Restaurar título original tras un breve instante
             setTimeout(() => {
                 document.title = tituloOriginal;
             }, 1000);
