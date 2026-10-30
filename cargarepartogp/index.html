@@ -267,7 +267,7 @@
                 </div>
             </div>
 
-            <!-- 5. CARTAS DE PORTE PENDIENTES (FECHA Y FLUJO CONTINUO HORIZONTAL) -->
+            <!-- 5. CARTAS DE PORTE PENDIENTES (FLUJO CONTINUO HORIZONTAL) -->
             <div class="space-y-4 pt-2">
                 <h3 class="text-xs font-bold text-slate-700 uppercase">Cartas de Porte Pendientes (Flujo Continuo Horizontal):</h3>
                 <div id="contenedorFranjasCP" class="space-y-6 max-h-[500px] overflow-y-auto p-1"></div>
@@ -339,7 +339,6 @@
 
     <script>
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyF9e6gme3wHTVO_RooY_xqbK9VFciCZ0jejU2Vmh9o1OUEKwzmn1WxERq7hFBo0Oo2/exec"; 
-        const RUTEO_APP_URL = "https://script.google.com/macros/s/AKfycbzlPL8lhl8n_H2kioGd4CmBRrEG2X9mpa83eo0XgsMIbnxFD9ppAvWS7yT0NqKfNB-KLA/exec";
 
         const flotaConfig = {
             "CAMIONETA": { maxPeso: 1500, maxPallets: 2, totalDisp: 6 },
@@ -740,7 +739,7 @@
             return new Date(str);
         }
 
-        // --- CARTAS DE PORTE PENDIENTES EN FLUJO CONTINUO HORIZONTAL (REQUERIMIENTOS 1 Y 2) ---
+        // --- CARTAS DE PORTE PENDIENTES EN FLUJO CONTINUO HORIZONTAL ---
         function renderizarFranjasCP() {
             const contenedor = document.getElementById('contenedorFranjasCP');
             let cpAgrupados = {};
@@ -796,7 +795,6 @@
                     else fechaFormateada = `${p[0]}/${p[1]}/${p[2]}`;
                 }
 
-                // Generar tarjetas en un contenedor GRID continuo que ocupe todo el espacio horizontal disponible
                 let cardsHtml = itemsDeFecha.map(c => {
                     let isSelected = (viajeActual.cpPrincipal === c.cp || viajeActual.complementos.includes(c.cp));
                     let selectRing = isSelected ? "ring-4 ring-blue-600 bg-blue-50/90 shadow-lg" : "";
@@ -1098,7 +1096,7 @@
             } catch (err) { alert("Error al quitar de la grilla."); }
         }
 
-        // --- SECCIÓN 3: HOJA DE RUTA Y PDF (REQUERIMIENTO PRINCIPAL) ---
+        // --- SECCIÓN 3: HOJA DE RUTA Y PDF ---
         let filasHojaRutaActuales = [];
 
         async function cargarHojasDeRutaProgramadas() {
@@ -1148,7 +1146,7 @@
             if (chks.length === 0) return alert("Seleccioná al menos una carta de porte para generar la Hoja de Ruta.");
 
             const area = document.getElementById('areaImpresionPDF');
-            area.innerHTML = '<p style="padding:20px;">Consultando datos e información de Ruteo...</p>';
+            area.innerHTML = '<p style="padding:20px; font-family:Arial;">Consultando datos de Ruteo a través del servidor...</p>';
 
             let viajesSeleccionados = [];
             chks.forEach(chk => viajesSeleccionados.push(filasHojaRutaActuales[Number(chk.value)]));
@@ -1163,8 +1161,12 @@
                     }
 
                     for (let cpItem of cpsAObtener) {
-                        let respRuteo = await fetch(`${RUTEO_APP_URL}?action=buscarCP&cp=${cpItem}`);
-                        let datosCP = await respRuteo.json();
+                        let respServer = await fetch(WEB_APP_URL, {
+                            method: 'POST',
+                            body: JSON.stringify({ action: 'obtenerDatosRuteoCP', cp: cpItem })
+                        });
+                        let resJson = await respServer.json();
+                        let datosCP = resJson.status === "success" ? resJson.data : null;
 
                         let docsList = [];
                         if (datosCP && datosCP.listaClientes) {
@@ -1202,11 +1204,11 @@
                         }).join('');
 
                         if (docsList.length === 0) {
-                            filasDocsHtml = `<tr><td colspan="7" style="padding:15px; text-align:center; color:#94a3b8; font-style:italic;">No se encontraron documentos registrados en la base de ruteo para la CP ${cpItem}.</td></tr>`;
+                            filasDocsHtml = `<tr><td colspan="7" style="padding:15px; text-align:center; color:#94a3b8; font-style:italic;">No se encontraron documentos en la base de ruteo para la CP ${cpItem}.</td></tr>`;
                         }
 
                         htmlHojas += `
-                            <div class="hoja-pagina" style="font-family: Arial, sans-serif; color: #1e293b; background: white;">
+                            <div class="hoja-pagina" style="font-family: Arial, sans-serif; color: #1e293b; background: white; margin-bottom: 30px;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #1e3a5f; padding-bottom: 10px; margin-bottom: 15px;">
                                     <div>
                                         <h1 style="margin: 0; font-size: 20px; font-weight: 900; color: #1e3a5f; text-transform: uppercase;">Reparto de Grupo Peñaflor</h1>
@@ -1221,7 +1223,7 @@
                                 <div style="margin-bottom: 15px; font-size: 11px; background: #f8fafc; padding: 8px 12px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; gap: 20px;">
                                     <span><strong>Vehículo:</strong> ${viaje.tipoVehiculo}</span>
                                     <span><strong>Canal:</strong> ${viaje.canal}</span>
-                                    <span><strong>CP Principal del Viaje:</strong> ${viaje.cpPrincipal}</span>
+                                    <span><strong>CP Principal:</strong> ${viaje.cpPrincipal}</span>
                                 </div>
 
                                 <table style="width: 100%; border-collapse: collapse; text-align: left; margin-top: 10px;">
@@ -1257,7 +1259,7 @@
                 window.print();
 
             } catch (err) {
-                alert("Error al obtener la información de Ruteo para generar la Hoja de Ruta.");
+                alert("Error al procesar la generación de la Hoja de Ruta: " + err.toString());
             }
         }
 
