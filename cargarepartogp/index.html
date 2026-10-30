@@ -8,9 +8,10 @@
     <style>
         @media print {
             body * { visibility: hidden; }
-            #areaImpresionPDF, #areaImpresionPDF * { visibility: visible; }
-            #areaImpresionPDF { position: absolute; left: 0; top: 0; width: 100%; }
-            .hoja-pagina { page-break-after: always; padding: 20px; }
+            #modalVistaPreviaPDF, #modalVistaPreviaPDF * { visibility: visible; }
+            #modalVistaPreviaPDF { position: absolute; left: 0; top: 0; width: 100%; background: white; z-index: 99999; }
+            .no-print { display: none !important; }
+            .hoja-pagina { page-break-after: always; margin: 0; border: none !important; box-shadow: none !important; }
         }
     </style>
 </head>
@@ -320,8 +321,25 @@
 
     </div>
 
-    <!-- AREA DE IMPRESIÓN OCULTA PARA PDF -->
-    <div id="areaImpresionPDF" class="hidden"></div>
+    <!-- MODAL DE VISTA PREVIA Y DESCARGA / IMPRESIÓN DE HOJA DE RUTA (PDF) -->
+    <div id="modalVistaPreviaPDF" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden flex flex-col items-center justify-start p-4 z-50 overflow-y-auto">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-4xl w-full p-6 border border-slate-200 space-y-4 my-8">
+            <div class="flex justify-between items-center border-b pb-3 no-print">
+                <h3 class="text-lg font-black text-blue-900">📄 Vista Previa de Hoja de Ruta (PDF)</h3>
+                <div class="flex items-center gap-3">
+                    <button onclick="imprimirVentanaPDF()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-xl shadow">
+                        🖨️ Imprimir / Guardar PDF
+                    </button>
+                    <button onclick="cerrarModalVistaPrevia()" class="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs px-4 py-2 rounded-xl">✕ Cerrar</button>
+                </div>
+            </div>
+            
+            <!-- CONTENEDOR DE LAS HOJAS RENDERIZADAS -->
+            <div id="contenidoHojasPDF" class="space-y-8 bg-slate-100 p-6 rounded-2xl border border-slate-300">
+                <!-- Se inyecta dinámicamente -->
+            </div>
+        </div>
+    </div>
 
     <!-- MODAL DETALLE CLIENTE -->
     <div id="modalDetalle" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
@@ -750,7 +768,7 @@
                 if (!cp) return;
 
                 const fechaOrig = item.fechaPedido || "Sin_Fecha";
-                const vehiculoNombre = String(r[25] || 'Sin Vehículo').trim(); // Columna Z / Transporte 2
+                const vehiculoNombre = String(r[25] || 'Sin Vehículo').trim(); 
 
                 if (!cpAgrupados[cp]) {
                     cpAgrupados[cp] = { 
@@ -1096,7 +1114,7 @@
             } catch (err) { alert("Error al quitar de la grilla."); }
         }
 
-        // --- SECCIÓN 3: HOJA DE RUTA Y PDF ---
+        // --- SECCIÓN 3: HOJA DE RUTA Y VISTA PREVIA PDF ---
         let filasHojaRutaActuales = [];
 
         async function cargarHojasDeRutaProgramadas() {
@@ -1145,8 +1163,9 @@
             const chks = document.querySelectorAll('.chkHR:checked');
             if (chks.length === 0) return alert("Seleccioná al menos una carta de porte para generar la Hoja de Ruta.");
 
-            const area = document.getElementById('areaImpresionPDF');
-            area.innerHTML = '<p style="padding:20px; font-family:Arial;">Consultando datos de Ruteo a través del servidor...</p>';
+            const contenedorHojas = document.getElementById('contenidoHojasPDF');
+            contenedorHojas.innerHTML = '<p style="padding:20px; font-family:Arial; text-align:center;">Consultando datos de Ruteo a través del servidor...</p>';
+            document.getElementById('modalVistaPreviaPDF').classList.remove('hidden');
 
             let viajesSeleccionados = [];
             chks.forEach(chk => viajesSeleccionados.push(filasHojaRutaActuales[Number(chk.value)]));
@@ -1208,7 +1227,7 @@
                         }
 
                         htmlHojas += `
-                            <div class="hoja-pagina" style="font-family: Arial, sans-serif; color: #1e293b; background: white; margin-bottom: 30px;">
+                            <div class="hoja-pagina" style="font-family: Arial, sans-serif; color: #1e293b; background: white; padding: 25px; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
                                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #1e3a5f; padding-bottom: 10px; margin-bottom: 15px;">
                                     <div>
                                         <h1 style="margin: 0; font-size: 20px; font-weight: 900; color: #1e3a5f; text-transform: uppercase;">Reparto de Grupo Peñaflor</h1>
@@ -1255,12 +1274,20 @@
                     }
                 }
 
-                area.innerHTML = htmlHojas;
-                window.print();
+                contenedorHojas.innerHTML = htmlHojas;
 
             } catch (err) {
                 alert("Error al procesar la generación de la Hoja de Ruta: " + err.toString());
+                cerrarModalVistaPrevia();
             }
+        }
+
+        function cerrarModalVistaPrevia() {
+            document.getElementById('modalVistaPreviaPDF').classList.add('hidden');
+        }
+
+        function imprimirVentanaPDF() {
+            window.print();
         }
 
         document.getElementById('filtroFechaGrilla').addEventListener('change', () => { renderizarTablaGrillaRegistrada(); });
