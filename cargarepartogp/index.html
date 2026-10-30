@@ -55,7 +55,7 @@
         <!-- ENCABEZADO Y NAVEGACIÓN -->
         <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 flex flex-wrap justify-between items-center gap-4">
             <div>
-                <h1 class="text-3xl font-black text-blue-900 italic uppercase">CARGA REPARTO GP</h1>
+                <h1 class="text-3xl font-black text-blue-900 italic uppercase">CARGA REPARTO GP OK</h1>
                 <p class="text-slate-500 text-sm mt-1">Panel Operativo de Asignación, Grilla y Hojas de Ruta</p>
             </div>
             
@@ -364,7 +364,7 @@
                     <button onclick="imprimirVentanaPDF()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-xl shadow">
                         🖨️ Imprimir / Guardar PDF
                     </button>
-                    <button onclick="cerrarModalVistaPrevia()" class="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs px-4 py-2 rounded-xl">✕ Cerrar</button>
+                    <button onclick="cerrarModalVistaPrevia()" class="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs px-4 py-2">✕ Cerrar</button>
                 </div>
             </div>
             
@@ -1207,7 +1207,9 @@
             try {
                 let htmlHojas = '';
 
+                // RECORREMOS CADA VIAJE SELECCIONADO
                 for (let viaje of viajesSeleccionados) {
+                    // EXTRAEMOS TODAS LAS CP (Tanto la principal como las complementarias) Y LAS PROCESAMOS UNA POR UNA
                     let cpsAObtener = [String(viaje.cpPrincipal).trim()];
                     if (viaje.cpComplementos) {
                         viaje.cpComplementos.split(',').forEach(c => { let t = c.trim(); if(t) cpsAObtener.push(t); });
@@ -1260,6 +1262,7 @@
                             filasDocsHtml = `<tr><td colspan="7" style="padding:15px; text-align:center; color:#94a3b8; font-style:italic;">No se encontraron documentos en la base de ruteo para la CP ${cpItem}.</td></tr>`;
                         }
 
+                        // CADA CARTA DE PORTE (PRINCIPAL O COMPLEMENTO) TENDRÁ SU PROPIA HOJA INDEPENDIENTE
                         htmlHojas += `
                             <div class="hoja-pagina" style="page-break-after: always !important; break-after: page !important; font-family: Arial, sans-serif; color: #1e293b; background: white; padding: 25px; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
                                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #1e3a5f; padding-bottom: 10px; margin-bottom: 15px;">
@@ -1276,7 +1279,7 @@
                                 <div style="margin-bottom: 15px; font-size: 11px; background: #f8fafc; padding: 8px 12px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; gap: 20px;">
                                     <span><strong>Vehículo:</strong> ${viaje.tipoVehiculo}</span>
                                     <span><strong>Canal:</strong> ${viaje.canal}</span>
-                                    <span><strong>CP Principal:</strong> ${viaje.cpPrincipal}</span>
+                                    <span><strong>CP Principal del Viaje:</strong> ${viaje.cpPrincipal}</span>
                                 </div>
 
                                 <table style="width: 100%; border-collapse: collapse; text-align: left; margin-top: 10px;">
@@ -1321,7 +1324,26 @@
         }
 
         function imprimirVentanaPDF() {
+            // ASIGNAR NOMBRE DINÁMICO "hoja de ruta GP dd/mm/aaaa" USANDO LA FECHA DE GRILLA SELECCIONADA
+            const fechaGrillaInput = document.getElementById('filtroFechaHojaRuta').value;
+            let fechaFormateada = "2026-10-30"; 
+            if (fechaGrillaInput) {
+                let partes = fechaGrillaInput.split('-');
+                if (partes.length === 3) {
+                    // Convierte de YYYY-MM-DD a DD/MM/YYYY
+                    fechaFormateada = `${partes[2]}/${partes[1]}/${partes[0]}`;
+                }
+            }
+            
+            const tituloOriginal = document.title;
+            document.title = `hoja de ruta GP ${fechaFormateada}`;
+            
             window.print();
+            
+            // Restaurar título original tras un breve instante
+            setTimeout(() => {
+                document.title = tituloOriginal;
+            }, 1000);
         }
 
         document.getElementById('filtroFechaGrilla').addEventListener('change', () => { renderizarTablaGrillaRegistrada(); });
