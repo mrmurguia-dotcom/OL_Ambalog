@@ -7,12 +7,31 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @media print {
-            body * { visibility: hidden; }
-            #modalVistaPreviaPDF, #modalVistaPreviaPDF * { visibility: visible; }
-            #modalVistaPreviaPDF { position: absolute; left: 0; top: 0; width: 100%; background: white; z-index: 99999; }
-            .no-print { display: none !important; }
-            .hoja-pagina { page-break-after: always; margin: 0; border: none !important; box-shadow: none !important; }
-        }
+    @page {
+        size: landscape; /* Fuerza la orientación horizontal por defecto */
+        margin: 10mm;    /* Margen limpio para la impresión */
+    }
+    body * { visibility: hidden; }
+    #modalVistaPreviaPDF, #modalVistaPreviaPDF * { visibility: visible; }
+    #modalVistaPreviaPDF { 
+        position: absolute; 
+        left: 0; 
+        top: 0; 
+        width: 100%; 
+        background: white; 
+        z-index: 99999; 
+        padding: 0 !important;
+    }
+    .no-print { display: none !important; }
+    .hoja-pagina { 
+        page-break-after: always !important; 
+        break-after: page !important; 
+        margin: 0; 
+        border: none !important; 
+        box-shadow: none !important; 
+        width: 100% !important;
+    }
+}
     </style>
 </head>
 <body class="bg-slate-100 p-4 md:p-8">
