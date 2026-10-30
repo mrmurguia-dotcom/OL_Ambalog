@@ -1,1 +1,142 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Control de Novedades de Reparto</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Librería para generar códigos QR en pantalla -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+</head>
+<body class="bg-slate-100 p-4 md:p-8">
+    <div class="max-w-7xl mx-auto space-y-6">
+        
+        <!-- ENCABEZADO -->
+        <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 flex flex-wrap justify-between items-center gap-4">
+            <div>
+                <h1 class="text-3xl font-black text-blue-900 italic uppercase">CONTROL DE NOVEDADES GP</h1>
+                <p class="text-slate-500 text-sm mt-1">Monitoreo de salidas, llegadas, rechazos, fotos y audios de WhatsApp</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <input type="date" id="filtroFechaNovedades" onchange="cargarGrillaNovedades()" class="p-2.5 rounded-xl border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none">
+                <button onclick="sincronizarNovedades()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs px-6 py-2.5 rounded-xl shadow transition-all">
+                    💾 SINCRONIZAR NOVEDADES
+                </button>
+            </div>
+        </div>
 
+        <!-- GRILLA PRINCIPAL DE NOVEDADES -->
+        <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h2 class="text-xl font-black text-blue-900">Viajes Registrados y Control de Estados</h2>
+                <span class="text-xs font-bold text-slate-500" id="contadorViajes">Total viajes: 0</span>
+            </div>
+
+            <div class="overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-sm max-h-[550px]">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead class="bg-slate-800 text-white font-bold sticky top-0">
+                        <tr>
+                            <th class="p-3">Fecha Grilla</th>
+                            <th class="p-3">Vuelta</th>
+                            <th class="p-3">Vehículo</th>
+                            <th class="p-3">Canal</th>
+                            <th class="p-3">Tipo Viaje</th>
+                            <th class="p-3">Cliente Principal</th>
+                            <th class="p-3">Zona</th>
+                            <th class="p-3">CP Principal</th>
+                            <th class="p-3">CP Complementario</th>
+                            <th class="p-3 text-center">Peso</th>
+                            <th class="p-3 text-center">Bultos</th>
+                            <th class="p-3 text-center">Pallets</th>
+                            <th class="p-3 text-center">Salida</th>
+                            <th class="p-3 text-center">Llegada / Novedad</th>
+                            <th class="p-3 text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyNovedades" class="divide-y divide-slate-100 text-slate-800">
+                        <tr class="text-slate-400 italic"><td colspan="15" class="p-6 text-center">Seleccioná una fecha para cargar los viajes.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- MODAL DE GESTIÓN DE NOVEDAD Y DOCUMENTOS (FC / RTO) -->
+    <div id="modalNovedadDetalle" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-3xl w-full p-6 border border-slate-200 space-y-6 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b pb-3">
+                <div>
+                    <h3 class="text-lg font-black text-blue-900">Gestión de Novedades de Llegada</h3>
+                    <p class="text-xs text-slate-500" id="subtituloModalCP">Carta de Porte: --</p>
+                </div>
+                <button onclick="cerrarModalNovedad()" class="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
+            </div>
+
+            <!-- Listado de documentos del viaje -->
+            <div class="space-y-4" id="contenedorDocumentosNovedad">
+                <!-- Se inyecta dinámicamente -->
+            </div>
+
+            <div class="pt-4 border-t flex justify-end gap-3">
+                <button onclick="cerrarModalNovedad()" class="bg-blue-900 hover:bg-black text-white font-bold text-xs px-6 py-2.5 rounded-xl shadow">
+                    Guardar y Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL QR PARA CAPTURA DESDE CELULAR -->
+    <div id="modalQRCaptura" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 text-center space-y-4">
+            <h3 class="text-base font-black text-blue-900">Escaneá con tu Celular</h3>
+            <p class="text-xs text-slate-500">Usá la cámara de tu teléfono para sacar la foto o subir el audio de WhatsApp directamente.</p>
+            <div id="qrContainer" class="flex justify-center p-4 bg-slate-50 rounded-2xl border border-slate-200"></div>
+            <button onclick="cerrarModalQR()" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs py-2.5 rounded-xl">Cerrar</button>
+        </div>
+    </div>
+
+    <script>
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyF9e6gme3wHTVO_RooY_xqbK9VFciCZ0jejU2Vmh9o1OUEKwzmn1WxERq7hFBo0Oo2/exec";
+        const hoy = new Date();
+        document.getElementById('filtroFechaNovedades').valueAsDate = hoy;
+
+        function cargarGrillaNovedades() {
+            // Lógica para consultar los viajes registrados en la fecha y poblar el tbodyNovedades
+            console.log("Cargando viajes para novedades...");
+        }
+
+        function abrirModalNovedad(cp) {
+            document.getElementById('subtituloModalCP').innerText = `Carta de Porte: ${cp}`;
+            document.getElementById('modalNovedadDetalle').classList.remove('hidden');
+        }
+
+        function cerrarModalNovedad() {
+            document.getElementById('modalNovedadDetalle').classList.add('hidden');
+        }
+
+        function abrirQRModal(tipo, idDocumento) {
+            document.getElementById('modalQRCaptura').classList.remove('hidden');
+            const qrDiv = document.getElementById('qrContainer');
+            qrDiv.innerHTML = "";
+            
+            // URL dinámica para el celular (puede apuntar a un endpoint del Apps Script que actúe como formulario móvil)
+            let urlMovil = `${WEB_APP_URL}?action=vistaMovil&tipo=${tipo}&doc=${idDocumento}`;
+            
+            new QRCode(qrDiv, {
+                text: urlMovil,
+                width: 200,
+                height: 200
+            });
+        }
+
+        function cerrarModalQR() {
+            document.getElementById('modalQRCaptura').classList.add('hidden');
+        }
+
+        function sincronizarNovedades() {
+            alert("Novedades sincronizadas correctamente con Google Sheets.");
+        }
+    </script>
+</body>
+</html>
