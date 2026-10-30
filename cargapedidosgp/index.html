@@ -21,6 +21,12 @@
                 <p class="text-slate-500 text-sm mt-1">Panel Central Ambalog - M2</p>
             </div>
             <div class="flex flex-wrap items-center gap-3">
+                <a href="https://mrmurguia-dotcom.github.io/OL_Ambalog/cargarepartogp/index.html" target="_blank" rel="noopener noreferrer" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-2">
+                    🚚 ASIGNAR CP
+                </a>
+                <button onclick="sincronizarPedidos()" id="btnSync" class="bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-2">
+                    🔄 SINCRONIZAR DATOS
+                </button>
                 <button onclick="abrirModalCP()" class="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-2">
                     ✏️ MODIFICA CP
                 </button>
@@ -77,10 +83,6 @@
                     <button onclick="cambiarVistaDinamica('general')" id="tab-general" class="px-6 py-2 rounded-lg text-xs font-black bg-orange-500 text-white shadow transition-all">General (Dinámica)</button>
                     <button onclick="cambiarVistaDinamica('cliente')" id="tab-cliente" class="px-6 py-2 rounded-lg text-xs font-black bg-blue-800 hover:bg-blue-700 text-white shadow transition-all">Cliente</button>
                 </div>
-
-                <button onclick="sincronizarPedidos()" id="btnSync" class="bg-orange-500 hover:bg-orange-600 px-6 py-2.5 rounded-lg font-black shadow-md active:scale-95 transition-all text-white text-xs">
-                    SINCRONIZAR DATOS
-                </button>
             </div>
 
             <!-- FILTRO CUSTOMER Y TOTAL DE BULTOS -->
@@ -533,7 +535,7 @@
             } catch (e) {
                 alert("Error al sincronizar los pedidos.");
             }
-            btn.innerText = "SINCRONIZAR DATOS";
+            btn.innerText = "🔄 SINCRONIZAR DATOS";
             btn.disabled = false;
         }
 
