@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Carga Reparto GP - Panel de Gestión</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @media print {
+            body * { visibility: hidden; }
+            #areaImpresionPDF, #areaImpresionPDF * { visibility: visible; }
+            #areaImpresionPDF { position: absolute; left: 0; top: 0; width: 100%; }
+            .hoja-pagina { page-break-after: always; padding: 20px; }
+        }
+    </style>
 </head>
 <body class="bg-slate-100 p-4 md:p-8">
     <div class="max-w-7xl mx-auto space-y-6">
@@ -13,15 +21,18 @@
         <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 flex flex-wrap justify-between items-center gap-4">
             <div>
                 <h1 class="text-3xl font-black text-blue-900 italic uppercase">CARGA REPARTO GP</h1>
-                <p class="text-slate-500 text-sm mt-1">Panel Operativo de Asignación y Grilla</p>
+                <p class="text-slate-500 text-sm mt-1">Panel Operativo de Asignación, Grilla y Hojas de Ruta</p>
             </div>
             
-            <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
+            <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 flex-wrap">
                 <button onclick="cambiarVistaTab('asignar')" id="tabBtnAsignar" class="px-5 py-2.5 rounded-xl text-xs font-black bg-blue-900 text-white shadow transition-all">
                     📋 ASIGNAR CARTA DE PORTE (CP)
                 </button>
                 <button onclick="cambiarVistaTab('grilla')" id="tabBtnGrilla" class="px-5 py-2.5 rounded-xl text-xs font-black bg-transparent text-slate-600 hover:text-blue-900 transition-all">
                     🚚 GRILLA DE REPARTO
+                </button>
+                <button onclick="cambiarVistaTab('hojaRuta')" id="tabBtnHojaRuta" class="px-5 py-2.5 rounded-xl text-xs font-black bg-transparent text-slate-600 hover:text-blue-900 transition-all">
+                    📄 HOJA DE RUTA
                 </button>
             </div>
 
@@ -256,13 +267,61 @@
                 </div>
             </div>
 
-            <!-- 5. CARTAS DE PORTE PENDIENTES (FECHA Y CANAL - GRILLA FLUIDA) -->
+            <!-- 5. CARTAS DE PORTE PENDIENTES (FECHA Y FLUJO CONTINUO HORIZONTAL) -->
             <div class="space-y-4 pt-2">
-                <h3 class="text-xs font-bold text-slate-700 uppercase">Cartas de Porte Pendientes (Ordenadas por Fecha y Canal):</h3>
+                <h3 class="text-xs font-bold text-slate-700 uppercase">Cartas de Porte Pendientes (Flujo Continuo Horizontal):</h3>
                 <div id="contenedorFranjasCP" class="space-y-6 max-h-[500px] overflow-y-auto p-1"></div>
             </div>
         </div>
+
+        <!-- ================= SECCIÓN 3: HOJA DE RUTA ================= -->
+        <div id="seccionHojaRuta" class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 space-y-6 hidden">
+            <div class="border-b pb-3 flex justify-between items-center flex-wrap gap-4">
+                <div>
+                    <h2 class="text-xl font-black text-blue-900">3. Emisión de Hojas de Ruta (Impresión y PDF)</h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Seleccioná los viajes de la grilla para generar e imprimir las hojas de ruta en formato PDF.</p>
+                </div>
+                <button onclick="generarHojaRutaPDF()" class="bg-indigo-900 hover:bg-black text-white font-black text-xs px-6 py-2.5 rounded-xl shadow transition-all">
+                    ⚡ GENERAR HOJA DE RUTA (PDF)
+                </button>
+            </div>
+
+            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-wrap items-center gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">📅 FECHA DE GRILLA:</label>
+                    <input type="date" id="filtroFechaHojaRuta" onchange="cargarHojasDeRutaProgramadas()" class="p-2.5 rounded-xl border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none">
+                </div>
+                <div class="flex items-end pt-5">
+                    <button onclick="cargarHojasDeRutaProgramadas()" class="bg-blue-800 hover:bg-blue-900 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow">
+                        🔍 CONSULTAR PROGRAMACIÓN
+                    </button>
+                </div>
+            </div>
+
+            <!-- TABLA ESTILO EXCEL -->
+            <div class="overflow-x-auto border border-slate-300 rounded-2xl bg-white shadow-sm max-h-[460px]">
+                <table class="w-full text-left border-collapse text-xs font-sans">
+                    <thead class="bg-slate-800 text-white font-bold sticky top-0 border-b border-slate-400">
+                        <tr>
+                            <th class="p-3 text-center border-r border-slate-700 w-12"><input type="checkbox" id="chkAllHR" onchange="toggleSelectAllHR(this)"></th>
+                            <th class="p-3 border-r border-slate-700">FECHA</th>
+                            <th class="p-3 border-r border-slate-700">CP O CARTA DE PORTE</th>
+                            <th class="p-3 border-r border-slate-700">COMPLEMENTO</th>
+                            <th class="p-3 border-r border-slate-700">VEHÍCULO</th>
+                            <th class="p-3">CANAL</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyHojaRuta" class="divide-y divide-slate-200 text-slate-900">
+                        <tr class="text-slate-400 italic"><td colspan="6" class="p-4 text-center">Seleccioná una fecha para consultar las cartas de porte programadas.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
     </div>
+
+    <!-- AREA DE IMPRESIÓN OCULTA PARA PDF -->
+    <div id="areaImpresionPDF" class="hidden"></div>
 
     <!-- MODAL DETALLE CLIENTE -->
     <div id="modalDetalle" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
@@ -280,6 +339,7 @@
 
     <script>
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyF9e6gme3wHTVO_RooY_xqbK9VFciCZ0jejU2Vmh9o1OUEKwzmn1WxERq7hFBo0Oo2/exec"; 
+        const RUTEO_APP_URL = "https://script.google.com/macros/s/AKfycbzlPL8lhl8n_H2kioGd4CmBRrEG2X9mpa83eo0XgsMIbnxFD9ppAvWS7yT0NqKfNB-KLA/exec";
 
         const flotaConfig = {
             "CAMIONETA": { maxPeso: 1500, maxPallets: 2, totalDisp: 6 },
@@ -308,6 +368,7 @@
         const hoy = new Date();
         document.getElementById('filtroFecha').valueAsDate = hoy;
         document.getElementById('filtroFechaGrilla').valueAsDate = hoy;
+        document.getElementById('filtroFechaHojaRuta').valueAsDate = hoy;
 
         window.onload = () => {
             cargarPedidosServidor();
@@ -317,20 +378,31 @@
         function cambiarVistaTab(vista) {
             const btnAsignar = document.getElementById('tabBtnAsignar');
             const btnGrilla = document.getElementById('tabBtnGrilla');
+            const btnHojaRuta = document.getElementById('tabBtnHojaRuta');
+
             const secAsignar = document.getElementById('seccionAsignarCP');
             const secGrilla = document.getElementById('seccionGrillaReparto');
+            const secHojaRuta = document.getElementById('seccionHojaRuta');
+
+            btnAsignar.className = "px-5 py-2.5 rounded-xl text-xs font-black bg-transparent text-slate-600 hover:text-blue-900 transition-all";
+            btnGrilla.className = "px-5 py-2.5 rounded-xl text-xs font-black bg-transparent text-slate-600 hover:text-blue-900 transition-all";
+            btnHojaRuta.className = "px-5 py-2.5 rounded-xl text-xs font-black bg-transparent text-slate-600 hover:text-blue-900 transition-all";
+
+            secAsignar.classList.add('hidden');
+            secGrilla.classList.add('hidden');
+            secHojaRuta.classList.add('hidden');
 
             if (vista === 'asignar') {
                 btnAsignar.className = "px-5 py-2.5 rounded-xl text-xs font-black bg-blue-900 text-white shadow transition-all";
-                btnGrilla.className = "px-5 py-2.5 rounded-xl text-xs font-black bg-transparent text-slate-600 hover:text-blue-900 transition-all";
                 secAsignar.classList.remove('hidden');
-                secGrilla.classList.add('hidden');
-            } else {
+            } else if (vista === 'grilla') {
                 btnGrilla.className = "px-5 py-2.5 rounded-xl text-xs font-black bg-blue-900 text-white shadow transition-all";
-                btnAsignar.className = "px-5 py-2.5 rounded-xl text-xs font-black bg-transparent text-slate-600 hover:text-blue-900 transition-all";
                 secGrilla.classList.remove('hidden');
-                secAsignar.classList.add('hidden');
                 cargarGrillaYCPs();
+            } else if (vista === 'hojaRuta') {
+                btnHojaRuta.className = "px-5 py-2.5 rounded-xl text-xs font-black bg-blue-900 text-white shadow transition-all";
+                secHojaRuta.classList.remove('hidden');
+                cargarHojasDeRutaProgramadas();
             }
         }
 
@@ -668,6 +740,7 @@
             return new Date(str);
         }
 
+        // --- CARTAS DE PORTE PENDIENTES EN FLUJO CONTINUO HORIZONTAL (REQUERIMIENTOS 1 Y 2) ---
         function renderizarFranjasCP() {
             const contenedor = document.getElementById('contenedorFranjasCP');
             let cpAgrupados = {};
@@ -678,8 +751,21 @@
                 if (!cp) return;
 
                 const fechaOrig = item.fechaPedido || "Sin_Fecha";
+                const vehiculoNombre = String(r[25] || 'Sin Vehículo').trim(); // Columna Z / Transporte 2
+
                 if (!cpAgrupados[cp]) {
-                    cpAgrupados[cp] = { cp, fechaPedido: fechaOrig, canal: r[21] || 'Sin Canal', cliente: r[15] || '', zona: r[16] || '', bultos: 0, peso: 0, pallets: 0, clientesSet: new Set() };
+                    cpAgrupados[cp] = { 
+                        cp, 
+                        fechaPedido: fechaOrig, 
+                        canal: r[21] || 'Sin Canal', 
+                        cliente: r[15] || '', 
+                        zona: r[16] || '', 
+                        vehiculo: vehiculoNombre,
+                        bultos: 0, 
+                        peso: 0, 
+                        pallets: 0, 
+                        clientesSet: new Set() 
+                    };
                 }
                 cpAgrupados[cp].bultos += Number(r[4]) || 0;
                 cpAgrupados[cp].peso += Number(r[12]) || 0;
@@ -710,49 +796,32 @@
                     else fechaFormateada = `${p[0]}/${p[1]}/${p[2]}`;
                 }
 
-                let porCanal = {};
-                itemsDeFecha.forEach(c => {
-                    if (!porCanal[c.canal]) porCanal[c.canal] = [];
-                    porCanal[c.canal].push(c);
-                });
-
-                let canalesOrdenados = Object.keys(porCanal).sort();
-
-                let bloquesCanalesHtml = canalesOrdenados.map(canal => {
-                    let itemsCanal = porCanal[canal];
-                    let estilo = obtenerEstiloCanal(canal);
-
-                    let cardsHtml = itemsCanal.map(c => {
-                        let isSelected = (viajeActual.cpPrincipal === c.cp || viajeActual.complementos.includes(c.cp));
-                        let selectRing = isSelected ? "ring-4 ring-blue-600 bg-blue-50/90 shadow-lg" : "";
-
-                        return `
-                            <div onclick="seleccionarCPParaGrilla('${c.cp}', '${c.fechaPedido}', '${c.canal}', '${c.cliente}', '${c.zona}', ${c.peso}, ${c.bultos}, ${c.pallets}, ${c.clientesSet.size})" class="p-3 rounded-2xl border ${estilo.border} ${estilo.bg} ${selectRing} shadow-sm hover:shadow-md cursor-pointer transition-all">
-                                <div class="flex justify-between items-center mb-1">
-                                    <span class="font-black text-xs text-blue-900">CP: ${c.cp} ${isSelected ? '✓' : ''}</span>
-                                    <span class="text-[9px] bg-white ${estilo.text} font-bold px-2 py-0.5 rounded-full border ${estilo.border}">${c.canal}</span>
-                                </div>
-                                <p class="text-xs font-bold text-slate-700 truncate">${c.cliente}</p>
-                                <p class="text-[10px] text-slate-500">Zona: ${c.zona}</p>
-                                
-                                <div class="flex justify-between items-center mt-2 pt-2 border-t text-[11px] font-bold ${estilo.text}">
-                                    <span>Bultos: ${c.bultos}</span>
-                                    <span class="bg-white/80 px-1.5 py-0.5 rounded border border-slate-200">Peso: ${c.peso.toFixed(2)} kg</span>
-                                    <span>Pallets: ${Number(c.pallets).toFixed(2)}</span>
-                                </div>
-                            </div>
-                        `;
-                    }).join('');
+                // Generar tarjetas en un contenedor GRID continuo que ocupe todo el espacio horizontal disponible
+                let cardsHtml = itemsDeFecha.map(c => {
+                    let isSelected = (viajeActual.cpPrincipal === c.cp || viajeActual.complementos.includes(c.cp));
+                    let selectRing = isSelected ? "ring-4 ring-blue-600 bg-blue-50/90 shadow-lg" : "";
+                    let estilo = obtenerEstiloCanal(c.canal);
 
                     return `
-                        <div class="space-y-2">
-                            <div class="flex items-center gap-2">
-                                <span class="text-xs font-black uppercase px-2.5 py-0.5 rounded-lg ${estilo.bg} ${estilo.text} border ${estilo.border}">
-                                    📢 CANAL: ${canal} (${itemsCanal.length} CPs)
-                                </span>
+                        <div onclick="seleccionarCPParaGrilla('${c.cp}', '${c.fechaPedido}', '${c.canal}', '${c.cliente}', '${c.zona}', ${c.peso}, ${c.bultos}, ${c.pallets}, ${c.clientesSet.size})" class="p-3 rounded-2xl border ${estilo.border} ${estilo.bg} ${selectRing} shadow-sm hover:shadow-md cursor-pointer transition-all flex flex-col justify-between space-y-2">
+                            <div>
+                                <div class="flex justify-between items-center mb-1 gap-2">
+                                    <span class="font-black text-xs text-blue-900 truncate">CP: ${c.cp} ${isSelected ? '✓' : ''}</span>
+                                    <span class="text-[10px] bg-indigo-900 text-white font-bold px-2 py-0.5 rounded-md shadow-sm truncate">
+                                        🚛 ${c.vehiculo}
+                                    </span>
+                                </div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="text-[9px] bg-white/90 ${estilo.text} font-black px-2 py-0.5 rounded-full border ${estilo.border} uppercase truncate">${c.canal}</span>
+                                </div>
+                                <p class="text-xs font-bold text-slate-800 truncate">${c.cliente}</p>
+                                <p class="text-[10px] text-slate-500 truncate">Zona: ${c.zona}</p>
                             </div>
-                            <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
-                                ${cardsHtml}
+                            
+                            <div class="flex justify-between items-center pt-2 border-t text-[11px] font-bold ${estilo.text}">
+                                <span>Bultos: ${c.bultos}</span>
+                                <span class="bg-white/80 px-1.5 py-0.5 rounded border border-slate-200">Peso: ${c.peso.toFixed(2)} kg</span>
+                                <span>Pallets: ${Number(c.pallets).toFixed(2)}</span>
                             </div>
                         </div>
                     `;
@@ -763,8 +832,8 @@
                         <div class="font-black text-sm text-blue-900 border-b pb-2 flex justify-between items-center">
                             <span>📅 FECHA ENTREGA PEDIDO: ${fechaFormateada}</span>
                         </div>
-                        <div class="space-y-4">
-                            ${bloquesCanalesHtml}
+                        <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                            ${cardsHtml}
                         </div>
                     </div>
                 `;
@@ -1029,7 +1098,171 @@
             } catch (err) { alert("Error al quitar de la grilla."); }
         }
 
+        // --- SECCIÓN 3: HOJA DE RUTA Y PDF (REQUERIMIENTO PRINCIPAL) ---
+        let filasHojaRutaActuales = [];
+
+        async function cargarHojasDeRutaProgramadas() {
+            const fechaInput = document.getElementById('filtroFechaHojaRuta').value;
+            if (!fechaInput) return;
+
+            try {
+                const respGrilla = await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'obtenerGrillaRegistrada' }) });
+                const resGrilla = await respGrilla.json();
+                
+                if (resGrilla.status === "success") {
+                    grillaRegistrada = resGrilla.grilla;
+                    filasHojaRutaActuales = grillaRegistrada.filter(g => String(g.fechaGrilla).trim() === String(fechaInput).trim());
+                    renderizarTablaHojaRuta();
+                }
+            } catch (err) { console.error("Error al cargar hojas de ruta:", err); }
+        }
+
+        function renderizarTablaHojaRuta() {
+            const tbody = document.getElementById('tbodyHojaRuta');
+            
+            if (filasHojaRutaActuales.length === 0) {
+                tbody.innerHTML = `<tr class="text-slate-400 italic"><td colspan="6" class="p-4 text-center">No hay cartas de porte programadas para esta fecha en la grilla.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filasHojaRutaActuales.map((g, idx) => {
+                return `
+                    <tr class="hover:bg-slate-50 font-bold text-xs border-b border-slate-200">
+                        <td class="p-3 text-center border-r border-slate-200"><input type="checkbox" class="chkHR" value="${idx}"></td>
+                        <td class="p-3 border-r border-slate-200">${g.fechaGrilla}</td>
+                        <td class="p-3 font-black text-blue-900 border-r border-slate-200">${g.cpPrincipal}</td>
+                        <td class="p-3 border-r border-slate-200 text-slate-600">${g.cpComplementos || 'Sin complemento'}</td>
+                        <td class="p-3 border-r border-slate-200 font-bold text-indigo-900">${g.tipoVehiculo}</td>
+                        <td class="p-3 uppercase text-slate-700">${g.canal}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function toggleSelectAllHR(chkMaster) {
+            document.querySelectorAll('.chkHR').forEach(c => c.checked = chkMaster.checked);
+        }
+
+        async function generarHojaRutaPDF() {
+            const chks = document.querySelectorAll('.chkHR:checked');
+            if (chks.length === 0) return alert("Seleccioná al menos una carta de porte para generar la Hoja de Ruta.");
+
+            const area = document.getElementById('areaImpresionPDF');
+            area.innerHTML = '<p style="padding:20px;">Consultando datos e información de Ruteo...</p>';
+
+            let viajesSeleccionados = [];
+            chks.forEach(chk => viajesSeleccionados.push(filasHojaRutaActuales[Number(chk.value)]));
+
+            try {
+                let htmlHojas = '';
+
+                for (let viaje of viajesSeleccionados) {
+                    let cpsAObtener = [String(viaje.cpPrincipal).trim()];
+                    if (viaje.cpComplementos) {
+                        viaje.cpComplementos.split(',').forEach(c => { let t = c.trim(); if(t) cpsAObtener.push(t); });
+                    }
+
+                    for (let cpItem of cpsAObtener) {
+                        let respRuteo = await fetch(`${RUTEO_APP_URL}?action=buscarCP&cp=${cpItem}`);
+                        let datosCP = await respRuteo.json();
+
+                        let docsList = [];
+                        if (datosCP && datosCP.listaClientes) {
+                            datosCP.listaClientes.forEach(cli => {
+                                cli.documentos.forEach(doc => {
+                                    docsList.push({
+                                        nroDoc: doc.numero || 'N/A',
+                                        tipo: doc.tipo || 'FACTURA',
+                                        cliente: cli.nombre || 'N/A',
+                                        direccion: cli.direccion || 'N/A',
+                                        cajas: doc.cajas || 0,
+                                        unidades: doc.unidades || 0,
+                                        importe: doc.importe || 0
+                                    });
+                                });
+                            });
+                        }
+
+                        let totCajas = 0, totUnidades = 0, totImporte = 0;
+                        let filasDocsHtml = docsList.map(d => {
+                            totCajas += Number(d.cajas) || 0;
+                            totUnidades += Number(d.unidades) || 0;
+                            totImporte += Number(d.importe) || 0;
+                            return `
+                                <tr style="border-bottom: 1px solid #cbd5e1; font-size: 11px;">
+                                    <td style="padding: 6px;">${d.nroDoc}</td>
+                                    <td style="padding: 6px;">${d.tipo}</td>
+                                    <td style="padding: 6px; font-weight: bold;">${d.cliente}</td>
+                                    <td style="padding: 6px;">${d.direccion}</td>
+                                    <td style="padding: 6px; text-align: center;">${d.cajas}</td>
+                                    <td style="padding: 6px; text-align: center;">${d.unidades}</td>
+                                    <td style="padding: 6px; text-align: right;">$${Number(d.importe).toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
+                                </tr>
+                            `;
+                        }).join('');
+
+                        if (docsList.length === 0) {
+                            filasDocsHtml = `<tr><td colspan="7" style="padding:15px; text-align:center; color:#94a3b8; font-style:italic;">No se encontraron documentos registrados en la base de ruteo para la CP ${cpItem}.</td></tr>`;
+                        }
+
+                        htmlHojas += `
+                            <div class="hoja-pagina" style="font-family: Arial, sans-serif; color: #1e293b; background: white;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #1e3a5f; padding-bottom: 10px; margin-bottom: 15px;">
+                                    <div>
+                                        <h1 style="margin: 0; font-size: 20px; font-weight: 900; color: #1e3a5f; text-transform: uppercase;">Reparto de Grupo Peñaflor</h1>
+                                        <p style="margin: 3px 0 0 0; font-size: 12px; color: #64748b;">Hoja de Ruta Oficial de Entregas</p>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <p style="margin: 0; font-size: 14px; font-weight: bold; color: #1e3a5f;">CARTA DE PORTE: ${cpItem}</p>
+                                        <p style="margin: 3px 0 0 0; font-size: 12px; font-weight: bold; color: #475569;">FECHA DE REPARTO: ${viaje.fechaGrilla}</p>
+                                    </div>
+                                </div>
+
+                                <div style="margin-bottom: 15px; font-size: 11px; background: #f8fafc; padding: 8px 12px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; gap: 20px;">
+                                    <span><strong>Vehículo:</strong> ${viaje.tipoVehiculo}</span>
+                                    <span><strong>Canal:</strong> ${viaje.canal}</span>
+                                    <span><strong>CP Principal del Viaje:</strong> ${viaje.cpPrincipal}</span>
+                                </div>
+
+                                <table style="width: 100%; border-collapse: collapse; text-align: left; margin-top: 10px;">
+                                    <thead>
+                                        <tr style="background-color: #1e3a5f; color: white; font-size: 11px; font-weight: bold;">
+                                            <th style="padding: 8px;">NRO DOC</th>
+                                            <th style="padding: 8px;">TIPO</th>
+                                            <th style="padding: 8px;">CLIENTE</th>
+                                            <th style="padding: 8px;">DIRECCIÓN</th>
+                                            <th style="padding: 8px; text-align: center;">CAJAS</th>
+                                            <th style="padding: 8px; text-align: center;">UNIDADES</th>
+                                            <th style="padding: 8px; text-align: right;">IMPORTE</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${filasDocsHtml}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr style="background-color: #e2e8f0; font-weight: bold; font-size: 12px; border-top: 2px solid #94a3b8;">
+                                            <td colspan="4" style="padding: 8px; text-align: right; text-transform: uppercase;">TOTALES CP ${cpItem}:</td>
+                                            <td style="padding: 8px; text-align: center;">${totCajas}</td>
+                                            <td style="padding: 8px; text-align: center;">${totUnidades}</td>
+                                            <td style="padding: 8px; text-align: right;">$${totImporte.toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        `;
+                    }
+                }
+
+                area.innerHTML = htmlHojas;
+                window.print();
+
+            } catch (err) {
+                alert("Error al obtener la información de Ruteo para generar la Hoja de Ruta.");
+            }
+        }
+
         document.getElementById('filtroFechaGrilla').addEventListener('change', () => { renderizarTablaGrillaRegistrada(); });
+        document.getElementById('filtroFechaHojaRuta').addEventListener('change', () => { cargarHojasDeRutaProgramadas(); });
     </script>
 </body>
 </html>
