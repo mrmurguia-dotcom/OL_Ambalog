@@ -17,7 +17,7 @@
         <!-- ENCABEZADO CON BOTONES DE ACCIONES -->
         <div class="flex flex-wrap justify-between items-center mb-8 border-b pb-4 gap-4">
             <div>
-                <h1 class="text-3xl font-black text-blue-900 italic">CARGA PEDIDOS - GP </h1>
+                <h1 class="text-3xl font-black text-blue-900 italic">CARGA PEDIDOS - GP OK</h1>
                 <p class="text-slate-500 text-sm mt-1">Panel Central Ambalog - M2</p>
             </div>
             <div class="flex flex-wrap items-center gap-3">
@@ -152,7 +152,7 @@
         </div>
     </div>
 
-    <!-- MODAL MODIFICAR CP (CARTA DE PORTE) CON MOTIVO Y CAMBIO DE FECHA -->
+    <!-- MODAL MODIFICAR CP (CARTA DE PORTE) -->
     <div id="modalCP" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-3xl shadow-2xl max-w-xl w-full p-6 border border-slate-200">
             <div class="flex justify-between items-center border-b pb-3 mb-4">
@@ -205,6 +205,22 @@
                     <button type="submit" id="btnGuardarCP" class="px-6 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-md">APLICAR CAMBIO DE CP</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- MODAL INFORMACIÓN PEDIDO / EMBARQUE (AL HACER CLICK EN CLIENTE) -->
+    <div id="modalInfoCliente" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 border border-slate-200">
+            <div class="flex justify-between items-center border-b pb-3 mb-4">
+                <h2 class="text-lg font-black text-blue-900 flex items-center gap-2">📦 Pedido y Embarque del Cliente</h2>
+                <button onclick="cerrarModalInfoCliente()" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+            </div>
+            <div id="contenidoInfoCliente" class="space-y-3 text-sm text-slate-700">
+                <!-- Se rellena dinámicamente -->
+            </div>
+            <div class="flex justify-end pt-4 border-t mt-4">
+                <button type="button" onclick="cerrarModalInfoCliente()" class="px-5 py-2 rounded-xl bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs">Cerrar</button>
+            </div>
         </div>
     </div>
 
@@ -417,7 +433,7 @@
                         <tr class="hover:bg-slate-50">
                             <td class="p-3">${item.cp}</td>
                             <td class="p-3">${item.transporte}</td>
-                            <td class="p-3 font-bold text-blue-900">${item.idCliente}</td>
+                            <td class="p-3 font-bold text-blue-900 cursor-pointer hover:underline" onclick="verInfoCliente('${item.idCliente}')">${item.idCliente}</td>
                             <td class="p-3">${item.nombreCliente}</td>
                             <td class="p-3">${item.prioridad}</td>
                             <td class="p-3">${item.canal}</td>
@@ -504,6 +520,40 @@
             actualizarTotalBultos(acumuladoBultos);
         }
 
+        // --- VENTANA EMERGENTE PARA MOSTRAR PEDIDO Y EMBARQUE AGRUPADO ---
+        function verInfoCliente(idCliente) {
+            let pedidosSet = new Set();
+            let embarquesSet = new Set();
+            let nombreCli = "";
+
+            filasProcesadas.forEach(r => {
+                let id = String(r[0] || '').trim();
+                if (id === String(idCliente).trim()) {
+                    if (r[15]) nombreCli = r[15];
+                    // Columna N (índice 13) = Número del Pedido, Columna B (índice 1) = Embarque ID
+                    let numPedido = String(r[13] || '').trim();
+                    let embarque = String(r[1] || '').trim();
+                    if (numPedido) pedidosSet.add(numPedido);
+                    if (embarque) embarquesSet.add(embarque);
+                }
+            });
+
+            const contenedor = document.getElementById('contenidoInfoCliente');
+            contenedor.innerHTML = `
+                <p><strong>ID Cliente:</strong> <span class="text-blue-900 font-bold">${idCliente}</span></p>
+                <p><strong>Nombre:</strong> <span>${nombreCli || 'N/D'}</span></p>
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 mt-2 space-y-1">
+                    <p><strong>Número(s) de Pedido:</strong> <span class="text-emerald-700 font-black">${pedidosSet.size > 0 ? Array.from(pedidosSet).join(', ') : 'Ninguno'}</span></p>
+                    <p><strong>Embarque(s):</strong> <span class="text-indigo-700 font-black">${embarquesSet.size > 0 ? Array.from(embarquesSet).join(', ') : 'Ninguno'}</span></p>
+                </div>
+            `;
+            document.getElementById('modalInfoCliente').classList.remove('hidden');
+        }
+
+        function cerrarModalInfoCliente() {
+            document.getElementById('modalInfoCliente').classList.add('hidden');
+        }
+
         async function sincronizarPedidos() {
             const fechaInput = document.getElementById('fechaEntrega').value;
             if (!fechaInput) return alert("Selecciona la fecha de entrega");
@@ -547,6 +597,24 @@
 
         async function guardarReprogramacion(e) {
             e.preventDefault();
+            const clienteInput = document.getElementById('repoCliente').value.trim();
+            const bultosInput = Number(document.getElementById('repoBultos').value);
+
+            // Calcular bultos totales reales cargados para ese cliente en memoria
+            let bultosRealesTotales = 0;
+            filasProcesadas.forEach(r => {
+                let id = String(r[0] || '').trim();
+                if (id === clienteInput) {
+                    bultosRealesTotales += Number(r[4]) || 0;
+                }
+            });
+
+            // Validación estricta solicitada
+            if (filasProcesadas.length > 0 && bultosRealesTotales > 0 && bultosInput !== bultosRealesTotales) {
+                alert(`⚠️ La cantidad de bultos ingresada (${bultosInput}) no coincide con el total de bultos del cliente en esa fecha (${bultosRealesTotales}).\n\nSi la reprogramación es parcial, debe hacerlo manualmente en la base. Para realizarla por este medio, la cantidad debe ser exactamente la misma que el total.`);
+                return;
+            }
+
             const btn = document.getElementById('btnGuardarRepo');
             btn.innerText = "VERIFICANDO Y PROCESANDO...";
             btn.disabled = true;
@@ -557,10 +625,10 @@
             const payload = {
                 action: 'reprogramarPedido',
                 info: {
-                    idCliente: document.getElementById('repoCliente').value,
+                    idCliente: clienteInput,
                     fechaOrig: `${d1}-${m1}-${y1}`,
                     fechaNueva: `${d2}-${m2}-${y2}`,
-                    bultos: document.getElementById('repoBultos').value,
+                    bultos: bultosInput,
                     motivo: document.getElementById('repoMotivo').value
                 }
             };
@@ -573,13 +641,11 @@
                     alert(resJson.message);
                     document.getElementById('formReprogramar').reset();
                     cerrarModalReprogramar();
-                } else if (resJson.status === "invalid_quantity" || resJson.status === "error") {
-                    alert(resJson.message || "La cantidad de bultos no coincide con el total. Si quiere hacer una reprogramación parcial, debe hacerlo manualmente en la base. Esta acción solo funciona cuando la cantidad coincide con el total.");
                 } else {
-                    alert(resJson.message || "Error al reprogramar.");
+                    alert(resJson.message || "Error al reprogramar el pedido.");
                 }
             } catch(err) {
-                alert("Atención: Asegúrese de que la cantidad de bultos coincida exactamente con el total del pedido. Las reprogramaciones parciales deben hacerse manualmente en la base.");
+                alert("Error al comunicarse con la base de datos.");
             }
             btn.innerText = "REGISTRAR CAMBIO";
             btn.disabled = false;
