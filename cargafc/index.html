@@ -102,7 +102,7 @@
                     let nro = nroMatch ? nroMatch[1] : null;
 
                     if (nro) {
-                        const cp = txt.match(/Carta\s+Porte.*?:\s*(\d+)/)?.[1] || "S/CP";
+                        const cp = txt.match(/Carta\s+Porte.*?:\s*([\d-]+)/)?.[1] || "S/CP";
                         const cliMatch = txt.match(/Cliente:\s*(\d+\s+.*?)(?=\s+SN\s+|\s+SR\s+|\s+VN\s+|\s+Direcci)/i);
                         const cli = cliMatch ? cliMatch[1].trim() : (txt.match(/Cliente:\s*(\d+\s+[A-Za-z\s.,]+)/)?.[1]?.trim() || "Cliente");
                         
