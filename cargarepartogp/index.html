@@ -6,45 +6,65 @@
     <title>Carga Reparto GP - Panel de Gestión</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        /* ESTILOS EXCLUSIVOS DE IMPRESIÓN / PDF */
         @media print {
             @page {
                 size: landscape;
                 margin: 8mm;
             }
+            
+            /* Ocultar todo el body y botones de interfaz */
             body * {
                 visibility: hidden !important;
             }
+            
+            /* Desestructurar el modal para que las hojas impriman como paginas independientes */
             #modalVistaPreviaPDF, 
-            #modalVistaPreviaPDF #contenidoHojasPDF, 
-            #modalVistaPreviaPDF #contenidoHojasPDF * {
+            #modalVistaPreviaPDF *,
+            #contenidoHojasPDF,
+            #contenidoHojasPDF * {
                 visibility: visible !important;
             }
+
             #modalVistaPreviaPDF {
-                position: fixed !important;
+                position: absolute !important;
                 left: 0 !important;
                 top: 0 !important;
-                width: 100vw !important;
+                width: 100% !important;
                 height: auto !important;
                 background: white !important;
                 z-index: 999999 !important;
                 padding: 0 !important;
                 margin: 0 !important;
                 overflow: visible !important;
+                display: block !important;
             }
+
             .no-print, .no-print * {
                 display: none !important;
             }
+
+            /* REGLAS FORZADAS DE SALTO DE PÁGINA PERMITIENDO 1 CP POR HOJA */
             .hoja-pagina {
+                page-break-before: always !important;
+                break-before: page !important;
                 page-break-after: always !important;
                 break-after: page !important;
                 page-break-inside: avoid !important;
                 break-inside: avoid !important;
-                margin: 0 0 0 0 !important;
-                padding: 15px !important;
+                margin: 0 !important;
+                padding: 10px !important;
                 border: none !important;
                 box-shadow: none !important;
                 width: 100% !important;
                 box-sizing: border-box !important;
+                display: block !important;
+                clear: both !important;
+            }
+
+            .hoja-pagina:first-child {
+                page-break-before: auto !important;
+                break-before: auto !important;
             }
         }
     </style>
@@ -55,7 +75,7 @@
         <!-- ENCABEZADO Y NAVEGACIÓN -->
         <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 flex flex-wrap justify-between items-center gap-4">
             <div>
-                <h1 class="text-3xl font-black text-blue-900 italic uppercase">CARGA REPARTO GP</h1>
+                <h1 class="text-3xl font-black text-blue-900 italic uppercase">CARGA REPARTO GP OK</h1>
                 <p class="text-slate-500 text-sm mt-1">Panel Operativo de Asignación, Grilla y Hojas de Ruta</p>
             </div>
             
@@ -333,7 +353,7 @@
                 </div>
             </div>
 
-            <!-- TABLA ESTILO EXCEL (AHORA DESGLOSADA POR CARTA DE PORTE INDIVIDUAL) -->
+            <!-- TABLA ESTILO EXCEL (DESGLOSADA POR CARTA DE PORTE INDIVIDUAL) -->
             <div class="overflow-x-auto border border-slate-300 rounded-2xl bg-white shadow-sm max-h-[460px]">
                 <table class="w-full text-left border-collapse text-xs font-sans">
                     <thead class="bg-slate-800 text-white font-bold sticky top-0 border-b border-slate-400">
@@ -1293,7 +1313,7 @@
                     }
 
                     htmlHojas += `
-                        <div class="hoja-pagina" style="page-break-after: always !important; break-after: page !important; font-family: Arial, sans-serif; color: #1e293b; background: white; padding: 25px; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
+                        <div class="hoja-pagina" style="page-break-before: always !important; break-before: page !important; page-break-after: always !important; break-after: page !important; font-family: Arial, sans-serif; color: #1e293b; background: white; padding: 25px; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
                             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #1e3a5f; padding-bottom: 10px; margin-bottom: 15px;">
                                 <div>
                                     <h1 style="margin: 0; font-size: 20px; font-weight: 900; color: #1e3a5f; text-transform: uppercase;">Reparto de Grupo Peñaflor</h1>
@@ -1312,7 +1332,7 @@
                             </div>
 
                             <table style="width: 100%; border-collapse: collapse; text-align: left; margin-top: 10px;">
-                               <thead>
+                                <thead>
                                     <tr style="background-color: #1e3a5f; color: white; font-size: 11px; font-weight: bold;">
                                         <th style="padding: 8px;">NRO DOC</th>
                                         <th style="padding: 8px;">TIPO</th>
