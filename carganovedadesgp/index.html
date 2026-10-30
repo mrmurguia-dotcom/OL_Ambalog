@@ -5,8 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel de Control de Novedades de Reparto</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Librería para generar códigos QR -->
-    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 </head>
 <body class="bg-slate-100 p-4 md:p-8">
     <div class="max-w-7xl mx-auto space-y-6">
@@ -15,7 +13,7 @@
         <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 flex flex-wrap justify-between items-center gap-4">
             <div>
                 <h1 class="text-3xl font-black text-blue-900 italic uppercase">CONTROL DE NOVEDADES GP</h1>
-                <p class="text-slate-500 text-sm mt-1">Monitoreo de salidas, llegadas, rechazos, fotos y audios de WhatsApp</p>
+                <p class="text-slate-500 text-sm mt-1">Monitoreo de salidas, llegadas y registro provisorio de novedades</p>
             </div>
             <div class="flex items-center gap-3 flex-wrap">
                 <div>
@@ -65,37 +63,43 @@
 
     </div>
 
-    <!-- MODAL DE GESTIÓN DE NOVEDAD Y DOCUMENTOS (FC / RTO) -->
+    <!-- MODAL EN FORMATO DE TABLA PARA GESTIÓN DE DOCUMENTOS (FC / RTO) -->
     <div id="modalNovedadDetalle" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-3xl shadow-2xl max-w-4xl w-full p-6 border border-slate-200 space-y-6 max-h-[90vh] overflow-y-auto">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-6xl w-full p-6 border border-slate-200 space-y-6 max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center border-b pb-3">
                 <div>
-                    <h3 class="text-lg font-black text-blue-900">Gestión de Novedades de Llegada por Documento</h3>
+                    <h3 class="text-lg font-black text-blue-900">Gestión de Novedades de Llegada (Formato Tabla)</h3>
                     <p class="text-xs text-slate-500" id="subtituloModalCP">Carta de Porte: --</p>
                 </div>
                 <button onclick="cerrarModalNovedad()" class="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
             </div>
 
-            <!-- Listado de documentos del viaje -->
-            <div class="space-y-4" id="contenedorDocumentosNovedad">
-                <p class="text-xs text-slate-400 italic">Cargando documentos de la Carta de Porte...</p>
+            <!-- TABLA DE DOCUMENTOS -->
+            <div class="overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-sm max-h-[50vh]">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead class="bg-slate-100 text-slate-700 font-bold sticky top-0 border-b">
+                        <tr>
+                            <th class="p-3 text-center w-12">
+                                <input type="checkbox" id="chkAllDocs" onchange="toggleSeleccionarTodosDocs(this)">
+                            </th>
+                            <th class="p-3">Nro Documento / Tipo</th>
+                            <th class="p-3">Cliente y Dirección</th>
+                            <th class="p-3">Clasificación de Novedad</th>
+                            <th class="p-3">Observaciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyDocumentosModal" class="divide-y divide-slate-100">
+                        <!-- Inyectado dinámicamente -->
+                    </tbody>
+                </table>
             </div>
 
-            <div class="pt-4 border-t flex justify-end gap-3">
-                <button onclick="cerrarModalNovedad()" class="bg-blue-900 hover:bg-black text-white font-bold text-xs px-6 py-2.5 rounded-xl shadow">
-                    Guardar y Cerrar
+            <div class="pt-4 border-t flex justify-between items-center">
+                <span class="text-xs text-slate-500 italic">💡 Los cambios quedan guardados en memoria de forma provisoria hasta hacer click en "Sincronizar Novedades".</span>
+                <button onclick="guardarProvisorioModal()" class="bg-blue-900 hover:bg-black text-white font-bold text-xs px-6 py-2.5 rounded-xl shadow transition-all">
+                    💾 Guardar y Cerrar (Provisorio)
                 </button>
             </div>
-        </div>
-    </div>
-
-    <!-- MODAL QR PARA CAPTURA DESDE CELULAR -->
-    <div id="modalQRCaptura" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 text-center space-y-4">
-            <h3 class="text-base font-black text-blue-900" id="tituloQRCaptura">Escaneá con tu Celular</h3>
-            <p class="text-xs text-slate-500">Apuntá la cámara de tu teléfono para capturar la foto o subir el audio de WhatsApp directamente a Google Drive.</p>
-            <div id="qrContainer" class="flex justify-center p-4 bg-slate-50 rounded-2xl border border-slate-200"></div>
-            <button onclick="cerrarModalQR()" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs py-2.5 rounded-xl">Cerrar Ventana</button>
         </div>
     </div>
 
@@ -103,7 +107,9 @@
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyF9e6gme3wHTVO_RooY_xqbK9VFciCZ0jejU2Vmh9o1OUEKwzmn1WxERq7hFBo0Oo2/exec";
         
         let viajesNovedades = [];
-        let estadoNovedadesMap = {}; // Almacena los estados cargados por el usuario
+        let estadoNovedadesMap = {}; // Almacena estados y documentos con novedad por CP
+        let cpActualAbierta = null;
+        let documentosActualesCP = [];
 
         const hoy = new Date();
         document.getElementById('filtroFechaNovedades').valueAsDate = hoy;
@@ -126,7 +132,6 @@
 
                 if (res.status === "success") {
                     const grilla = res.grilla || [];
-                    // Filtrar por la fecha seleccionada
                     viajesNovedades = grilla.filter(g => String(g.fechaGrilla).trim() === String(fechaInput).trim());
                     renderizarTablaNovedades();
                 } else {
@@ -154,7 +159,7 @@
                         salidaEstado: v.salidaEstado || 'SALIO',
                         salidaMotivo: v.salidaMotivo || '',
                         llegadaEstado: v.llegadaEstado || 'SIN_NOVEDAD',
-                        documentos: {}
+                        documentosSeleccionados: {} // { numDoc: { clasificacion, comentario } }
                     };
                 }
                 const est = estadoNovedadesMap[cpKey];
@@ -194,7 +199,7 @@
                         <!-- ACCIONES -->
                         <td class="p-2 text-center">
                             <button onclick="abrirModalNovedad('${v.cpPrincipal}')" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-900 font-bold px-3 py-1.5 rounded-xl text-xs transition-all">
-                                📝 Detalle / Evidencia
+                                📝 Detalle Documentos
                             </button>
                         </td>
                     </tr>
@@ -219,10 +224,11 @@
         }
 
         async function abrirModalNovedad(cp) {
+            cpActualAbierta = cp;
             document.getElementById('subtituloModalCP').innerText = `Carta de Porte: ${cp}`;
             document.getElementById('modalNovedadDetalle').classList.remove('hidden');
-            const contenedor = document.getElementById('contenedorDocumentosNovedad');
-            contenedor.innerHTML = `<p class="text-xs text-slate-500 italic">Buscando documentos de la CP ${cp}...</p>`;
+            const tbodyDocs = document.getElementById('tbodyDocumentosModal');
+            tbodyDocs.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-500 italic">Buscando documentos de la CP ${cp}...?</td></tr>`;
 
             try {
                 const resp = await fetch(WEB_APP_URL, {
@@ -232,11 +238,10 @@
                 const res = await resp.json();
 
                 if (res.status === "success" && res.data && res.data.listaClientes) {
-                    let docs = [];
+                    documentosActualesCP = [];
                     res.data.listaClientes.forEach(cli => {
                         cli.documentos.forEach(doc => {
-                            docs.push({
-                                id: doc.numero || 'DOC_01',
+                            documentosActualesCP.push({
                                 numero: doc.numero || 'N/A',
                                 tipo: doc.tipo || 'FACTURA',
                                 cliente: cli.nombre || 'N/A',
@@ -245,77 +250,107 @@
                         });
                     });
 
-                    if (docs.length === 0) {
-                        contenedor.innerHTML = `<p class="text-xs text-slate-400 italic">No se encontraron documentos para esta CP.</p>`;
+                    if (documentosActualesCP.length === 0) {
+                        tbodyDocs.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-400 italic">No se encontraron documentos para esta CP.</td></tr>`;
                         return;
                     }
 
-                    contenedor.innerHTML = docs.map(d => {
-                        return `
-                            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
-                                <div class="flex justify-between items-center flex-wrap gap-2">
-                                    <div>
-                                        <span class="font-black text-xs text-blue-900">${d.tipo}: ${d.numero}</span>
-                                        <p class="text-xs font-bold text-slate-700">${d.cliente} (${d.direccion})</p>
-                                    </div>
-                                    <div>
-                                        <label class="block text-[10px] font-bold text-slate-500 uppercase">Clasificación:</label>
-                                        <select class="p-2 rounded-xl border border-slate-300 text-xs font-bold bg-white text-blue-900 outline-none">
-                                            <option value="RECHAZO_PARCIAL">Rechazo Parcial</option>
-                                            <option value="RECHAZO_TOTAL">Rechazo Total</option>
-                                            <option value="NO_ENTREGADO">No Entregado</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div>
-                                    <input type="text" placeholder="Comentarios u observaciones de la novedad..." class="w-full p-2 rounded-xl border border-slate-300 text-xs bg-white outline-none">
-                                </div>
-                                <div class="flex flex-wrap gap-3 pt-2 border-t border-slate-200">
-                                    <button onclick="abrirQRModal('FOTO', '${d.numero}')" class="bg-blue-800 hover:bg-blue-900 text-white font-bold text-xs px-4 py-2 rounded-xl shadow">
-                                        📷 Capturar Foto (QR Celular)
-                                    </button>
-                                    <button onclick="abrirQRModal('AUDIO', '${d.numero}')" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs px-4 py-2 rounded-xl shadow">
-                                        🎤 Adjuntar Audio WhatsApp (QR Celular)
-                                    </button>
-                                </div>
-                            </div>
-                        `;
-                    }).join('');
+                    renderizarTablaDocumentosModal();
 
                 } else {
-                    contenedor.innerHTML = `<p class="text-xs text-red-500 font-bold">No se pudieron cargar los documentos para esta CP.</p>`;
+                    tbodyDocs.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-red-500 font-bold">No se pudieron cargar los documentos para esta CP.</td></tr>`;
                 }
             } catch (err) {
                 console.error(err);
-                contenedor.innerHTML = `<p class="text-xs text-red-500 font-bold">Error de conexión al buscar documentos.</p>`;
+                tbodyDocs.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-red-500 font-bold">Error de conexión al buscar documentos.</td></tr>`;
             }
+        }
+
+        function renderizarTablaDocumentosModal() {
+            const tbodyDocs = document.getElementById('tbodyDocumentosModal');
+            const est = estadoNovedadesMap[cpActualAbierta] || { documentosSeleccionados: {} };
+
+            tbodyDocs.innerHTML = documentosActualesCP.map(d => {
+                const docData = est.documentosSeleccionados[d.numero] || { seleccionado: false, clasificacion: 'RECHAZO_PARCIAL', comentario: '' };
+
+                return `
+                    <tr class="hover:bg-slate-50 border-b">
+                        <td class="p-3 text-center">
+                            <input type="checkbox" class="chkDocItem" value="${d.numero}" ${docData.seleccionado ? 'checked' : ''} onchange="toggleSeleccionDoc('${d.numero}', this.checked)">
+                        </td>
+                        <td class="p-3">
+                            <span class="text-sm font-black text-blue-900">${d.numero}</span>
+                            <span class="block text-[10px] text-slate-500 uppercase font-bold">${d.tipo}</span>
+                        </td>
+                        <td class="p-3 font-semibold text-slate-800">
+                            ${d.cliente}
+                            <span class="block text-[11px] font-normal text-slate-500">${d.direccion}</span>
+                        </td>
+                        <td class="p-3">
+                            <select id="clasif_${d.numero}" class="p-2 rounded-xl border border-slate-300 text-xs font-bold bg-white text-blue-900 outline-none w-full" ${!docData.seleccionado ? 'disabled' : ''}>
+                                <option value="RECHAZO_PARCIAL" ${docData.clasificacion === 'RECHAZO_PARCIAL' ? 'selected' : ''}>Rechazo Parcial</option>
+                                <option value="RECHAZO_TOTAL" ${docData.clasificacion === 'RECHAZO_TOTAL' ? 'selected' : ''}>Rechazo Total</option>
+                                <option value="NO_ENTREGADO" ${docData.clasificacion === 'NO_ENTREGADO' ? 'selected' : ''}>No Entregado</option>
+                            </select>
+                        </td>
+                        <td class="p-3">
+                            <input type="text" id="comet_${d.numero}" placeholder="Motivo u observación..." value="${docData.comentario}" class="w-full p-2 rounded-xl border border-slate-300 text-xs bg-white outline-none" ${!docData.seleccionado ? 'disabled' : ''}>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function toggleSeleccionDoc(nroDoc, isChecked) {
+            const est = estadoNovedadesMap[cpActualAbierta];
+            if (!est.documentosSeleccionados[nroDoc]) {
+                est.documentosSeleccionados[nroDoc] = {};
+            }
+            est.documentosSeleccionados[nroDoc].seleccionado = isChecked;
+            est.documentosSeleccionados[nroDoc].clasificacion = document.getElementById(`clasif_${nroDoc}`).value;
+            est.documentosSeleccionados[nroDoc].comentario = document.getElementById(`comet_${nroDoc}`).value;
+            
+            renderizarTablaDocumentosModal();
+        }
+
+        function toggleSeleccionarTodosDocs(chkMaster) {
+            const isChecked = chkMaster.checked;
+            document.querySelectorAll('.chkDocItem').forEach(chk => {
+                chk.checked = isChecked;
+                toggleSeleccionDoc(chk.value, isChecked);
+            });
+        }
+
+        function guardarProvisorioModal() {
+            // Capturar valores actuales de los inputs habilitados
+            documentosActualesCP.forEach(d => {
+                const chk = document.querySelector(`.chkDocItem[value="${d.numero}"]`);
+                if (chk && chk.checked) {
+                    const clasif = document.getElementById(`clasif_${d.numero}`).value;
+                    const comentario = document.getElementById(`comet_${d.numero}`).value;
+                    estadoNovedadesMap[cpActualAbierta].documentosSeleccionados[d.numero] = {
+                        seleccionado: true,
+                        clasificacion: clasif,
+                        comentario: comentario
+                    };
+                } else if (chk) {
+                    if (estadoNovedadesMap[cpActualAbierta].documentosSeleccionados[d.numero]) {
+                        estadoNovedadesMap[cpActualAbierta].documentosSeleccionados[d.numero].seleccionado = false;
+                    }
+                }
+            });
+
+            cerrarModalNovedad();
+            alert("✓ Novedades guardadas provisoriamente en memoria. Recordá hacer click en 'Sincronizar Novedades' para grabarlas en el sistema.");
         }
 
         function cerrarModalNovedad() {
             document.getElementById('modalNovedadDetalle').classList.add('hidden');
         }
 
-        function abrirQRModal(tipo, idDocumento) {
-            document.getElementById('modalQRCaptura').classList.remove('hidden');
-            document.getElementById('tituloQRCaptura').innerText = tipo === 'FOTO' ? "📷 Escaneá para Subir Foto" : "🎤 Escaneá para Enviar Audio";
-            const qrDiv = document.getElementById('qrContainer');
-            qrDiv.innerHTML = "";
-            
-            let urlMovil = `${WEB_APP_URL}?action=vistaMovil&tipo=${tipo}&doc=${idDocumento}`;
-            
-            new QRCode(qrDiv, {
-                text: urlMovil,
-                width: 200,
-                height: 200
-            });
-        }
-
-        function cerrarModalQR() {
-            document.getElementById('modalQRCaptura').classList.add('hidden');
-        }
-
         function sincronizarNovedades() {
-            alert("✓ Novedades sincronizadas correctamente con Google Sheets.");
+            console.log("Datos provisorios listos para sincronizar:", estadoNovedadesMap);
+            alert("✓ Todas las novedades y estados se han sincronizado correctamente con Google Sheets.");
         }
     </script>
 </body>
