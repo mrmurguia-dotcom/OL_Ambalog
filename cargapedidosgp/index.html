@@ -218,7 +218,6 @@
         const hoy = new Date();
         document.getElementById('fechaEntrega').valueAsDate = hoy;
         document.getElementById('fechaConsultaRemota').valueAsDate = hoy;
-        document.getElementById('cpFecha').valueAsDate = hoy;
 
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
@@ -540,7 +539,10 @@
         }
 
         // --- MANEJO DE MODALES ---
-        function abrirModalReprogramar() { document.getElementById('modalReprogramar').classList.remove('hidden'); }
+        function abrirModalReprogramar() { 
+            document.getElementById('formReprogramar').reset();
+            document.getElementById('modalReprogramar').classList.remove('hidden'); 
+        }
         function cerrarModalReprogramar() { document.getElementById('modalReprogramar').classList.add('hidden'); }
 
         async function guardarReprogramacion(e) {
@@ -571,19 +573,24 @@
                     alert(resJson.message);
                     document.getElementById('formReprogramar').reset();
                     cerrarModalReprogramar();
-                } else if (resJson.status === "invalid_quantity") {
-                    alert(resJson.message);
+                } else if (resJson.status === "invalid_quantity" || resJson.status === "error") {
+                    alert(resJson.message || "La cantidad de bultos no coincide con el total. Si quiere hacer una reprogramación parcial, debe hacerlo manualmente en la base. Esta acción solo funciona cuando la cantidad coincide con el total.");
                 } else {
                     alert(resJson.message || "Error al reprogramar.");
                 }
             } catch(err) {
-                alert("Error al comunicarse con la base.");
+                alert("Atención: Asegúrese de que la cantidad de bultos coincida exactamente con el total del pedido. Las reprogramaciones parciales deben hacerse manualmente en la base.");
             }
             btn.innerText = "REGISTRAR CAMBIO";
             btn.disabled = false;
         }
 
-        function abrirModalCP() { document.getElementById('modalCP').classList.remove('hidden'); }
+        function abrirModalCP() { 
+            document.getElementById('formCP').reset();
+            document.getElementById('cpFecha').valueAsDate = new Date();
+            document.getElementById('seccionParcialCP').classList.add('hidden');
+            document.getElementById('modalCP').classList.remove('hidden'); 
+        }
         function cerrarModalCP() { document.getElementById('modalCP').classList.add('hidden'); }
 
         async function evaluarTipoCambioCP() {
