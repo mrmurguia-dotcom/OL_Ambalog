@@ -13,7 +13,7 @@
         <!-- ENCABEZADO -->
         <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 flex flex-wrap justify-between items-center gap-4">
             <div>
-                <h1 class="text-3xl font-black text-blue-900 italic uppercase">CONTROL DE NOVEDADES GP OK</h1>
+                <h1 class="text-3xl font-black text-blue-900 italic uppercase">CONTROL DE NOVEDADES GP</h1>
                 <p class="text-slate-500 text-sm mt-1">Monitoreo de salidas, llegadas, rechazos y reporte para correo</p>
             </div>
             <div class="flex items-center gap-3 flex-wrap">
@@ -72,7 +72,7 @@
         <div class="bg-white rounded-3xl shadow-2xl max-w-7xl w-full p-6 border border-slate-200 space-y-6 max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center border-b pb-3">
                 <div>
-                    <h3 class="text-lg font-black text-blue-900">Gestión de Novedades y Evidencia de Documentos (Principal + Complementarios)</h3>
+                    <h3 class="text-lg font-black text-blue-900">Gestión de Novedades y Evidencia de Documentos</h3>
                     <p class="text-xs text-slate-500" id="subtituloModalCP">Carta de Porte: --</p>
                 </div>
                 <button onclick="cerrarModalNovedad()" class="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
@@ -177,6 +177,7 @@
                     };
                 }
                 const est = estadoNovedadesMap[cpKey];
+                const cpCompSeguro = String(v.cpComplementos || 'Ninguna').replace(/'/g, "");
 
                 return `
                     <tr class="hover:bg-slate-50 border-b border-slate-100">
@@ -206,7 +207,7 @@
 
                         <!-- NOVEDAD LLEGADA / CIERRE -->
                         <td class="p-2 text-center">
-                            <select onchange="cambiarLlegada('${cpKey}', '${v.cpPrincipal}', '${v.cpComplementos || ''}', this.value)" class="p-1.5 rounded-xl border border-slate-300 text-xs font-bold bg-white outline-none">
+                            <select onchange="cambiarLlegada('${cpKey}', '${v.cpPrincipal}', '${cpCompSeguro}', this.value)" class="p-1.5 rounded-xl border border-slate-300 text-xs font-bold bg-white outline-none">
                                 <option value="" ${est.llegadaEstado === '' ? 'selected' : ''}>-- Pendiente --</option>
                                 <option value="terminado (sin novedad)" ${est.llegadaEstado === 'terminado (sin novedad)' ? 'selected' : ''}>🟢 Terminado (sin novedad)</option>
                                 <option value="terminado (con novedad)" ${est.llegadaEstado === 'terminado (con novedad)' ? 'selected' : ''}>🟠 Terminado (con novedad)</option>
@@ -216,7 +217,7 @@
 
                         <!-- ACCIONES -->
                         <td class="p-2 text-center">
-                            <button onclick="intentarAbrirModalDetalle('${cpKey}', '${v.cpPrincipal}', '${v.cpComplementos || ''}')" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-900 font-bold px-3 py-1.5 rounded-xl text-xs transition-all">
+                            <button onclick="intentarAbrirModalDetalle('${cpKey}', '${v.cpPrincipal}', '${cpCompSeguro}')" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-900 font-bold px-3 py-1.5 rounded-xl text-xs transition-all">
                                 📝 Detalle Documentos
                             </button>
                         </td>
@@ -242,14 +243,14 @@
         }
 
         function intentarAbrirModalDetalle(cpKey, cpPrincipal, cpComplementos) {
-    const est = estadoNovedadesMap[cpKey];
-    if (est && (est.llegadaEstado === '' || est.llegadaEstado === 'terminado (sin novedad)')) {
-        if (!confirm("Atención: El estado de llegada está en blanco o sin novedad. ¿Desea continuar para verificar documentos?")) {
-            return;
+            const est = estadoNovedadesMap[cpKey];
+            if (est && (est.llegadaEstado === '' || est.llegadaEstado === 'terminado (sin novedad)')) {
+                if (!confirm("Atención: El estado de llegada está en blanco o sin novedad. ¿Desea continuar para verificar documentos?")) {
+                    return;
+                }
+            }
+            abrirModalNovedad(cpPrincipal, cpComplementos, cpKey);
         }
-    }
-    abrirModalNovedad(cpPrincipal, cpComplementos, cpKey);
-}
 
         async function abrirModalNovedad(cpPrincipal, cpComplementarios, cpKey) {
             cpActualAbierta = cpKey;
@@ -260,8 +261,8 @@
 
             try {
                 let cpgLista = [cpPrincipal];
-                if (cpComplementarios && cpComplementarios.trim() !== '' && cpComplementos !== 'Ninguna') {
-                    cpComplementos.split(',').forEach(c => { if(c.trim()) cpgLista.push(c.trim()); });
+                if (cpComplementarios && cpComplementarios.trim() !== '' && cpComplementarios !== 'Ninguna') {
+                    cpComplementarios.split(',').forEach(c => { if(c.trim()) cpgLista.push(c.trim()); });
                 }
 
                 documentosActualesCP = [];
@@ -271,6 +272,8 @@
                         body: JSON.stringify({ action: 'obtenerDatosRuteoCP', cp: cp })
                     });
                     const res = await resp.json();
+                    console.log(`Respuesta FC para CP ${cp}:`, res);
+                    
                     if (res.status === "success" && res.data && res.data.listaClientes) {
                         res.data.listaClientes.forEach(cli => {
                             cli.documentos.forEach(doc => {
@@ -290,7 +293,7 @@
                 }
 
                 if (documentosActualesCP.length === 0) {
-                    tbodyDocs.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400 italic">No se encontraron documentos para esta Carta de Porte.</td></tr>`;
+                    tbodyDocs.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400 italic">No se encontraron documentos en la base FC para estas Cartas de Porte.</td></tr>`;
                     return;
                 }
 
@@ -470,14 +473,12 @@
             btn.disabled = true;
 
             try {
-                // 1. Sincronizar grilla (pedidos)
                 const respPedidos = await fetch(WEB_APP_URL, {
                     method: 'POST',
                     body: JSON.stringify({ action: 'sincronizarNovedadesReparto', novedades: estadoNovedadesMap })
                 });
                 const resPedidos = await respPedidos.json();
 
-                // 2. Sincronizar detalle de documentos (FC)
                 const respFC = await fetch(WEB_APP_FC_URL, {
                     method: 'POST',
                     body: JSON.stringify({ action: 'guardarNovedadesDocumentos', novedades: estadoNovedadesMap })
@@ -500,7 +501,6 @@
 
             let html = `<p style="font-family: Arial, sans-serif; font-size: 13px;">Estimados, buen dia. Adjunto novedades de las cargas programadas del dia ${fechaFmt}</p><br>`;
             
-            // Tabla principal
             html += `<table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; font-family: Arial, sans-serif; font-size: 12px; width: 100%;">`;
             html += `<tr style="background-color: #1e3a5f; color: white; text-align: left;">
                         <th>Fecha</th><th>Vuelta</th><th>Vehículo</th><th>Canal</th><th>Cliente Principal</th><th>CP Principal</th><th>Salida</th><th>Llegada</th>
@@ -531,7 +531,6 @@
                             <td>${llegadaTxt}</td>
                          </tr>`;
 
-                // Recopilar documentos con novedad para la subtabla
                 if (est.documentosSeleccionados) {
                     Object.keys(est.documentosSeleccionados).forEach(nroDoc => {
                         let docInfo = est.documentosSeleccionados[nroDoc];
@@ -553,7 +552,6 @@
             });
             html += `</table><br>`;
 
-            // Subtabla de detalle de novedades con columnas exactas
             if (hayDetalles) {
                 html += `<h3 style="font-family: Arial, sans-serif; font-size: 14px; color: #1e3a5f;">Detalle de novedades</h3>`;
                 html += `<table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; font-family: Arial, sans-serif; font-size: 12px; width: 100%;">`;
