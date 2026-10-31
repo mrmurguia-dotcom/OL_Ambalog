@@ -13,13 +13,16 @@
         <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 flex flex-wrap justify-between items-center gap-4">
             <div>
                 <h1 class="text-3xl font-black text-blue-900 italic uppercase">CONTROL DE NOVEDADES GP</h1>
-                <p class="text-slate-500 text-sm mt-1">Monitoreo de salidas, llegadas y registro provisorio de novedades</p>
+                <p class="text-slate-500 text-sm mt-1">Monitoreo de salidas, llegadas, rechazos y reporte para correo</p>
             </div>
             <div class="flex items-center gap-3 flex-wrap">
                 <div>
                     <label class="block text-[10px] font-bold text-slate-500 uppercase">Fecha Grilla:</label>
                     <input type="date" id="filtroFechaNovedades" onchange="cargarGrillaNovedades()" class="p-2.5 rounded-xl border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none">
                 </div>
+                <button onclick="copiarTablaParaMail()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs px-5 py-2.5 rounded-xl shadow transition-all mt-4">
+                    📧 Copiar para Mail
+                </button>
                 <button onclick="sincronizarNovedades()" id="btnSyncNovedades" class="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs px-6 py-2.5 rounded-xl shadow transition-all mt-4">
                     💾 SINCRONIZAR NOVEDADES
                 </button>
@@ -68,7 +71,7 @@
         <div class="bg-white rounded-3xl shadow-2xl max-w-6xl w-full p-6 border border-slate-200 space-y-6 max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center border-b pb-3">
                 <div>
-                    <h3 class="text-lg font-black text-blue-900">Gestión de Novedades de Llegada (Formato Tabla)</h3>
+                    <h3 class="text-lg font-black text-blue-900">Gestión de Novedades y Evidencia de Documentos</h3>
                     <p class="text-xs text-slate-500" id="subtituloModalCP">Carta de Porte: --</p>
                 </div>
                 <button onclick="cerrarModalNovedad()" class="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
@@ -85,7 +88,9 @@
                             <th class="p-3">Nro Documento / Tipo</th>
                             <th class="p-3">Cliente y Dirección</th>
                             <th class="p-3">Clasificación de Novedad</th>
-                            <th class="p-3">Observaciones</th>
+                            <th class="p-3">Observaciones / Motivo</th>
+                            <th class="p-3">Link Foto (Drive)</th>
+                            <th class="p-3">Link Audio (Drive)</th>
                         </tr>
                     </thead>
                     <tbody id="tbodyDocumentosModal" class="divide-y divide-slate-100">
@@ -107,7 +112,7 @@
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyF9e6gme3wHTVO_RooY_xqbK9VFciCZ0jejU2Vmh9o1OUEKwzmn1WxERq7hFBo0Oo2/exec";
         
         let viajesNovedades = [];
-        let estadoNovedadesMap = {}; // Almacena estados y documentos con novedad por CP
+        let estadoNovedadesMap = {}; 
         let cpActualAbierta = null;
         let documentosActualesCP = [];
 
@@ -159,7 +164,7 @@
                         salidaEstado: v.salidaEstado || 'SALIO',
                         salidaMotivo: v.salidaMotivo || '',
                         llegadaEstado: v.llegadaEstado || 'SIN_NOVEDAD',
-                        documentosSeleccionados: {} // { numDoc: { clasificacion, comentario } }
+                        documentosSeleccionados: {} 
                     };
                 }
                 const est = estadoNovedadesMap[cpKey];
@@ -196,9 +201,9 @@
                             </select>
                         </td>
 
-                        <!-- ACCIONES -->
+                        <!-- ACCIONES (VALIDA SI ESTÁ EN SIN NOVEDAD) -->
                         <td class="p-2 text-center">
-                            <button onclick="abrirModalNovedad('${v.cpPrincipal}')" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-900 font-bold px-3 py-1.5 rounded-xl text-xs transition-all">
+                            <button onclick="intentarAbrirModalDetalle('${cpKey}', '${v.cpPrincipal}')" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-900 font-bold px-3 py-1.5 rounded-xl text-xs transition-all">
                                 📝 Detalle Documentos
                             </button>
                         </td>
@@ -219,16 +224,26 @@
         function cambiarLlegada(cpKey, cpPrincipal, val) {
             estadoNovedadesMap[cpKey].llegadaEstado = val;
             if (val === 'CON_NOVEDAD') {
-                abrirModalNovedad(cpPrincipal);
+                abrirModalNovedad(cpPrincipal, cpKey);
             }
         }
 
-        async function abrirModalNovedad(cp) {
-            cpActualAbierta = cp;
+        function intentarAbrirModalDetalle(cpKey, cpPrincipal) {
+            const est = estadoNovedadesMap[cpKey];
+            if (est.llegadaEstado === 'SIN_NOVEDAD') {
+                if (!confirm("Atención: Las novedades de este viaje están en 'Sin novedad'. ¿Desea seguir para ver o cargar detalle de documentos?")) {
+                    return;
+                }
+            }
+            abrirModalNovedad(cpPrincipal, cpKey);
+        }
+
+        async function abrirModalNovedad(cp, cpKey) {
+            cpActualAbierta = cpKey;
             document.getElementById('subtituloModalCP').innerText = `Carta de Porte: ${cp}`;
             document.getElementById('modalNovedadDetalle').classList.remove('hidden');
             const tbodyDocs = document.getElementById('tbodyDocumentosModal');
-            tbodyDocs.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-500 italic">Buscando documentos de la CP ${cp}...?</td></tr>`;
+            tbodyDocs.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-500 italic">Buscando documentos de la CP ${cp}...</td></tr>`;
 
             try {
                 const resp = await fetch(WEB_APP_URL, {
@@ -251,18 +266,18 @@
                     });
 
                     if (documentosActualesCP.length === 0) {
-                        tbodyDocs.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-400 italic">No se encontraron documentos para esta CP.</td></tr>`;
+                        tbodyDocs.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400 italic">No se encontraron documentos para esta CP.</td></tr>`;
                         return;
                     }
 
                     renderizarTablaDocumentosModal();
 
                 } else {
-                    tbodyDocs.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-red-500 font-bold">No se pudieron cargar los documentos para esta CP.</td></tr>`;
+                    tbodyDocs.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-red-500 font-bold">No se pudieron cargar los documentos para esta CP.</td></tr>`;
                 }
             } catch (err) {
                 console.error(err);
-                tbodyDocs.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-red-500 font-bold">Error de conexión al buscar documentos.</td></tr>`;
+                tbodyDocs.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-red-500 font-bold">Error de conexión al buscar documentos.</td></tr>`;
             }
         }
 
@@ -271,7 +286,7 @@
             const est = estadoNovedadesMap[cpActualAbierta] || { documentosSeleccionados: {} };
 
             tbodyDocs.innerHTML = documentosActualesCP.map(d => {
-                const docData = est.documentosSeleccionados[d.numero] || { seleccionado: false, clasificacion: 'RECHAZO_PARCIAL', comentario: '' };
+                const docData = est.documentosSeleccionados[d.numero] || { seleccionado: false, clasificacion: 'RECHAZO_PARCIAL', comentario: '', fotoLink: '', audioLink: '' };
 
                 return `
                     <tr class="hover:bg-slate-50 border-b">
@@ -294,7 +309,13 @@
                             </select>
                         </td>
                         <td class="p-3">
-                            <input type="text" id="comet_${d.numero}" placeholder="Motivo u observación..." value="${docData.comentario}" class="w-full p-2 rounded-xl border border-slate-300 text-xs bg-white outline-none" ${!docData.seleccionado ? 'disabled' : ''}>
+                            <input type="text" id="comet_${d.numero}" placeholder="Observación..." value="${docData.comentario}" class="w-full p-2 rounded-xl border border-slate-300 text-xs bg-white outline-none" ${!docData.seleccionado ? 'disabled' : ''}>
+                        </td>
+                        <td class="p-3">
+                            <input type="text" id="foto_${d.numero}" placeholder="Link foto Drive..." value="${docData.fotoLink || ''}" class="w-full p-2 rounded-xl border border-slate-300 text-xs bg-white outline-none" ${!docData.seleccionado ? 'disabled' : ''}>
+                        </td>
+                        <td class="p-3">
+                            <input type="text" id="audio_${d.numero}" placeholder="Link audio Drive..." value="${docData.audioLink || ''}" class="w-full p-2 rounded-xl border border-slate-300 text-xs bg-white outline-none" ${!docData.seleccionado ? 'disabled' : ''}>
                         </td>
                     </tr>
                 `;
@@ -309,6 +330,8 @@
             est.documentosSeleccionados[nroDoc].seleccionado = isChecked;
             est.documentosSeleccionados[nroDoc].clasificacion = document.getElementById(`clasif_${nroDoc}`).value;
             est.documentosSeleccionados[nroDoc].comentario = document.getElementById(`comet_${nroDoc}`).value;
+            est.documentosSeleccionados[nroDoc].fotoLink = document.getElementById(`foto_${nroDoc}`).value;
+            est.documentosSeleccionados[nroDoc].audioLink = document.getElementById(`audio_${nroDoc}`).value;
             
             renderizarTablaDocumentosModal();
         }
@@ -322,16 +345,20 @@
         }
 
         function guardarProvisorioModal() {
-            // Capturar valores actuales de los inputs habilitados
             documentosActualesCP.forEach(d => {
                 const chk = document.querySelector(`.chkDocItem[value="${d.numero}"]`);
                 if (chk && chk.checked) {
                     const clasif = document.getElementById(`clasif_${d.numero}`).value;
                     const comentario = document.getElementById(`comet_${d.numero}`).value;
+                    const fotoLink = document.getElementById(`foto_${d.numero}`).value;
+                    const audioLink = document.getElementById(`audio_${d.numero}`).value;
+                    
                     estadoNovedadesMap[cpActualAbierta].documentosSeleccionados[d.numero] = {
                         seleccionado: true,
                         clasificacion: clasif,
-                        comentario: comentario
+                        comentario: comentario,
+                        fotoLink: fotoLink,
+                        audioLink: audioLink
                     };
                 } else if (chk) {
                     if (estadoNovedadesMap[cpActualAbierta].documentosSeleccionados[d.numero]) {
@@ -341,16 +368,110 @@
             });
 
             cerrarModalNovedad();
-            alert("✓ Novedades guardadas provisoriamente en memoria. Recordá hacer click en 'Sincronizar Novedades' para grabarlas en el sistema.");
+            alert("✓ Novedades guardadas provisoriamente en memoria. Recordá presionar 'Sincronizar Novedades' para grabarlas.");
         }
 
         function cerrarModalNovedad() {
             document.getElementById('modalNovedadDetalle').classList.add('hidden');
         }
 
-        function sincronizarNovedades() {
-            console.log("Datos provisorios listos para sincronizar:", estadoNovedadesMap);
-            alert("✓ Todas las novedades y estados se han sincronizado correctamente con Google Sheets.");
+        async function sincronizarNovedades() {
+            const btn = document.getElementById('btnSyncNovedades');
+            btn.innerText = "SINCRONIZANDO...";
+            btn.disabled = true;
+
+            try {
+                const resp = await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'sincronizarNovedadesReparto', novedades: estadoNovedadesMap })
+                });
+                const res = await resp.json();
+                alert(res.message || "✓ Novedades sincronizadas correctamente con Google Sheets.");
+            } catch (err) {
+                console.error("Error al sincronizar:", err);
+                alert("Error de conexión al sincronizar con el servidor.");
+            }
+            btn.innerText = "💾 SINCRONIZAR NOVEDADES";
+            btn.disabled = false;
+        }
+
+        function copiarTablaParaMail() {
+            const fechaInput = document.getElementById('filtroFechaNovedades').value;
+            let [y, m, d] = fechaInput.split('-');
+            let fechaFmt = `${d}/${m}/${y}`;
+
+            let html = `<p style="font-family: Arial, sans-serif; font-size: 13px;">Estimados, buen dia. Adjunto novedades de las cargas programadas del dia ${fechaFmt}</p><br>`;
+            
+            // Tabla principal
+            html += `<table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; font-family: Arial, sans-serif; font-size: 12px; width: 100%;">`;
+            html += `<tr style="background-color: #1e3a5f; color: white; text-align: left;">
+                        <th>Fecha</th><th>Vuelta</th><th>Vehículo</th><th>Canal</th><th>Cliente Principal</th><th>CP Principal</th><th>Salida</th><th>Llegada</th>
+                     </tr>`;
+
+            let detallesNovedadesHtml = '';
+            let hayDetalles = false;
+
+            viajesNovedades.forEach((v, idx) => {
+                let cpKey = v.cpPrincipal || idx;
+                let est = estadoNovedadesMap[cpKey] || {};
+                let salidaTxt = est.salidaEstado === 'SALIO' ? 'Salió' : `No Salió (${est.salidaMotivo || 'Sin motivo'})`;
+                let llegadaTxt = est.llegadaEstado === 'SIN_NOVEDAD' ? 'Sin Novedad' : 'Con Novedad';
+
+                html += `<tr>
+                            <td>${v.fechaGrilla}</td>
+                            <td>${v.vuelta || '1RA VUELTA'}</td>
+                            <td>${v.tipoVehiculo || ''}</td>
+                            <td>${v.canal || ''}</td>
+                            <td>${v.cliente || ''}</td>
+                            <td><b>${v.cpPrincipal || ''}</b></td>
+                            <td>${salidaTxt}</td>
+                            <td>${llegadaTxt}</td>
+                         </tr>`;
+
+                // Recopilar documentos con novedad
+                if (est.documentosSeleccionados) {
+                    Object.keys(est.documentosSeleccionados).forEach(nroDoc => {
+                        let docInfo = est.documentosSeleccionados[nroDoc];
+                        if (docInfo.seleccionado) {
+                            hayDetalles = true;
+                            let fotoIcon = docInfo.fotoLink ? `<a href="${docInfo.fotoLink}" target="_blank">📷 Ver Foto</a>` : '📷 -';
+                            let audioIcon = docInfo.audioLink ? `<a href="${docInfo.audioLink}" target="_blank">🎤 Escuchar Audio</a>` : '🎤 -';
+                            
+                            detallesNovedadesHtml += `<tr>
+                                                        <td><b>${nroDoc}</b></td>
+                                                        <td>${docInfo.clasificacion} (${docInfo.comentario || 'Sin observación'})</td>
+                                                        <td style="text-align: center;">${fotoIcon}</td>
+                                                        <td style="text-align: center;">${audioIcon}</td>
+                                                      </tr>`;
+                        }
+                    });
+                }
+            });
+            html += `</table><br>`;
+
+            // Subtabla de detalle de novedades
+            if (hayDetalles) {
+                html += `<h3 style="font-family: Arial, sans-serif; font-size: 14px; color: #1e3a5f;">Detalle de novedades</h3>`;
+                html += `<table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; font-family: Arial, sans-serif; font-size: 12px; width: 100%;">`;
+                html += `<tr style="background-color: #475569; color: white; text-align: left;">
+                            <th>Nro de documento</th><th>Novedad / Motivo</th><th style="text-align: center;">Foto</th><th style="text-align: center;">Audio</th>
+                         </tr>`;
+                html += detallesNovedadesHtml;
+                html += `</table>`;
+            }
+
+            // Copiar al portapapeles en formato HTML enriquecido para Outlook
+            const blob = new Blob([html], { type: 'text/html' });
+            const plainBlob = new Blob([html.replace(/<[^>]*>?/gm, '')], { type: 'text/plain' });
+            
+            navigator.clipboard.write([
+                new ClipboardItem({ 'text/html': blob, 'text/plain': plainBlob })
+            ]).then(() => {
+                alert("✓ ¡Tabla copiada al portapapeles con éxito! Ya podés pegarla directamente en tu correo de Outlook.");
+            }).catch(err => {
+                console.error(err);
+                alert("Error al intentar copiar al portapapeles.");
+            });
         }
     </script>
 </body>
