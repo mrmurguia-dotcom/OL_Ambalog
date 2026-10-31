@@ -241,15 +241,15 @@
             }
         }
 
-        function intentarAbrirModalDetalle(cpKey, cpPrincipal, cpComp) {
-            const est = estadoNovedadesMap[cpKey];
-            if (est.llegadaEstado === '' || est.llegadaEstado === 'terminado (sin novedad)') {
-                if (!confirm("Atención: El estado de llegada está en blanco o sin novedad. ¿Desea continuar para verificar documentos?")) {
-                    return;
-                }
-            }
-            abrirModalNovedad(cpPrincipal, cpComp, cpKey);
+        function intentarAbrirModalDetalle(cpKey, cpPrincipal, cpComplementos) {
+    const est = estadoNovedadesMap[cpKey];
+    if (est && (est.llegadaEstado === '' || est.llegadaEstado === 'terminado (sin novedad)')) {
+        if (!confirm("Atención: El estado de llegada está en blanco o sin novedad. ¿Desea continuar para verificar documentos?")) {
+            return;
         }
+    }
+    abrirModalNovedad(cpPrincipal, cpComplementos, cpKey);
+}
 
         async function abrirModalNovedad(cpPrincipal, cpComplementarios, cpKey) {
             cpActualAbierta = cpKey;
