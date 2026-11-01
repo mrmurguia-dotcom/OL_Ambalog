@@ -13,7 +13,7 @@
         <!-- ENCABEZADO -->
         <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 flex flex-wrap justify-between items-center gap-4">
             <div>
-                <h1 class="text-3xl font-black text-blue-900 italic uppercase">CONTROL DE NOVEDADES GP OK</h1>
+                <h1 class="text-3xl font-black text-blue-900 italic uppercase">CONTROL DE NOVEDADES GP</h1>
                 <p class="text-slate-500 text-sm mt-1">Monitoreo de salidas, llegadas, rechazos y reporte para correo</p>
             </div>
             <div class="flex items-center gap-3 flex-wrap">
@@ -88,6 +88,7 @@
                             <th class="p-3">Cliente y Dirección</th>
                             <th class="p-3">Motivo</th>
                             <th class="p-3">Observaciones</th>
+                            <th class="p-3 text-center">Bultos Rechazados</th>
                             <th class="p-3">Foto (PC / QR Celular)</th>
                             <th class="p-3">Audio (PC / QR Celular)</th>
                         </tr>
@@ -194,7 +195,6 @@
                         <td class="p-3 text-center">${v.bultos}</td>
                         <td class="p-3 text-center">${Number(v.pallets || 0).toFixed(2)}</td>
                         
-                        <!-- NOVEDAD SALIDA -->
                         <td class="p-2 text-center">
                             <select onchange="cambiarSalida('${cpKey}', this.value)" class="p-1.5 rounded-xl border border-slate-300 text-xs font-bold bg-white outline-none">
                                 <option value="" ${est.salidaEstado === '' ? 'selected' : ''}>-- Seleccionar --</option>
@@ -205,7 +205,6 @@
                             ${est.salidaEstado === 'NO_SALIO' ? `<input type="text" placeholder="Motivo..." value="${est.salidaMotivo}" oninput="cambiarMotivoSalida('${cpKey}', this.value)" class="mt-1 w-full p-1 rounded border border-red-300 text-[11px] bg-red-50 outline-none">` : ''}
                         </td>
 
-                        <!-- NOVEDAD LLEGADA / CIERRE -->
                         <td class="p-2 text-center">
                             <select onchange="cambiarLlegada('${cpKey}', '${v.cpPrincipal}', '${cpCompSeguro}', this.value)" class="p-1.5 rounded-xl border border-slate-300 text-xs font-bold bg-white outline-none">
                                 <option value="" ${est.llegadaEstado === '' ? 'selected' : ''}>-- Pendiente --</option>
@@ -215,7 +214,6 @@
                             </select>
                         </td>
 
-                        <!-- ACCIONES -->
                         <td class="p-2 text-center">
                             <button data-cpkey="${cpKey}" data-cpprincipal="${v.cpPrincipal}" data-cpcomp="${cpCompSeguro}" onclick="clicDetalleBtn(this)" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-900 font-bold px-3 py-1.5 rounded-xl text-xs transition-all">
                                 📝 Detalle Documentos
@@ -227,10 +225,7 @@
         }
 
         function clicDetalleBtn(btn) {
-            const cpKey = btn.getAttribute('data-cpkey');
-            const cpPrincipal = btn.getAttribute('data-cpprincipal');
-            const cpComp = btn.getAttribute('data-cpcomp');
-            intentarAbrirModalDetalle(cpKey, cpPrincipal, cpComp);
+            intentarAbrirModalDetalle(btn.getAttribute('data-cpkey'), btn.getAttribute('data-cpprincipal'), btn.getAttribute('data-cpcomp'));
         }
 
         function cambiarSalida(cpKey, val) {
@@ -264,7 +259,7 @@
             document.getElementById('subtituloModalCP').innerText = `Principal: ${cpPrincipal} | Complementarios: ${cpComplementarios || 'Ninguno'}`;
             document.getElementById('modalNovedadDetalle').classList.remove('hidden');
             const tbodyDocs = document.getElementById('tbodyDocumentosModal');
-            tbodyDocs.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-500 italic">Buscando documentos principales y complementarios...</td></tr>`;
+            tbodyDocs.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-500 italic">Buscando documentos principales y complementarios...</td></tr>`;
 
             try {
                 let cpgLista = [cpPrincipal];
@@ -274,13 +269,11 @@
 
                 documentosActualesCP = [];
                 for (let cp of cpgLista) {
-                    // Consulta a través de WEB_APP_URL (Pedidos) para evitar bloqueo de CORS del navegador hacia FC
                     const resp = await fetch(WEB_APP_URL, {
                         method: 'POST',
                         body: JSON.stringify({ action: 'obtenerDatosRuteoCP', cp: cp })
                     });
                     const res = await resp.json();
-                    console.log(`Respuesta para CP ${cp}:`, res);
                     
                     if (res.status === "success" && res.data && res.data.listaClientes) {
                         res.data.listaClientes.forEach(cli => {
@@ -290,8 +283,12 @@
                                     tipo: doc.tipo || 'FACTURA',
                                     cliente: cli.nombre || 'N/A',
                                     direccion: cli.direccion || 'N/A',
+                                    cajas: Number(doc.cajas) || 0,
+                                    unidades: Number(doc.unidades) || 0,
+                                    totalBultosLine: (Number(doc.cajas) || 0) + (Number(doc.unidades) || 0),
                                     motivo: doc.motivo || '',
                                     observacion: doc.observacion || '',
+                                    bultosRechazados: doc.bultosRechazados !== undefined && doc.bultosRechazados !== '' ? doc.bultosRechazados : '',
                                     fotoLink: doc.fotoLink || '',
                                     audioLink: doc.audioLink || ''
                                 });
@@ -301,7 +298,7 @@
                 }
 
                 if (documentosActualesCP.length === 0) {
-                    tbodyDocs.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400 italic">No se encontraron documentos en la base para estas Cartas de Porte.</td></tr>`;
+                    tbodyDocs.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400 italic">No se encontraron documentos en la base para estas Cartas de Porte.</td></tr>`;
                     return;
                 }
 
@@ -309,7 +306,7 @@
 
             } catch (err) {
                 console.error(err);
-                tbodyDocs.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-red-500 font-bold">Error de conexión al buscar documentos.</td></tr>`;
+                tbodyDocs.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-red-500 font-bold">Error de conexión al buscar documentos.</td></tr>`;
             }
         }
 
@@ -322,9 +319,16 @@
                     seleccionado: !!d.motivo, 
                     motivo: d.motivo || '', 
                     observacion: d.observacion || '', 
+                    bultosRechazados: d.bultosRechazados !== '' ? d.bultosRechazados : (d.observacion === 'rechazo total' ? d.totalBultosLine : ''),
                     fotoLink: d.fotoLink || '', 
                     audioLink: d.audioLink || '' 
                 };
+
+                let bultosVal = docSaved.bultosRechazados;
+                if (docSaved.observacion === 'rechazo total' && (bultosVal === '' || bultosVal === undefined)) {
+                    bultosVal = d.totalBultosLine;
+                }
+                const isRechazoTotal = docSaved.observacion === 'rechazo total';
 
                 return `
                     <tr class="hover:bg-slate-50 border-b">
@@ -349,30 +353,51 @@
                         </td>
                         <!-- OBSERVACIONES -->
                         <td class="p-3">
-                            <select id="obs_${d.numero}" class="p-2 rounded-xl border border-slate-300 text-xs font-bold bg-white text-blue-900 outline-none w-full" ${!docSaved.seleccionado ? 'disabled' : ''}>
+                            <select id="obs_${d.numero}" onchange="cambioObservacionDoc('${d.numero}', ${d.totalBultosLine})" class="p-2 rounded-xl border border-slate-300 text-xs font-bold bg-white text-blue-900 outline-none w-full" ${!docSaved.seleccionado ? 'disabled' : ''}>
                                 <option value="" ${docSaved.observacion === '' ? 'selected' : ''}>-- Seleccionar Observación --</option>
                                 <option value="rechazo parcial" ${docSaved.observacion === 'rechazo parcial' ? 'selected' : ''}>rechazo parcial</option>
                                 <option value="rechazo total" ${docSaved.observacion === 'rechazo total' ? 'selected' : ''}>rechazo total</option>
                                 <option value="no entregado" ${docSaved.observacion === 'no entregado' ? 'selected' : ''}>no entregado</option>
                             </select>
                         </td>
+                        <!-- BULTOS RECHAZADOS -->
+                        <td class="p-3 text-center">
+                            <input type="number" id="bultos_${d.numero}" value="${bultosVal}" ${!docSaved.seleccionado || isRechazoTotal ? 'disabled' : ''} class="w-20 p-1.5 rounded-xl border border-slate-300 text-xs font-bold text-center bg-white outline-none ${isRechazoTotal ? 'bg-slate-100 text-slate-500' : 'text-blue-900'}">
+                            <span class="block text-[9px] text-slate-400 mt-0.5">Total línea: ${d.totalBultosLine}</span>
+                        </td>
                         <!-- FOTO -->
                         <td class="p-3 space-y-1">
                             <input type="text" id="foto_${d.numero}" placeholder="Link foto Drive..." value="${docSaved.fotoLink || ''}" class="w-full p-1.5 rounded border border-slate-300 text-[11px] bg-white outline-none" ${!docSaved.seleccionado ? 'disabled' : ''}>
-                            <div class="flex gap-1">
-                                <button onclick="abrirQRModal('FOTO', '${d.numero}')" class="bg-blue-800 hover:bg-blue-900 text-white font-bold text-[10px] px-2 py-1 rounded shadow" ${!docSaved.seleccionado ? 'disabled' : ''}>📷 QR Celular</button>
+                            <div class="flex gap-1 flex-wrap">
+                                <button onclick="abrirQRModal('FOTO', '${d.numero}')" class="bg-blue-800 hover:bg-blue-900 text-white font-bold text-[10px] px-2.5 py-1 rounded shadow" ${!docSaved.seleccionado ? 'disabled' : ''}>📷 QR Celular</button>
+                                <button onclick="subirDesdePC('FOTO', '${d.numero}')" class="bg-slate-700 hover:bg-slate-800 text-white font-bold text-[10px] px-2.5 py-1 rounded shadow" ${!docSaved.seleccionado ? 'disabled' : ''}>💻 PC</button>
                             </div>
                         </td>
                         <!-- AUDIO -->
                         <td class="p-3 space-y-1">
                             <input type="text" id="audio_${d.numero}" placeholder="Link audio Drive..." value="${docSaved.audioLink || ''}" class="w-full p-1.5 rounded border border-slate-300 text-[11px] bg-white outline-none" ${!docSaved.seleccionado ? 'disabled' : ''}>
-                            <div class="flex gap-1">
-                                <button onclick="abrirQRModal('AUDIO', '${d.numero}')" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-[10px] px-2 py-1 rounded shadow" ${!docSaved.seleccionado ? 'disabled' : ''}>🎤 QR Celular</button>
+                            <div class="flex gap-1 flex-wrap">
+                                <button onclick="abrirQRModal('AUDIO', '${d.numero}')" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-[10px] px-2.5 py-1 rounded shadow" ${!docSaved.seleccionado ? 'disabled' : ''}>🎤 QR Celular</button>
+                                <button onclick="subirDesdePC('AUDIO', '${d.numero}')" class="bg-slate-700 hover:bg-slate-800 text-white font-bold text-[10px] px-2.5 py-1 rounded shadow" ${!docSaved.seleccionado ? 'disabled' : ''}>💻 PC</button>
                             </div>
                         </td>
                     </tr>
                 `;
             }).join('');
+        }
+
+        function cambioObservacionDoc(nroDoc, totalBultosLine) {
+            const obsSelect = document.getElementById(`obs_${nroDoc}`);
+            const bultosInput = document.getElementById(`bultos_${nroDoc}`);
+            if (obsSelect.value === 'rechazo total') {
+                bultosInput.value = totalBultosLine;
+                bultosInput.disabled = true;
+                bultosInput.className = "w-20 p-1.5 rounded-xl border border-slate-300 text-xs font-bold text-center bg-slate-100 text-slate-500 outline-none";
+            } else {
+                bultosInput.disabled = false;
+                bultosInput.className = "w-20 p-1.5 rounded-xl border border-slate-300 text-xs font-bold text-center bg-white text-blue-900 outline-none";
+            }
+            toggleSeleccionDoc(nroDoc, true);
         }
 
         function toggleSeleccionDoc(nroDoc, isChecked) {
@@ -383,6 +408,7 @@
             est.documentosSeleccionados[nroDoc].seleccionado = isChecked;
             est.documentosSeleccionados[nroDoc].motivo = document.getElementById(`motivo_${nroDoc}`).value;
             est.documentosSeleccionados[nroDoc].observacion = document.getElementById(`obs_${nroDoc}`).value;
+            est.documentosSeleccionados[nroDoc].bultosRechazados = document.getElementById(`bultos_${nroDoc}`).value;
             est.documentosSeleccionados[nroDoc].fotoLink = document.getElementById(`foto_${nroDoc}`).value;
             est.documentosSeleccionados[nroDoc].audioLink = document.getElementById(`audio_${nroDoc}`).value;
             
@@ -397,11 +423,85 @@
             });
         }
 
+        function subirDesdePC(tipo, nroDoc) {
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = tipo === 'FOTO' ? 'image/*' : 'audio/*,.ogg,.mp3,.wav,.m4a,.aac,.opus';
+            
+            fileInput.onchange = async e => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                alert("⏳ Subiendo archivo desde la PC, por favor aguarde un momento...");
+
+                const reader = new FileReader();
+                reader.onload = async function(event) {
+                    let base64Data = event.target.result.split(',')[1];
+                    
+                    // Si es imagen, comprimir antes de enviar para evitar payloads gigantes
+                    if (tipo === 'FOTO' && file.type.startsWith('image/')) {
+                        base64Data = await comprimirImagenBase64(event.target.result, 1200, 0.8);
+                    }
+
+                    try {
+                        const resp = await fetch(WEB_APP_FC_URL, {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                action: 'procesarSubidaDirectaPC',
+                                doc: nroDoc,
+                                tipo: tipo,
+                                filename: file.name,
+                                bytes: base64Data
+                            })
+                        });
+                        const res = await resp.json();
+                        if (res.status === "success") {
+                            if (tipo === 'FOTO') {
+                                document.getElementById(`foto_${nroDoc}`).value = res.link;
+                            } else {
+                                document.getElementById(`audio_${nroDoc}`).value = res.link;
+                            }
+                            toggleSeleccionDoc(nroDoc, true);
+                            alert("✓ ¡Archivo subido y vinculado correctamente desde la PC!");
+                        } else {
+                            alert("Error al subir: " + res.message);
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        alert("Error de conexión al subir el archivo.");
+                    }
+                };
+                reader.readAsDataURL(file);
+            };
+            fileInput.click();
+        }
+
+        function comprimirImagenBase64(dataUrl, maxWidth, quality) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.src = dataUrl;
+                img.onload = () => {
+                    let width = img.width;
+                    let height = img.height;
+                    if (width > maxWidth) {
+                        height = Math.round((height * maxWidth) / width);
+                        width = maxWidth;
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    resolve(canvas.toDataURL('image/jpeg', quality).split(',')[1]);
+                };
+            });
+        }
+
         function abrirQRModal(tipo, nroDoc) {
             docActualCaptura = nroDoc;
             tipoActualCaptura = tipo;
             document.getElementById('modalQRCaptura').classList.remove('hidden');
-            document.getElementById('tituloQRCaptura').innerText = tipo === 'FOTO' ? `📷 Escaneá para Tomar Foto (${nroDoc})` : `🎤 Escaneá para Grabar Audio (${nroDoc})`;
+            document.getElementById('tituloQRCaptura').innerText = tipo === 'FOTO' ? `📷 Escaneá para Tomar Foto (${nroDoc})` : `🎤 Escaneá para Grabar/Audio (${nroDoc})`;
             
             const qrDiv = document.getElementById('qrContainer');
             qrDiv.innerHTML = "";
@@ -429,7 +529,7 @@
                         document.getElementById(`audio_${docActualCaptura}`).value = res.link;
                     }
                     toggleSeleccionDoc(docActualCaptura, true);
-                    alert("✓ ¡Archivo recibido y vinculado con éxito!");
+                    alert("✓ ¡Archivo recibido del celular y vinculado con éxito!");
                     cerrarModalQR();
                 } else {
                     alert("Aún no se ha completado la subida desde el celular. Inténtalo de nuevo en unos segundos.");
@@ -450,6 +550,7 @@
                 if (chk && chk.checked) {
                     const motivo = document.getElementById(`motivo_${d.numero}`).value;
                     const observacion = document.getElementById(`obs_${d.numero}`).value;
+                    const bultosRechazados = document.getElementById(`bultos_${d.numero}`).value;
                     const fotoLink = document.getElementById(`foto_${d.numero}`).value;
                     const audioLink = document.getElementById(`audio_${d.numero}`).value;
                     
@@ -457,6 +558,7 @@
                         seleccionado: true,
                         motivo: motivo,
                         observacion: observacion,
+                        bultosRechazados: bultosRechazados,
                         fotoLink: fotoLink,
                         audioLink: audioLink
                     };
@@ -544,13 +646,19 @@
                         let docInfo = est.documentosSeleccionados[nroDoc];
                         if (docInfo.seleccionado) {
                             hayDetalles = true;
+                            // Buscar nombre del cliente para este documento
+                            let docObj = documentosActualesCP.find(d => d.numero === nroDoc);
+                            let nombreClienteDoc = docObj ? docObj.cliente : '-';
+
                             let fotoIcon = docInfo.fotoLink ? `<a href="${docInfo.fotoLink}" target="_blank" style="text-decoration: none; font-size: 16px;">📷 Ver</a>` : '-';
                             let audioIcon = docInfo.audioLink ? `<a href="${docInfo.audioLink}" target="_blank" style="text-decoration: none; font-size: 16px;">🎤 Escuchar</a>` : '-';
                             
                             detallesNovedadesHtml += `<tr>
                                                         <td><b>${nroDoc}</b></td>
+                                                        <td>${nombreClienteDoc}</td>
                                                         <td>${docInfo.motivo || '-'}</td>
                                                         <td>${docInfo.observacion || '-'}</td>
+                                                        <td style="text-align: center;">${docInfo.bultosRechazados || '-'}</td>
                                                         <td style="text-align: center;">${fotoIcon}</td>
                                                         <td style="text-align: center;">${audioIcon}</td>
                                                       </tr>`;
@@ -564,7 +672,7 @@
                 html += `<h3 style="font-family: Arial, sans-serif; font-size: 14px; color: #1e3a5f;">Detalle de novedades</h3>`;
                 html += `<table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; font-family: Arial, sans-serif; font-size: 12px; width: 100%;">`;
                 html += `<tr style="background-color: #475569; color: white; text-align: left;">
-                            <th>Nro de documento</th><th>Motivo</th><th>Observaciones</th><th style="text-align: center;">Foto</th><th style="text-align: center;">Audio</th>
+                            <th>Nro de documento</th><th>Cliente</th><th>Motivo</th><th>Observaciones</th><th style="text-align: center;">Bultos Rech.</th><th style="text-align: center;">Foto</th><th style="text-align: center;">Audio</th>
                          </tr>`;
                 html += detallesNovedadesHtml;
                 html += `</table>`;
@@ -576,7 +684,7 @@
             navigator.clipboard.write([
                 new ClipboardItem({ 'text/html': blob, 'text/plain': plainBlob })
             ]).then(() => {
-                alert("✓ ¡Tabla copiada al portapapeles con iconos y formato optimizado para Outlook!");
+                alert("✓ ¡Tabla copiada al portapapeles con cliente, bultos y formato optimizado para Outlook!");
             }).catch(err => {
                 console.error(err);
                 alert("Error al intentar copiar al portapapeles.");
