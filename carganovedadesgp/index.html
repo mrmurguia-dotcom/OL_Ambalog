@@ -639,7 +639,7 @@ function copiarTablaParaMail() {
 
     html += `<table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; font-family: Arial, sans-serif; font-size: 12px; width: 100%;">`;
     html += `<tr style="background-color: #1e3a5f; color: white; text-align: left;">
-        <th>Fecha</th><th>Vuelta</th><th>Vehículo</th><th>Canal</th><th>Cliente Principal</th><th>CP Principal</th><th>Salida</th><th>Llegada</th>
+        <th>Fecha</th><th>Vuelta</th><th>Vehículo</th><th>Canal</th><th>Cliente Principal</th><th>CP Principal</th><th>CP Complementario</th><th style="text-align:center;">Peso</th><th style="text-align:center;">Bultos</th><th>Salida</th><th>Llegada</th>
     </tr>`;
 
     let detallesNovedadesHtml = '';
@@ -666,6 +666,10 @@ function copiarTablaParaMail() {
         else if (llegadaTxt === 'terminado (con novedad)') llegadaStyle = 'background-color:#ffedd5;color:#9a3412;font-weight:bold;';
         else if (llegadaTxt === 'sin finalizar (con novedad)') llegadaStyle = 'background-color:#fee2e2;color:#991b1b;font-weight:bold;';
 
+        let pesoFmt = Number(v.peso || 0).toFixed(2);
+        let bultosVal = v.bultos || '';
+        let cpCompVal = v.cpComplementos || 'Ninguna';
+
         html += `<tr>
             <td>${v.fechaGrilla}</td>
             <td>${v.vuelta || '1RA VUELTA'}</td>
@@ -673,6 +677,9 @@ function copiarTablaParaMail() {
             <td>${v.canal || ''}</td>
             <td>${v.cliente || ''}</td>
             <td><b>${v.cpPrincipal || ''}</b></td>
+            <td>${cpCompVal}</td>
+            <td style="text-align:center;">${pesoFmt}</td>
+            <td style="text-align:center;">${bultosVal}</td>
             <td style="${salidaStyle}">${salidaTxt}</td>
             <td style="${llegadaStyle}">${llegadaTxt}</td>
         </tr>`;
@@ -714,8 +721,10 @@ function copiarTablaParaMail() {
             <th style="text-align:center;">Bultos Rech.</th><th style="text-align:center;">Foto</th><th style="text-align:center;">Audio</th>
         </tr>`;
         html += detallesNovedadesHtml;
-        html += `</table>`;
+        html += `</table><br>`;
     }
+
+    html += `<p style="font-family: Arial, sans-serif; font-size: 13px;">Saludos</p>`;
 
     const blob = new Blob([html], { type: 'text/html' });
     const plainBlob = new Blob([html.replace(/<[^>]*>?/gm, '')], { type: 'text/plain' });
@@ -723,7 +732,7 @@ function copiarTablaParaMail() {
     navigator.clipboard.write([
         new ClipboardItem({ 'text/html': blob, 'text/plain': plainBlob })
     ]).then(() => {
-        alert('✓ ¡Tabla copiada al portapapeles con cliente, bultos y formato optimizado para Outlook!');
+        alert('✓ ¡Tabla copiada al portapapeles con CP complementario, peso, bultos y la firma de saludos!');
     }).catch(err => {
         console.error(err);
         alert('Error al intentar copiar al portapapeles.');
