@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -6,14 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel de Control de Novedades de Reparto</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 </head>
 <body class="bg-slate-100 p-4 md:p-8">
 <div class="max-w-7xl mx-auto space-y-6">
 
     <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 flex flex-wrap justify-between items-center gap-4">
         <div>
-            <h1 class="text-3xl font-black text-blue-900 italic uppercase">CONTROL DE NOVEDADES GP OK</h1>
+            <h1 class="text-3xl font-black text-blue-900 italic uppercase">CONTROL DE NOVEDADES GP</h1>
             <p class="text-slate-500 text-sm mt-1">Monitoreo de salidas, llegadas, rechazos y reporte para correo</p>
         </div>
         <div class="flex items-center gap-3 flex-wrap">
@@ -66,7 +64,7 @@
                         <th class="p-3 text-center w-12"><input type="checkbox" id="chkAllDocs" onchange="toggleSeleccionarTodosDocs(this)"></th>
                         <th class="p-3">Nro Documento / Tipo</th><th class="p-3">Cliente y Dirección</th>
                         <th class="p-3">Motivo</th><th class="p-3">Observaciones</th>
-                        <th class="p-3 text-center">Bultos Rechazados</th><th class="p-3">Foto (PC / QR Celular)</th><th class="p-3">Audio (PC / QR Celular)</th>
+                        <th class="p-3 text-center">Bultos Rechazados</th><th class="p-3">Foto</th><th class="p-3">Audio</th>
                     </tr>
                 </thead>
                 <tbody id="tbodyDocumentosModal" class="divide-y divide-slate-100"></tbody>
@@ -79,16 +77,6 @@
     </div>
 </div>
 
-<div id="modalQRCaptura" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 text-center space-y-4">
-        <h3 class="text-base font-black text-blue-900" id="tituloQRCaptura">Escaneá con tu Celular</h3>
-        <p class="text-xs text-slate-500">Apuntá la cámara de tu teléfono para capturar la foto o adjuntar el audio.</p>
-        <div id="qrContainer" class="flex justify-center p-4 bg-slate-50 rounded-2xl border border-slate-200"></div>
-        <button onclick="verificarLinkMovil()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl shadow">🔄 Verificar si ya se subió</button>
-        <button onclick="cerrarModalQR()" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs py-2.5 rounded-xl">Cerrar Ventana</button>
-    </div>
-</div>
-
 <script>
 const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyF9e6gme3wHTVO_RooY_xqbK9VFciCZ0jejU2Vmh9o1OUEKwzmn1WxERq7hFBo0Oo2/exec";
 const WEB_APP_FC_URL = "https://script.google.com/macros/s/AKfycbzlPL8lhl8n_H2kioGd4CmBRrEG2X9mpa83eo0XgsMIbnxFD9ppAvWS7yT0NqKfNB-KLA/exec";
@@ -98,10 +86,8 @@ let estadoNovedadesMap = {};
 let cpActualAbierta = null;
 let cpPrincipalActualGlobal = '';
 let documentosActualesCP = [];
-let docActualCaptura = null;
-let tipoActualCaptura = null;
 
-// Cola local de archivos de PC
+// Cola local de archivos de PC (IndexedDB)
 const DB_ARCHIVOS_NOMBRE = 'NovedadesRepartoArchivos';
 const DB_ARCHIVOS_STORE = 'pendientesPC';
 
@@ -409,17 +395,15 @@ function renderizarTablaDocumentosModal() {
             </td>
             <td class="p-3 space-y-1">
                 <input type="text" id="foto_${d.numero}" placeholder="Link foto Drive..." value="${docSaved.fotoLink || ''}" class="w-full p-1.5 rounded border border-slate-300 text-[11px] bg-white outline-none" ${!docSaved.seleccionado ? 'disabled' : ''}>
-                <div class="flex gap-1 flex-wrap">
-                    <button onclick="abrirQRModal('FOTO', '${d.numero}')" class="bg-blue-800 hover:bg-blue-900 text-white font-bold text-[10px] px-2.5 py-1 rounded shadow" ${!docSaved.seleccionado ? 'disabled' : ''}>📷 QR Celular</button>
-                    <button onclick="subirDesdePC('FOTO', '${d.numero}')" class="bg-slate-700 hover:bg-slate-800 text-white font-bold text-[10px] px-2.5 py-1 rounded shadow" ${!docSaved.seleccionado ? 'disabled' : ''}>💻 PC</button>
-                </div>
+                <button onclick="subirDesdePC('FOTO', '${d.numero}')" class="w-full bg-slate-700 hover:bg-slate-800 text-white font-bold text-[10px] py-2 px-3 rounded-xl shadow transition-all flex items-center justify-center gap-1" ${!docSaved.seleccionado ? 'disabled' : ''}>
+                    📂 Cargar archivo
+                </button>
             </td>
             <td class="p-3 space-y-1">
                 <input type="text" id="audio_${d.numero}" placeholder="Link audio Drive..." value="${docSaved.audioLink || ''}" class="w-full p-1.5 rounded border border-slate-300 text-[11px] bg-white outline-none" ${!docSaved.seleccionado ? 'disabled' : ''}>
-                <div class="flex gap-1 flex-wrap">
-                    <button onclick="abrirQRModal('AUDIO', '${d.numero}')" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-[10px] px-2.5 py-1 rounded shadow" ${!docSaved.seleccionado ? 'disabled' : ''}>🎤 QR Celular</button>
-                    <button onclick="subirDesdePC('AUDIO', '${d.numero}')" class="bg-slate-700 hover:bg-slate-800 text-white font-bold text-[10px] px-2.5 py-1 rounded shadow" ${!docSaved.seleccionado ? 'disabled' : ''}>💻 PC</button>
-                </div>
+                <button onclick="subirDesdePC('AUDIO', '${d.numero}')" class="w-full bg-slate-700 hover:bg-slate-800 text-white font-bold text-[10px] py-2 px-3 rounded-xl shadow transition-all flex items-center justify-center gap-1" ${!docSaved.seleccionado ? 'disabled' : ''}>
+                    📂 Cargar archivo
+                </button>
             </td>
         </tr>`;
     }).join('');
@@ -461,7 +445,7 @@ function toggleSeleccionarTodosDocs(chkMaster) {
     });
 }
 
-// Selecciona archivo en PC y lo conserva localmente hasta sincronizar.
+// Carga de archivo desde la PC y almacenamiento local hasta sincronizar
 function subirDesdePC(tipo, nroDoc) {
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
@@ -506,7 +490,7 @@ function subirDesdePC(tipo, nroDoc) {
             });
 
             renderizarTablaDocumentosModal();
-            alert('✓ Archivo guardado provisoriamente en esta PC.\n\nTodavía no se subió a Drive. Se subirá al presionar SINCRONIZAR NOVEDADES.');
+            alert('✓ Archivo seleccionado y guardado provisoriamente en esta PC.\n\nSe subirá a Google Drive al presionar "SINCRONIZAR NOVEDADES".');
 
         } catch (err) {
             console.error(err);
@@ -514,29 +498,6 @@ function subirDesdePC(tipo, nroDoc) {
         }
     };
     fileInput.click();
-}
-
-function comprimirImagenBase64(dataUrl, maxWidth, quality) {
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => {
-            let width = img.width;
-            let height = img.height;
-            if (width > maxWidth) {
-                height = Math.round((height * maxWidth) / width);
-                width = maxWidth;
-            }
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) return reject(new Error('No se pudo procesar la imagen.'));
-            ctx.drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL('image/jpeg', quality).split(',')[1]);
-        };
-        img.onerror = () => reject(new Error('No se pudo abrir la imagen.'));
-        img.src = dataUrl;
-    });
 }
 
 async function subirArchivosPendientesPC() {
@@ -593,51 +554,6 @@ async function subirArchivosPendientesPC() {
     }
 }
 
-function abrirQRModal(tipo, nroDoc) {
-    docActualCaptura = nroDoc;
-    tipoActualCaptura = tipo;
-    document.getElementById('modalQRCaptura').classList.remove('hidden');
-    document.getElementById('tituloQRCaptura').innerText = tipo === 'FOTO'
-        ? `📷 Escaneá para Tomar Foto (${nroDoc})`
-        : `🎤 Escaneá para Audio (${nroDoc})`;
-
-    const qrDiv = document.getElementById('qrContainer');
-    qrDiv.innerHTML = '';
-    const urlMovil = `${WEB_APP_FC_URL}?action=mobileUploadPage&tipo=${tipo}&doc=${nroDoc}&cp=${encodeURIComponent(cpPrincipalActualGlobal)}`;
-
-    new QRCode(qrDiv, { text: urlMovil, width: 200, height: 200 });
-}
-
-async function verificarLinkMovil() {
-    try {
-        const resp = await fetch(WEB_APP_FC_URL, {
-            method: 'POST',
-            body: JSON.stringify({ action: 'consultarLinkCache', doc: docActualCaptura, tipo: tipoActualCaptura })
-        });
-        const res = await resp.json();
-
-        if (res.status === 'success' && res.link) {
-            if (tipoActualCaptura === 'FOTO') {
-                document.getElementById(`foto_${docActualCaptura}`).value = res.link;
-            } else {
-                document.getElementById(`audio_${docActualCaptura}`).value = res.link;
-            }
-            toggleSeleccionDoc(docActualCaptura, true);
-            alert('✓ ¡Archivo recibido del celular y vinculado con éxito!');
-            cerrarModalQR();
-        } else {
-            alert('Aún no se ha completado la subida desde el celular. Inténtalo de nuevo en unos segundos.');
-        }
-    } catch (err) {
-        console.error(err);
-        alert('Error al verificar el link en el servidor.');
-    }
-}
-
-function cerrarModalQR() {
-    document.getElementById('modalQRCaptura').classList.add('hidden');
-}
-
 function guardarProvisorioModal() {
     documentosActualesCP.forEach(d => {
         const chk = document.querySelector(`.chkDocItem[value="${d.numero}"]`);
@@ -673,10 +589,8 @@ async function sincronizarNovedades() {
     btn.disabled = true;
 
     try {
-        // 1. Subir archivos de PC y actualizar los links en estadoNovedadesMap.
         await subirArchivosPendientesPC();
 
-        // 2. Sincronizar novedades de Reparto.
         const respPedidos = await fetch(WEB_APP_URL, {
             method: 'POST',
             body: JSON.stringify({
@@ -689,7 +603,6 @@ async function sincronizarNovedades() {
             throw new Error(resPedidos.message || 'Error al sincronizar Reparto.');
         }
 
-        // 3. Sincronizar documentos FC/RTO.
         const respFC = await fetch(WEB_APP_FC_URL, {
             method: 'POST',
             body: JSON.stringify({
@@ -702,7 +615,6 @@ async function sincronizarNovedades() {
             throw new Error(resFC.message || 'Error al guardar novedades de documentos.');
         }
 
-        // 4. Vaciar la cola solamente si ambas sincronizaciones finalizaron.
         const pendientes = await obtenerArchivosPendientes();
         for (const archivo of pendientes) await eliminarArchivoPendiente(archivo.id);
 
