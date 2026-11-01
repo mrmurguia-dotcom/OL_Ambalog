@@ -40,6 +40,24 @@
                 display: block !important;
             }
 
+            /* Eliminar sombras y bordes de la tarjeta contenedora del modal en impresión */
+            #modalVistaPreviaPDF > div {
+                box-shadow: none !important;
+                border: none !important;
+                border-radius: 0 !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                max-width: 100% !important;
+                background: white !important;
+            }
+
+            #contenidoHojasPDF {
+                background: white !important;
+                padding: 0 !important;
+                border: none !important;
+                box-shadow: none !important;
+            }
+
             .no-print, .no-print * {
                 display: none !important;
             }
@@ -60,6 +78,7 @@
                 box-sizing: border-box !important;
                 display: block !important;
                 clear: both !important;
+                background: white !important;
             }
 
             .hoja-pagina:first-child {
@@ -75,7 +94,7 @@
         <!-- ENCABEZADO Y NAVEGACIÓN -->
         <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 flex flex-wrap justify-between items-center gap-4">
             <div>
-                <h1 class="text-3xl font-black text-blue-900 italic uppercase">CARGA REPARTO GP OK</h1>
+                <h1 class="text-3xl font-black text-blue-900 italic uppercase">CARGA REPARTO GP</h1>
                 <p class="text-slate-500 text-sm mt-1">Panel Operativo de Asignación, Grilla y Hojas de Ruta</p>
             </div>
             
@@ -211,7 +230,12 @@
 
             <!-- 1. VIAJES YA REGISTRADOS EN LA GRILLA -->
             <div class="space-y-3">
-                <h3 class="text-xs font-bold text-slate-800 uppercase">Viajes Ya Registrados en la Grilla (Fecha Seleccionada):</h3>
+                <div class="flex justify-between items-center flex-wrap gap-2">
+                    <h3 class="text-xs font-bold text-slate-800 uppercase">Viajes Ya Registrados en la Grilla (Fecha Seleccionada):</h3>
+                    <button onclick="copiarGrillaRegistrada()" class="bg-blue-900 hover:bg-black text-white font-black text-xs px-4 py-2 rounded-xl shadow transition-all flex items-center gap-1.5">
+                        📋 COPIAR GRILLA
+                    </button>
+                </div>
                 <div class="overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-sm max-h-60">
                     <table class="w-full text-left border-collapse text-xs">
                         <thead class="bg-slate-100 text-slate-700 font-bold sticky top-0">
@@ -1112,6 +1136,104 @@
             renderizarPanelVehiculos();
         }
 
+        // --- FUNCIÓN PARA COPIAR LA GRILLA SINCRONIZADA (EXCLUYENDO ACCIONES) ---
+        function copiarGrillaRegistrada() {
+            const fechaFiltroGrilla = document.getElementById('filtroFechaGrilla').value;
+            const filtrados = grillaRegistrada.filter(g => String(g.fechaGrilla).trim() === String(fechaFiltroGrilla).trim());
+
+            if (filtrados.length === 0) {
+                alert("No hay viajes registrados para copiar en la fecha seleccionada.");
+                return;
+            }
+
+            let htmlContent = `
+                <table border="1" cellspacing="0" cellpadding="5" style="border-collapse: collapse; font-family: Calibri, Arial, sans-serif; font-size: 11pt; color: #333333;">
+                    <thead>
+                        <tr style="background-color: #1e3a5f; color: #ffffff; text-align: left; font-weight: bold;">
+                            <th style="padding: 8px; border: 1px solid #b0c4de;">Fecha Grilla</th>
+                            <th style="padding: 8px; border: 1px solid #b0c4de;">Vuelta</th>
+                            <th style="padding: 8px; border: 1px solid #b0c4de;">Vehículo</th>
+                            <th style="padding: 8px; border: 1px solid #b0c4de;">Canal</th>
+                            <th style="padding: 8px; border: 1px solid #b0c4de;">Tipo Viaje</th>
+                            <th style="padding: 8px; border: 1px solid #b0c4de;">Cliente Principal</th>
+                            <th style="padding: 8px; border: 1px solid #b0c4de;">Zona</th>
+                            <th style="padding: 8px; border: 1px solid #b0c4de;">CP Principal</th>
+                            <th style="padding: 8px; border: 1px solid #b0c4de;">CP Complementarias</th>
+                            <th style="padding: 8px; border: 1px solid #b0c4de; text-align: center;">Peso [kg]</th>
+                            <th style="padding: 8px; border: 1px solid #b0c4de; text-align: center;">Bultos</th>
+                            <th style="padding: 8px; border: 1px solid #b0c4de; text-align: center;">Pallets</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            filtrados.forEach((g, index) => {
+                let bgColor = index % 2 === 0 ? '#ffffff' : '#f9fbfd';
+                htmlContent += `
+                    <tr style="background-color: ${bgColor};">
+                        <td style="padding: 6px; border: 1px solid #dcdcdc;">${g.fechaGrilla}</td>
+                        <td style="padding: 6px; border: 1px solid #dcdcdc;">${g.vuelta || '1RA VUELTA'}</td>
+                        <td style="padding: 6px; border: 1px solid #dcdcdc;">${g.tipoVehiculo || 'N/A'}</td>
+                        <td style="padding: 6px; border: 1px solid #dcdcdc;">${g.canal}</td>
+                        <td style="padding: 6px; border: 1px solid #dcdcdc;">${g.tipoViaje}</td>
+                        <td style="padding: 6px; border: 1px solid #dcdcdc;">${g.cliente}</td>
+                        <td style="padding: 6px; border: 1px solid #dcdcdc;">${g.zona}</td>
+                        <td style="padding: 6px; border: 1px solid #dcdcdc;">${g.cpPrincipal}</td>
+                        <td style="padding: 6px; border: 1px solid #dcdcdc;">${g.cpComplementos || 'Ninguna'}</td>
+                        <td style="padding: 6px; border: 1px solid #dcdcdc; text-align: center;">${Number(g.peso).toFixed(2)}</td>
+                        <td style="padding: 6px; border: 1px solid #dcdcdc; text-align: center;">${g.bultos}</td>
+                        <td style="padding: 6px; border: 1px solid #dcdcdc; text-align: center;">${Number(g.pallets || 0).toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+
+            htmlContent += `
+                    </tbody>
+                </table>
+            `;
+
+            if (navigator.clipboard && window.ClipboardItem) {
+                const blobHtml = new Blob([htmlContent], { type: 'text/html' });
+                const textPlain = filtrados.map(g => `${g.fechaGrilla}\t${g.vuelta || '1RA VUELTA'}\t${g.tipoVehiculo}\t${g.canal}\t${g.tipoViaje}\t${g.cliente}\t${g.zona}\t${g.cpPrincipal}\t${g.cpComplementos || 'Ninguna'}\t${g.peso}\t${g.bultos}\t${g.pallets}`).join('\n');
+                const blobText = new Blob([textPlain], { type: 'text/plain' });
+
+                navigator.clipboard.write([
+                    new ClipboardItem({
+                        'text/html': blobHtml,
+                        'text/plain': blobText
+                    })
+                ]).then(() => {
+                    alert("✓ ¡Grilla copiada al portapapeles! Ya podés pegarla directamente en Outlook.");
+                }).catch(err => {
+                    console.error("Error al copiar:", err);
+                    fallbackCopyHTML(htmlContent);
+                });
+            } else {
+                fallbackCopyHTML(htmlContent);
+            }
+        }
+
+        function fallbackCopyHTML(html) {
+            const container = document.createElement('div');
+            container.innerHTML = html;
+            container.style.position = 'fixed';
+            container.style.pointerEvents = 'none';
+            container.style.opacity = '0';
+            document.body.appendChild(container);
+            window.getSelection().removeAllRanges();
+            const range = document.createRange();
+            range.selectNode(container);
+            window.getSelection().addRange(range);
+            try {
+                document.execCommand('copy');
+                alert("✓ ¡Grilla copiada al portapapeles!");
+            } catch (e) {
+                alert("No se pudo copiar automáticamente.");
+            }
+            window.getSelection().removeAllRanges();
+            document.body.removeChild(container);
+        }
+
         function renderizarDashboardVehiculosProgramados(viajesFecha) {
             const dashboard = document.getElementById('dashboardVehiculosProgramados');
             
@@ -1183,10 +1305,8 @@
                     grillaRegistrada = resGrilla.grilla;
                     let viajesFecha = grillaRegistrada.filter(g => String(g.fechaGrilla).trim() === String(fechaInput).trim());
                     
-                    // APLANAR LOS VIAJES: Desglosar CADA Carta de Porte (Principal y Complementarias) en su propia línea independiente
                     listaCPsHojaRutaIndividual = [];
                     viajesFecha.forEach(v => {
-                        // 1. CP Principal
                         if (v.cpPrincipal) {
                             listaCPsHojaRutaIndividual.push({
                                 fechaGrilla: v.fechaGrilla,
@@ -1196,7 +1316,6 @@
                                 canal: v.canal
                             });
                         }
-                        // 2. CPs Complementarias (cada una en su propia línea individual)
                         if (v.cpComplementos) {
                             v.cpComplementos.split(',').forEach(c => {
                                 let compClean = c.trim();
@@ -1262,7 +1381,6 @@
             try {
                 let htmlHojas = '';
 
-                // CADA FILA TILDADA ES UNA CARTA DE PORTE INDEPENDIENTE -> GENERA EXACTAMENTE 1 HOJA POR CADA UNA
                 for (let item of itemsSeleccionados) {
                     let cpItem = item.cp;
 
@@ -1313,7 +1431,7 @@
                     }
 
                     htmlHojas += `
-                            <div class="hoja-pagina" style="page-break-before: always !important; break-before: page !important; page-break-after: always !important; break-after: page !important; font-family: Arial, sans-serif; color: #1e293b; background: white; padding: 20px; width: 100%; box-sizing: border-box;">
+                        <div class="hoja-pagina" style="page-break-before: always !important; break-before: page !important; page-break-after: always !important; break-after: page !important; font-family: Arial, sans-serif; color: #1e293b; background: white; padding: 20px; width: 100%; box-sizing: border-box;">
                             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #1e3a5f; padding-bottom: 10px; margin-bottom: 15px;">
                                 <div>
                                     <h1 style="margin: 0; font-size: 20px; font-weight: 900; color: #1e3a5f; text-transform: uppercase;">Reparto de Grupo Peñaflor</h1>
