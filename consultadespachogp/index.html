@@ -11,6 +11,7 @@
             0% { opacity: 1; transform: scale(1); }
             50% { opacity: 0.4; transform: scale(0.98); }
             100% { opacity: 1; transform: scale(1); }
+        }
         .animar-titilo {
             animation: titilar 1.5s infinite ease-in-out;
         }
@@ -67,7 +68,7 @@
                 </div>
             </div>
 
-            <!-- TARJETAS DE MÉTRICAS LOGÍSTICAS CON ALERTA TITILANTE DE DIFERENCIA -->
+            <!-- TARJETAS DE MÉTRICAS LOGÍSTICAS CON BULTOS FACTURADOS Y EFECTIVIDAD -->
             <div class="grid grid-cols-1 md:grid-cols-5 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200 items-center">
                 <div class="bg-white p-3 rounded-xl border shadow-sm">
                     <span class="text-[10px] font-bold text-slate-400 uppercase">Bultos Programados</span>
@@ -91,7 +92,7 @@
                 </div>
             </div>
 
-            <!-- CONTENEDOR DE ALERTA TITILANTE DINÁMICA -->
+            <!-- ALERTA TITILANTE DE DIFERENCIA EN FACTURACIÓN -->
             <div id="alertaDiferenciaContainer" class="hidden">
                 <button onclick="abrirModalDiferencias()" class="w-full bg-amber-100 hover:bg-amber-200 border-2 border-amber-400 text-amber-900 font-black text-xs p-3 rounded-2xl shadow-md animar-titilo flex items-center justify-center gap-2 transition-all">
                     <span>⚠️</span> <span>¡Atención! Se detectaron diferencias entre lo programado y lo facturado. Click aquí para consultar diferencia en la facturación.</span>
@@ -243,13 +244,13 @@
 
 </div>
 
-<!-- MODAL DETALLE DE DIFERENCIAS EN FACTURACIÓN -->
+<!-- MODAL AUDITORÍA DE DIFERENCIAS CON NRO. CLIENTE -->
 <div id="modalDiferenciasFacturacion" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-3xl shadow-2xl max-w-5xl w-full p-6 border border-slate-200 space-y-6 max-h-[90vh] overflow-y-auto">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-6xl w-full p-6 border border-slate-200 space-y-6 max-h-[90vh] overflow-y-auto">
         <div class="flex justify-between items-center border-b pb-3">
             <div>
                 <h3 class="text-lg font-black text-blue-950">Auditoría de Diferencias: Programado vs. Facturado</h3>
-                <p class="text-xs text-slate-500">Cartas de Porte donde la cantidad facturada difiere de los bultos programados en la grilla.</p>
+                <p class="text-xs text-slate-500">Cartas de Porte donde la cantidad facturada difiere de los bultos programados segun el pedido.</p>
             </div>
             <button onclick="cerrarModalDiferencias()" class="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
         </div>
@@ -258,6 +259,7 @@
                 <thead class="bg-slate-100 text-slate-700 font-bold sticky top-0 border-b">
                     <tr>
                         <th class="p-3">Fecha Grilla</th>
+                        <th class="p-3">Nro. Cliente</th>
                         <th class="p-3">Carta de Porte Principal</th>
                         <th class="p-3">Cliente</th>
                         <th class="p-3 text-center">Bultos Programados</th>
@@ -447,6 +449,17 @@ function renderizarLogistica() {
     ejecutarConsultaLogistica();
 }
 
+// Función auxiliar para extraer el número/código de cliente del string (ej: "41060019 YAGUAR" -> "41060019")
+function extraerNumeroCliente(clienteStr) {
+    if (!clienteStr) return '-';
+    let partes = String(clienteStr).trim().split(' ');
+    let posibleCodigo = partes[0];
+    if (/^[0-9]+$/.test(posibleCodigo)) {
+        return posibleCodigo;
+    }
+    return '-';
+}
+
 function renderizarLogisticaConDatosFiltrados(filtrados) {
     const soloNov = document.getElementById('chkSoloNovedades').checked;
     const tbody = document.getElementById('tbodyLogistica');
@@ -549,7 +562,6 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
     document.getElementById('logTotalRechazados').innerText = totRech.toLocaleString('es-ES');
     document.getElementById('logEfectividad').innerText = `${efectividad}%`;
 
-    // Mostrar u ocultar la alerta titilante según si hay diferencias
     const contenedorAlerta = document.getElementById('alertaDiferenciaContainer');
     if (listaDiferenciasGlobal.length > 0) {
         contenedorAlerta.classList.remove('hidden');
@@ -558,18 +570,20 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
     }
 }
 
-// --- MODAL DE DIFERENCIAS EN FACTURACIÓN ---
+// --- MODAL DE DIFERENCIAS EN FACTURACIÓN CON NRO. CLIENTE ---
 function abrirModalDiferencias() {
     const tbody = document.getElementById('tbodyDiferenciasModal');
     if (listaDiferenciasGlobal.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400 italic">No hay diferencias de facturación en este periodo.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400 italic">No hay diferencias de facturación en este periodo.</td></tr>`;
     } else {
         tbody.innerHTML = listaDiferenciasGlobal.map(d => {
             let colorDif = d.diferencia < 0 ? 'text-red-600' : 'text-emerald-600';
             let signo = d.diferencia > 0 ? '+' : '';
+            let nroCliente = extraerNumeroCliente(d.cliente);
             return `
                 <tr class="hover:bg-slate-50 border-b">
                     <td class="p-3 font-bold">${d.fechaGrilla}</td>
+                    <td class="p-3 font-black text-slate-700">${nroCliente}</td>
                     <td class="p-3 font-black text-blue-900">${d.cpPrincipal}</td>
                     <td class="p-3 font-semibold">${d.cliente}</td>
                     <td class="p-3 text-center font-bold">${d.bultosProg}</td>
