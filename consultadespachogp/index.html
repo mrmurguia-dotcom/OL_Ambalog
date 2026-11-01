@@ -244,9 +244,9 @@
 
 </div>
 
-<!-- MODAL AUDITORÍA DE DIFERENCIAS (CLIENTE COMPLETO DE FC) -->
+<!-- MODAL AUDITORÍA DE DIFERENCIAS (SOLO CARTA DE PORTE) -->
 <div id="modalDiferenciasFacturacion" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-3xl shadow-2xl max-w-5xl w-full p-6 border border-slate-200 space-y-6 max-h-[90vh] overflow-y-auto">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-4xl w-full p-6 border border-slate-200 space-y-6 max-h-[90vh] overflow-y-auto">
         <div class="flex justify-between items-center border-b pb-3">
             <div>
                 <h3 class="text-lg font-black text-blue-950">Auditoría de Diferencias: Programado vs. Facturado</h3>
@@ -260,7 +260,6 @@
                     <tr>
                         <th class="p-3">Fecha Grilla</th>
                         <th class="p-3">Carta de Porte Principal</th>
-                        <th class="p-3">Cliente (con ID de FC)</th>
                         <th class="p-3 text-center">Bultos Programados</th>
                         <th class="p-3 text-center">Bultos Facturados</th>
                         <th class="p-3 text-center">Diferencia</th>
@@ -464,7 +463,7 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
         document.getElementById('logTotalFact').innerText = '0';
         document.getElementById('logTotalEntregados').innerText = '0';
         document.getElementById('logTotalRechazados').innerText = '0';
-        document.getElementById('logEfectividad').innerText = '100% ';
+        document.getElementById('logEfectividad').innerText = '100%';
         document.getElementById('alertaDiferenciaContainer').classList.add('hidden');
         return;
     }
@@ -492,14 +491,11 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
             }
         });
 
-        // Registrar si hay diferencia entre programado y facturado
+        // Registrar si hay diferencia entre programado y facturado por Carta de Porte
         if (bultosProg !== bultosFactCP) {
-            // Aquí extraemos directamente el nombre completo CON EL ID de la FC de los documentos descargados
-            let nombreClienteFinal = (docsDeCp.length > 0 && docsDeCp[0].cliente && docsDeCp[0].cliente !== 'N/A') ? docsDeCp[0].cliente : (g.cliente || 'N/A');
             listaDiferenciasGlobal.push({
                 fechaGrilla: g.fechaGrilla,
                 cpPrincipal: g.cpPrincipal,
-                cliente: nombreClienteFinal,
                 bultosProg: bultosProg,
                 bultosFact: bultosFactCP,
                 diferencia: bultosFactCP - bultosProg
@@ -577,11 +573,11 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
     }
 }
 
-// --- MODAL DE DIFERENCIAS EN FACTURACIÓN (MUESTRA EL CLIENTE CON SU ID) ---
+// --- MODAL DE DIFERENCIAS EN FACTURACIÓN (ORGANIZADO SOLO POR CP) ---
 function abrirModalDiferencias() {
     const tbody = document.getElementById('tbodyDiferenciasModal');
     if (listaDiferenciasGlobal.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400 italic">No hay diferencias de facturación en este periodo.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-400 italic">No hay diferencias de facturación en este periodo.</td></tr>`;
     } else {
         tbody.innerHTML = listaDiferenciasGlobal.map(d => {
             let colorDif = d.diferencia < 0 ? 'text-red-600' : 'text-emerald-600';
@@ -590,7 +586,6 @@ function abrirModalDiferencias() {
                 <tr class="hover:bg-slate-50 border-b">
                     <td class="p-3 font-bold">${d.fechaGrilla}</td>
                     <td class="p-3 font-black text-blue-900">${d.cpPrincipal}</td>
-                    <td class="p-3 font-semibold text-slate-800">${d.cliente}</td>
                     <td class="p-3 text-center font-bold">${d.bultosProg}</td>
                     <td class="p-3 text-center font-bold">${d.bultosFact}</td>
                     <td class="p-3 text-center font-black ${colorDif}">${signo}${d.diferencia}</td>
