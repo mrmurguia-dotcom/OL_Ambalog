@@ -52,7 +52,7 @@
             <div class="flex justify-between items-center border-b pb-3 flex-wrap gap-4">
                 <div>
                     <h2 class="text-xl font-black text-blue-900">Monitoreo Logístico y Novedades de Viajes</h2>
-                    <p class="text-xs text-slate-500">Consulta por fecha única o rango de fecha</p>
+                    <p class="text-xs text-slate-500">Consulta por fecha única o por rango de fechas</p>
                 </div>
                 
                 <div class="flex items-center gap-3 flex-wrap">
@@ -244,9 +244,9 @@
 
 </div>
 
-<!-- MODAL AUDITORÍA DE DIFERENCIAS CON NRO. CLIENTE -->
+<!-- MODAL AUDITORÍA DE DIFERENCIAS (DATO COMPLETO DE CLIENTE) -->
 <div id="modalDiferenciasFacturacion" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-3xl shadow-2xl max-w-6xl w-full p-6 border border-slate-200 space-y-6 max-h-[90vh] overflow-y-auto">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-5xl w-full p-6 border border-slate-200 space-y-6 max-h-[90vh] overflow-y-auto">
         <div class="flex justify-between items-center border-b pb-3">
             <div>
                 <h3 class="text-lg font-black text-blue-950">Auditoría de Diferencias: Programado vs. Facturado</h3>
@@ -259,7 +259,6 @@
                 <thead class="bg-slate-100 text-slate-700 font-bold sticky top-0 border-b">
                     <tr>
                         <th class="p-3">Fecha Grilla</th>
-                        <th class="p-3">Nro. Cliente</th>
                         <th class="p-3">Carta de Porte Principal</th>
                         <th class="p-3">Cliente</th>
                         <th class="p-3 text-center">Bultos Programados</th>
@@ -449,17 +448,6 @@ function renderizarLogistica() {
     ejecutarConsultaLogistica();
 }
 
-// Función auxiliar para extraer el número/código de cliente del string (ej: "41060019 YAGUAR" -> "41060019")
-function extraerNumeroCliente(clienteStr) {
-    if (!clienteStr) return '-';
-    let partes = String(clienteStr).trim().split(' ');
-    let posibleCodigo = partes[0];
-    if (/^[0-9]+$/.test(posibleCodigo)) {
-        return posibleCodigo;
-    }
-    return '-';
-}
-
 function renderizarLogisticaConDatosFiltrados(filtrados) {
     const soloNov = document.getElementById('chkSoloNovedades').checked;
     const tbody = document.getElementById('tbodyLogistica');
@@ -484,10 +472,8 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
     let totProg = 0, totFact = 0, totEnt = 0, totRech = 0;
     listaDiferenciasGlobal = [];
 
-    tbody.innerHTML = filtrados.map(g => {
+    filtrados.forEach(g => {
         let bultosProg = Math.round(Number(g.bultos) || 0);
-        let pesoVal = Math.round(Number(g.peso) || 0);
-        let palletsVal = Math.round(Number(g.pallets || 0));
 
         let docsDeCp = documentosGlobal.filter(d => d.cp === g.cpPrincipal);
         let bultosFactCP = 0;
@@ -508,10 +494,11 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
 
         // Registrar si hay diferencia entre programado y facturado
         if (bultosProg !== bultosFactCP) {
+            let nombreClienteFinal = g.cliente || (docsDeCp.length > 0 ? docsDeCp[0].cliente : 'N/A');
             listaDiferenciasGlobal.push({
                 fechaGrilla: g.fechaGrilla,
                 cpPrincipal: g.cpPrincipal,
-                cliente: g.cliente || 'N/A',
+                cliente: nombreClienteFinal,
                 bultosProg: bultosProg,
                 bultosFact: bultosFactCP,
                 diferencia: bultosFactCP - bultosProg
@@ -524,6 +511,25 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
 
         let bultosEntregadosCP = Math.max(0, bultosProg - rechazosCP);
         totEnt += bultosEntregadosCP;
+    });
+
+    tbody.innerHTML = filtrados.map(g => {
+        let bultosProg = Math.round(Number(g.bultos) || 0);
+        let pesoVal = Math.round(Number(g.peso) || 0);
+        let palletsVal = Math.round(Number(g.pallets || 0));
+
+        let docsDeCp = documentosGlobal.filter(d => d.cp === g.cpPrincipal);
+        let rechazosCP = 0;
+        docsDeCp.forEach(d => {
+            let totalLinea = (Number(d.cajas) || 0) + (Number(d.unidades) || 0);
+            if (d.bultosRechazados !== '' && d.bultosRechazados !== undefined && !isNaN(d.bultosRechazados)) {
+                rechazosCP += Number(d.bultosRechazados);
+            } else if (d.observacion === 'rechazo total' || d.observacion === 'no entregado') {
+                rechazosCP += totalLinea;
+            } else if (d.observacion === 'rechazo parcial') {
+                rechazosCP += (Number(d.cajas) || 0);
+            }
+        });
 
         let cpCompRaw = String(g.cpComplementos || '').trim();
         let cpCompVal = (cpCompRaw === '' || cpCompRaw.toLowerCase() === 'ninguna') ? '' : cpCompRaw;
@@ -570,20 +576,18 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
     }
 }
 
-// --- MODAL DE DIFERENCIAS EN FACTURACIÓN CON NRO. CLIENTE ---
+// --- MODAL DE DIFERENCIAS EN FACTURACIÓN (DATO COMPLETO) ---
 function abrirModalDiferencias() {
     const tbody = document.getElementById('tbodyDiferenciasModal');
     if (listaDiferenciasGlobal.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400 italic">No hay diferencias de facturación en este periodo.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400 italic">No hay diferencias de facturación en este periodo.</td></tr>`;
     } else {
         tbody.innerHTML = listaDiferenciasGlobal.map(d => {
             let colorDif = d.diferencia < 0 ? 'text-red-600' : 'text-emerald-600';
             let signo = d.diferencia > 0 ? '+' : '';
-            let nroCliente = extraerNumeroCliente(d.cliente);
             return `
                 <tr class="hover:bg-slate-50 border-b">
                     <td class="p-3 font-bold">${d.fechaGrilla}</td>
-                    <td class="p-3 font-black text-slate-700">${nroCliente}</td>
                     <td class="p-3 font-black text-blue-900">${d.cpPrincipal}</td>
                     <td class="p-3 font-semibold">${d.cliente}</td>
                     <td class="p-3 text-center font-bold">${d.bultosProg}</td>
