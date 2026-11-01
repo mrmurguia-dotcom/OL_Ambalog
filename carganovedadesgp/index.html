@@ -13,7 +13,7 @@
         <!-- ENCABEZADO -->
         <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 flex flex-wrap justify-between items-center gap-4">
             <div>
-                <h1 class="text-3xl font-black text-blue-900 italic uppercase">CONTROL DE NOVEDADES GP</h1>
+                <h1 class="text-3xl font-black text-blue-900 italic uppercase">CONTROL DE NOVEDADES GP OK</h1>
                 <p class="text-slate-500 text-sm mt-1">Monitoreo de salidas, llegadas, rechazos y reporte para correo</p>
             </div>
             <div class="flex items-center gap-3 flex-wrap">
@@ -110,7 +110,7 @@
     <div id="modalQRCaptura" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 text-center space-y-4">
             <h3 class="text-base font-black text-blue-900" id="tituloQRCaptura">Escaneá con tu Celular</h3>
-            <p class="text-xs text-slate-500">Apuntá la cámara de tu teléfono para capturar la foto o grabar/adjuntar el audio directamente a Google Drive.</p>
+            <p class="text-xs text-slate-500">Apuntá la cámara de tu teléfono para capturar la foto o adjuntar el audio.</p>
             <div id="qrContainer" class="flex justify-center p-4 bg-slate-50 rounded-2xl border border-slate-200"></div>
             <button onclick="verificarLinkMovil()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl shadow">🔄 Verificar si ya se subió</button>
             <button onclick="cerrarModalQR()" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs py-2.5 rounded-xl">Cerrar Ventana</button>
@@ -124,6 +124,7 @@
         let viajesNovedades = [];
         let estadoNovedadesMap = {}; 
         let cpActualAbierta = null;
+        let cpPrincipalActualGlobal = '';
         let documentosActualesCP = [];
         let docActualCaptura = null;
         let tipoActualCaptura = null;
@@ -256,6 +257,7 @@
 
         async function abrirModalNovedad(cpPrincipal, cpComplementarios, cpKey) {
             cpActualAbierta = cpKey;
+            cpPrincipalActualGlobal = cpPrincipal;
             document.getElementById('subtituloModalCP').innerText = `Principal: ${cpPrincipal} | Complementarios: ${cpComplementarios || 'Ninguno'}`;
             document.getElementById('modalNovedadDetalle').classList.remove('hidden');
             const tbodyDocs = document.getElementById('tbodyDocumentosModal');
@@ -319,16 +321,16 @@
                     seleccionado: !!d.motivo, 
                     motivo: d.motivo || '', 
                     observacion: d.observacion || '', 
-                    bultosRechazados: d.bultosRechazados !== '' ? d.bultosRechazados : (d.observacion === 'rechazo total' ? d.totalBultosLine : ''),
+                    bultosRechazados: d.bultosRechazados !== '' ? d.bultosRechazados : ((d.observacion === 'rechazo total' || d.observacion === 'no entregado') ? d.totalBultosLine : ''),
                     fotoLink: d.fotoLink || '', 
                     audioLink: d.audioLink || '' 
                 };
 
                 let bultosVal = docSaved.bultosRechazados;
-                if (docSaved.observacion === 'rechazo total' && (bultosVal === '' || bultosVal === undefined)) {
+                if ((docSaved.observacion === 'rechazo total' || docSaved.observacion === 'no entregado') && (bultosVal === '' || bultosVal === undefined)) {
                     bultosVal = d.totalBultosLine;
                 }
-                const isRechazoTotal = docSaved.observacion === 'rechazo total';
+                const bloquearBultos = (docSaved.observacion === 'rechazo total' || docSaved.observacion === 'no entregado');
 
                 return `
                     <tr class="hover:bg-slate-50 border-b">
@@ -348,7 +350,7 @@
                             <select id="motivo_${d.numero}" class="p-2 rounded-xl border border-slate-300 text-xs font-bold bg-white text-blue-900 outline-none w-full" ${!docSaved.seleccionado ? 'disabled' : ''}>
                                 <option value="" ${docSaved.motivo === '' ? 'selected' : ''}>-- Seleccionar Motivo --</option>
                                 <option value="problema interno (AMBALOG)" ${docSaved.motivo === 'problema interno (AMBALOG)' ? 'selected' : ''}>problema interno (AMBALOG)</option>
-                                <option value="problema externo" ${docSaved.motivo === 'problema externo' ? 'selected' : ''}>problema externo</option>
+                                <option value="problema externo (cliente)" ${docSaved.motivo === 'problema externo' ? 'selected' : ''}>problema externo</option>
                             </select>
                         </td>
                         <!-- OBSERVACIONES -->
@@ -362,7 +364,7 @@
                         </td>
                         <!-- BULTOS RECHAZADOS -->
                         <td class="p-3 text-center">
-                            <input type="number" id="bultos_${d.numero}" value="${bultosVal}" ${!docSaved.seleccionado || isRechazoTotal ? 'disabled' : ''} class="w-20 p-1.5 rounded-xl border border-slate-300 text-xs font-bold text-center bg-white outline-none ${isRechazoTotal ? 'bg-slate-100 text-slate-500' : 'text-blue-900'}">
+                            <input type="number" id="bultos_${d.numero}" value="${bultosVal}" ${!docSaved.seleccionado || bloquearBultos ? 'disabled' : ''} class="w-20 p-1.5 rounded-xl border border-slate-300 text-xs font-bold text-center bg-white outline-none ${bloquearBultos ? 'bg-slate-100 text-slate-500' : 'text-blue-900'}">
                             <span class="block text-[9px] text-slate-400 mt-0.5">Total línea: ${d.totalBultosLine}</span>
                         </td>
                         <!-- FOTO -->
@@ -389,7 +391,7 @@
         function cambioObservacionDoc(nroDoc, totalBultosLine) {
             const obsSelect = document.getElementById(`obs_${nroDoc}`);
             const bultosInput = document.getElementById(`bultos_${nroDoc}`);
-            if (obsSelect.value === 'rechazo total') {
+            if (obsSelect.value === 'rechazo total' || obsSelect.value === 'no entregado') {
                 bultosInput.value = totalBultosLine;
                 bultosInput.disabled = true;
                 bultosInput.className = "w-20 p-1.5 rounded-xl border border-slate-300 text-xs font-bold text-center bg-slate-100 text-slate-500 outline-none";
@@ -438,7 +440,6 @@
                 reader.onload = async function(event) {
                     let base64Data = event.target.result.split(',')[1];
                     
-                    // Si es imagen, comprimir antes de enviar para evitar payloads gigantes
                     if (tipo === 'FOTO' && file.type.startsWith('image/')) {
                         base64Data = await comprimirImagenBase64(event.target.result, 1200, 0.8);
                     }
@@ -449,6 +450,7 @@
                             body: JSON.stringify({
                                 action: 'procesarSubidaDirectaPC',
                                 doc: nroDoc,
+                                cp: cpPrincipalActualGlobal,
                                 tipo: tipo,
                                 filename: file.name,
                                 bytes: base64Data
@@ -501,12 +503,12 @@
             docActualCaptura = nroDoc;
             tipoActualCaptura = tipo;
             document.getElementById('modalQRCaptura').classList.remove('hidden');
-            document.getElementById('tituloQRCaptura').innerText = tipo === 'FOTO' ? `📷 Escaneá para Tomar Foto (${nroDoc})` : `🎤 Escaneá para Grabar/Audio (${nroDoc})`;
+            document.getElementById('tituloQRCaptura').innerText = tipo === 'FOTO' ? `📷 Escaneá para Tomar Foto (${nroDoc})` : `🎤 Escaneá para Audio (${nroDoc})`;
             
             const qrDiv = document.getElementById('qrContainer');
             qrDiv.innerHTML = "";
             
-            let urlMovil = `${WEB_APP_FC_URL}?action=mobileUploadPage&tipo=${tipo}&doc=${nroDoc}`;
+            let urlMovil = `${WEB_APP_FC_URL}?action=mobileUploadPage&tipo=${tipo}&doc=${nroDoc}&cp=${encodeURIComponent(cpPrincipalActualGlobal)}`;
             
             new QRCode(qrDiv, {
                 text: urlMovil,
@@ -646,7 +648,6 @@
                         let docInfo = est.documentosSeleccionados[nroDoc];
                         if (docInfo.seleccionado) {
                             hayDetalles = true;
-                            // Buscar nombre del cliente para este documento
                             let docObj = documentosActualesCP.find(d => d.numero === nroDoc);
                             let nombreClienteDoc = docObj ? docObj.cliente : '-';
 
