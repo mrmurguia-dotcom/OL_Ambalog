@@ -6,6 +6,15 @@
     <title>Consulta Despachos GP - Panel Gerencial y Operativo</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @keyframes titilar {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.98); }
+            100% { opacity: 1; transform: scale(1); }
+        .animar-titilo {
+            animation: titilar 1.5s infinite ease-in-out;
+        }
+    </style>
 </head>
 <body class="bg-slate-100 p-4 md:p-8 font-sans text-slate-800">
 <div class="max-w-7xl mx-auto space-y-6">
@@ -58,8 +67,8 @@
                 </div>
             </div>
 
-            <!-- TARJETAS DE MÉTRICAS LOGÍSTICAS CON BULTOS FACTURADOS Y EFECTIVIDAD -->
-            <div class="grid grid-cols-1 md:grid-cols-5 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+            <!-- TARJETAS DE MÉTRICAS LOGÍSTICAS CON ALERTA TITILANTE DE DIFERENCIA -->
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200 items-center">
                 <div class="bg-white p-3 rounded-xl border shadow-sm">
                     <span class="text-[10px] font-bold text-slate-400 uppercase">Bultos Programados</span>
                     <p id="logTotalProg" class="text-xl font-black text-blue-900">0</p>
@@ -80,6 +89,13 @@
                     <span class="text-[10px] font-bold text-slate-400 uppercase">Efectividad</span>
                     <p id="logEfectividad" class="text-xl font-black text-emerald-700">100%</p>
                 </div>
+            </div>
+
+            <!-- CONTENEDOR DE ALERTA TITILANTE DINÁMICA -->
+            <div id="alertaDiferenciaContainer" class="hidden">
+                <button onclick="abrirModalDiferencias()" class="w-full bg-amber-100 hover:bg-amber-200 border-2 border-amber-400 text-amber-900 font-black text-xs p-3 rounded-2xl shadow-md animar-titilo flex items-center justify-center gap-2 transition-all">
+                    <span>⚠️</span> <span>¡Atención! Se detectaron diferencias entre lo programado y lo facturado. Click aquí para consultar diferencia en la facturación.</span>
+                </button>
             </div>
 
             <div class="flex justify-end">
@@ -227,6 +243,37 @@
 
 </div>
 
+<!-- MODAL DETALLE DE DIFERENCIAS EN FACTURACIÓN -->
+<div id="modalDiferenciasFacturacion" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-5xl w-full p-6 border border-slate-200 space-y-6 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center border-b pb-3">
+            <div>
+                <h3 class="text-lg font-black text-blue-950">Auditoría de Diferencias: Programado vs. Facturado</h3>
+                <p class="text-xs text-slate-500">Cartas de Porte donde la cantidad facturada difiere de los bultos programados en la grilla.</p>
+            </div>
+            <button onclick="cerrarModalDiferencias()" class="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
+        </div>
+        <div class="overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-sm max-h-[50vh]">
+            <table class="w-full text-left border-collapse text-xs">
+                <thead class="bg-slate-100 text-slate-700 font-bold sticky top-0 border-b">
+                    <tr>
+                        <th class="p-3">Fecha Grilla</th>
+                        <th class="p-3">Carta de Porte Principal</th>
+                        <th class="p-3">Cliente</th>
+                        <th class="p-3 text-center">Bultos Programados</th>
+                        <th class="p-3 text-center">Bultos Facturados</th>
+                        <th class="p-3 text-center">Diferencia</th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyDiferenciasModal" class="divide-y divide-slate-100"></tbody>
+            </table>
+        </div>
+        <div class="pt-4 border-t flex justify-end">
+            <button onclick="cerrarModalDiferencias()" class="bg-blue-900 hover:bg-black text-white font-bold text-xs px-6 py-2.5 rounded-xl shadow transition-all">Cerrar</button>
+        </div>
+    </div>
+</div>
+
 <!-- MODAL NO EDITABLE DETALLE NOVEDADES DOCUMENTOS -->
 <div id="modalDetalleNovedades" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-3xl shadow-2xl max-w-6xl w-full p-6 border border-slate-200 space-y-6 max-h-[90vh] overflow-y-auto">
@@ -281,6 +328,7 @@ const WEB_APP_FC_URL = "https://script.google.com/macros/s/AKfycbzlPL8lhl8n_H2ki
 
 let grillaGlobal = [];
 let documentosGlobal = [];
+let listaDiferenciasGlobal = [];
 let chartEjecutivaInstancia = null;
 
 const hoy = new Date();
@@ -309,18 +357,15 @@ async function cargarDatosGenerales() {
     renderizarComercial();
 }
 
-// --- CONSULTA LOGÍSTICA SINCRONIZADA Y BLOQUEADA HASTA COMPLETAR ---
 async function ejecutarConsultaLogistica() {
     const btnConsultar = document.getElementById('btnConsultarLogistica');
     const tbody = document.getElementById('tbodyLogistica');
     
-    // 1. Bloquear botón y mostrar estado de carga obligatorio
     btnConsultar.disabled = true;
     btnConsultar.innerText = "⏳ Consultando...";
     tbody.innerHTML = `<tr><td colspan="13" class="p-8 text-center text-blue-900 font-bold italic animate-pulse">🔄 Consultando datos y descargando novedades del servidor, por favor espere...</td></tr>`;
 
     try {
-        // 2. Obtener Grilla Registrada
         const respGrilla = await fetch(WEB_APP_URL, {
             method: 'POST',
             body: JSON.stringify({ action: 'obtenerGrillaRegistrada' })
@@ -330,7 +375,6 @@ async function ejecutarConsultaLogistica() {
             grillaGlobal = resGrilla.grilla || [];
         }
 
-        // 3. Filtrar los viajes correspondientes al rango de fechas seleccionado
         const f1 = document.getElementById('logFecha1').value;
         const f2 = document.getElementById('logFecha2').value;
 
@@ -343,7 +387,6 @@ async function ejecutarConsultaLogistica() {
             }
         });
 
-        // 4. Obtener únicamente los documentos de los CPs de estas fechas filtradas
         let cpsUnicas = [...new Set(filtradosGrilla.map(g => g.cpPrincipal).filter(Boolean))];
         documentosGlobal = [];
 
@@ -380,7 +423,6 @@ async function ejecutarConsultaLogistica() {
             }
         }
 
-        // 5. Una vez descargado el 100% de los datos, renderizar la tabla y métricas de golpe
         renderizarLogisticaConDatosFiltrados(filtradosGrilla);
         poblarFiltrosComercial();
         renderizarComercial();
@@ -392,7 +434,6 @@ async function ejecutarConsultaLogistica() {
         console.error("Error al consultar datos:", err);
         tbody.innerHTML = `<tr><td colspan="13" class="p-6 text-center text-red-600 font-bold">❌ Error al conectar con el servidor. Intente nuevamente.</td></tr>`;
     } finally {
-        // Desbloquear botón
         btnConsultar.disabled = false;
         btnConsultar.innerText = "🔍 Consultar";
     }
@@ -410,7 +451,6 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
     const soloNov = document.getElementById('chkSoloNovedades').checked;
     const tbody = document.getElementById('tbodyLogistica');
 
-    // Ordenar de más nueva a más vieja si hay rango
     filtrados.sort((a, b) => new Date(b.fechaGrilla) - new Date(a.fechaGrilla));
 
     if (soloNov) {
@@ -424,10 +464,12 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
         document.getElementById('logTotalEntregados').innerText = '0';
         document.getElementById('logTotalRechazados').innerText = '0';
         document.getElementById('logEfectividad').innerText = '100%';
+        document.getElementById('alertaDiferenciaContainer').classList.add('hidden');
         return;
     }
 
     let totProg = 0, totFact = 0, totEnt = 0, totRech = 0;
+    listaDiferenciasGlobal = [];
 
     tbody.innerHTML = filtrados.map(g => {
         let bultosProg = Math.round(Number(g.bultos) || 0);
@@ -450,6 +492,18 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
                 rechazosCP += (Number(d.cajas) || 0);
             }
         });
+
+        // Registrar si hay diferencia entre programado y facturado
+        if (bultosProg !== bultosFactCP) {
+            listaDiferenciasGlobal.push({
+                fechaGrilla: g.fechaGrilla,
+                cpPrincipal: g.cpPrincipal,
+                cliente: g.cliente || 'N/A',
+                bultosProg: bultosProg,
+                bultosFact: bultosFactCP,
+                diferencia: bultosFactCP - bultosProg
+            });
+        }
 
         totProg += bultosProg;
         totFact += bultosFactCP;
@@ -494,6 +548,42 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
     document.getElementById('logTotalEntregados').innerText = totEnt.toLocaleString('es-ES');
     document.getElementById('logTotalRechazados').innerText = totRech.toLocaleString('es-ES');
     document.getElementById('logEfectividad').innerText = `${efectividad}%`;
+
+    // Mostrar u ocultar la alerta titilante según si hay diferencias
+    const contenedorAlerta = document.getElementById('alertaDiferenciaContainer');
+    if (listaDiferenciasGlobal.length > 0) {
+        contenedorAlerta.classList.remove('hidden');
+    } else {
+        contenedorAlerta.classList.add('hidden');
+    }
+}
+
+// --- MODAL DE DIFERENCIAS EN FACTURACIÓN ---
+function abrirModalDiferencias() {
+    const tbody = document.getElementById('tbodyDiferenciasModal');
+    if (listaDiferenciasGlobal.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400 italic">No hay diferencias de facturación en este periodo.</td></tr>`;
+    } else {
+        tbody.innerHTML = listaDiferenciasGlobal.map(d => {
+            let colorDif = d.diferencia < 0 ? 'text-red-600' : 'text-emerald-600';
+            let signo = d.diferencia > 0 ? '+' : '';
+            return `
+                <tr class="hover:bg-slate-50 border-b">
+                    <td class="p-3 font-bold">${d.fechaGrilla}</td>
+                    <td class="p-3 font-black text-blue-900">${d.cpPrincipal}</td>
+                    <td class="p-3 font-semibold">${d.cliente}</td>
+                    <td class="p-3 text-center font-bold">${d.bultosProg}</td>
+                    <td class="p-3 text-center font-bold">${d.bultosFact}</td>
+                    <td class="p-3 text-center font-black ${colorDif}">${signo}${d.diferencia}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+    document.getElementById('modalDiferenciasFacturacion').classList.remove('hidden');
+}
+
+function cerrarModalDiferencias() {
+    document.getElementById('modalDiferenciasFacturacion').classList.add('hidden');
 }
 
 // --- MODAL DETALLE NOVEDADES (NO EDITABLE) ---
