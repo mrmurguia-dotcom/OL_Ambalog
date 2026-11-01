@@ -54,7 +54,7 @@
                             <input type="date" id="logFecha2" class="p-2 rounded-xl border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none" placeholder="Opcional 2da fecha">
                         </div>
                     </div>
-                    <button onclick="filtrarLogistica()" class="bg-blue-800 hover:bg-blue-900 text-white font-black text-xs px-5 py-2.5 rounded-xl shadow mt-5">🔍 Consultar</button>
+                    <button id="btnConsultarLogistica" onclick="ejecutarConsultaLogistica()" class="bg-blue-800 hover:bg-blue-900 text-white font-black text-xs px-5 py-2.5 rounded-xl shadow mt-5 transition-all">🔍 Consultar</button>
                 </div>
             </div>
 
@@ -288,7 +288,7 @@ document.getElementById('logFecha1').valueAsDate = hoy;
 document.getElementById('comercialFecha').valueAsDate = hoy;
 
 window.onload = () => {
-    cargarDatosGenerales();
+    ejecutarConsultaLogistica();
 };
 
 function cambiarVistaConsulta(vista) {
@@ -304,8 +304,23 @@ function cambiarVistaConsulta(vista) {
 }
 
 async function cargarDatosGenerales() {
+    await ejecutarConsultaLogistica();
+    poblarFiltrosComercial();
+    renderizarComercial();
+}
+
+// --- CONSULTA LOGÍSTICA SINCRONIZADA Y BLOQUEADA HASTA COMPLETAR ---
+async function ejecutarConsultaLogistica() {
+    const btnConsultar = document.getElementById('btnConsultarLogistica');
+    const tbody = document.getElementById('tbodyLogistica');
+    
+    // 1. Bloquear botón y mostrar estado de carga obligatorio
+    btnConsultar.disabled = true;
+    btnConsultar.innerText = "⏳ Consultando...";
+    tbody.innerHTML = `<tr><td colspan="13" class="p-8 text-center text-blue-900 font-bold italic animate-pulse">🔄 Consultando datos y descargando novedades del servidor, por favor espere...</td></tr>`;
+
     try {
-        // 1. Obtener Grilla Registrada
+        // 2. Obtener Grilla Registrada
         const respGrilla = await fetch(WEB_APP_URL, {
             method: 'POST',
             body: JSON.stringify({ action: 'obtenerGrillaRegistrada' })
@@ -315,9 +330,23 @@ async function cargarDatosGenerales() {
             grillaGlobal = resGrilla.grilla || [];
         }
 
-        // 2. Obtener Comprobantes / Documentos
-        let cpsUnicas = [...new Set(grillaGlobal.map(g => g.cpPrincipal).filter(Boolean))];
+        // 3. Filtrar los viajes correspondientes al rango de fechas seleccionado
+        const f1 = document.getElementById('logFecha1').value;
+        const f2 = document.getElementById('logFecha2').value;
+
+        let filtradosGrilla = grillaGlobal.filter(g => {
+            let fechaG = String(g.fechaGrilla || '').trim();
+            if (f2) {
+                return fechaG >= f1 && fechaG <= f2;
+            } else {
+                return fechaG === f1;
+            }
+        });
+
+        // 4. Obtener únicamente los documentos de los CPs de estas fechas filtradas
+        let cpsUnicas = [...new Set(filtradosGrilla.map(g => g.cpPrincipal).filter(Boolean))];
         documentosGlobal = [];
+
         for (let cp of cpsUnicas) {
             try {
                 const respDoc = await fetch(WEB_APP_URL, {
@@ -351,7 +380,8 @@ async function cargarDatosGenerales() {
             }
         }
 
-        filtrarLogistica();
+        // 5. Una vez descargado el 100% de los datos, renderizar la tabla y métricas de golpe
+        renderizarLogisticaConDatosFiltrados(filtradosGrilla);
         poblarFiltrosComercial();
         renderizarComercial();
         if (!document.getElementById('seccionEjecutiva').classList.contains('hidden')) {
@@ -359,29 +389,26 @@ async function cargarDatosGenerales() {
         }
 
     } catch (err) {
-        console.error("Error al cargar datos generales:", err);
+        console.error("Error al consultar datos:", err);
+        tbody.innerHTML = `<tr><td colspan="13" class="p-6 text-center text-red-600 font-bold">❌ Error al conectar con el servidor. Intente nuevamente.</td></tr>`;
+    } finally {
+        // Desbloquear botón
+        btnConsultar.disabled = false;
+        btnConsultar.innerText = "🔍 Consultar";
     }
 }
 
-// --- VISTA LOGÍSTICA ---
 function filtrarLogistica() {
-    renderizarLogistica();
+    ejecutarConsultaLogistica();
 }
 
 function renderizarLogistica() {
-    const f1 = document.getElementById('logFecha1').value;
-    const f2 = document.getElementById('logFecha2').value;
+    ejecutarConsultaLogistica();
+}
+
+function renderizarLogisticaConDatosFiltrados(filtrados) {
     const soloNov = document.getElementById('chkSoloNovedades').checked;
     const tbody = document.getElementById('tbodyLogistica');
-
-    let filtrados = grillaGlobal.filter(g => {
-        let fechaG = String(g.fechaGrilla || '').trim();
-        if (f2) {
-            return fechaG >= f1 && fechaG <= f2;
-        } else {
-            return fechaG === f1;
-        }
-    });
 
     // Ordenar de más nueva a más vieja si hay rango
     filtrados.sort((a, b) => new Date(b.fechaGrilla) - new Date(a.fechaGrilla));
@@ -407,7 +434,6 @@ function renderizarLogistica() {
         let pesoVal = Math.round(Number(g.peso) || 0);
         let palletsVal = Math.round(Number(g.pallets || 0));
 
-        // Calcular bultos facturados y rechazados de los documentos asociados a esta CP
         let docsDeCp = documentosGlobal.filter(d => d.cp === g.cpPrincipal);
         let bultosFactCP = 0;
         let rechazosCP = 0;
@@ -541,7 +567,6 @@ function calcularMetricasEjecutivas() {
     document.getElementById('execRech').innerText = Math.round(totalRech).toLocaleString('es-ES');
     document.getElementById('execSLA').innerText = `${sla}%`;
 
-    // UMBRAL DE 9000 BULTOS Y EXTRACASTO
     const umbral = 9000;
     const alertaContainer = document.getElementById('alertaUmbralContainer');
     const iconoAlerta = document.getElementById('iconoAlerta');
@@ -568,7 +593,6 @@ function calcularMetricasEjecutivas() {
         textoAlerta.innerText = "La operación se mantiene dentro del rango contratado sin generar extracostos.";
     }
 
-    // Motivos de rechazo
     let motivosMap = {};
     documentosGlobal.forEach(d => {
         if (d.motivo) {
@@ -589,7 +613,6 @@ function calcularMetricasEjecutivas() {
         `).join('');
     }
 
-    // Gráfico de Ejecutiva
     const ctx = document.getElementById('chartEjecutiva').getContext('2d');
     if (chartEjecutivaInstancia) chartEjecutivaInstancia.destroy();
 
