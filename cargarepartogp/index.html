@@ -248,10 +248,10 @@
                                 <th class="p-3">Cliente Principal</th>
                                 <th class="p-3">Zona</th>
                                 <th class="p-3">CP Principal</th>
-                                <th class="p-3">CP Complementarias</th>
+                                <th class="p-3">CP Complemento</th>
                                 <th class="p-3 text-center">Peso [kg]</th>
                                 <th class="p-3 text-center">Bultos</th>
-                                <th class="p-3 text-center">Pallets</th>
+                                <th class="p-3 text-center">Pallets s/ JDE</th>
                                 <th class="p-3 text-center">Acciones</th>
                             </tr>
                         </thead>
@@ -297,10 +297,10 @@
                                 <th class="p-3">Tipo Viaje</th>
                                 <th class="p-3">Cliente</th>
                                 <th class="p-3">CP Principal</th>
-                                <th class="p-3">CP Complementarias</th>
+                                <th class="p-3">CP Complemento</th>
                                 <th class="p-3 text-center">Peso [kg]</th>
                                 <th class="p-3 text-center">Bultos</th>
-                                <th class="p-3 text-center">Pallets</th>
+                                <th class="p-3 text-center">Pallets s/ JDE</th>
                                 <th class="p-3 text-center">Acción</th>
                             </tr>
                         </thead>
@@ -331,10 +331,10 @@
                                 <th class="p-3">Cliente</th>
                                 <th class="p-3">Zona Reparto</th>
                                 <th class="p-3">CP Principal</th>
-                                <th class="p-3">CP Complementarias</th>
+                                <th class="p-3">CP Complemento</th>
                                 <th class="p-3 text-center">Peso Total [kg]</th>
                                 <th class="p-3 text-center">Bultos Totales</th>
-                                <th class="p-3 text-center">Pallets Totales</th>
+                                <th class="p-3 text-center">Pallets s/ JDE Totales</th>
                             </tr>
                         </thead>
                         <tbody id="tbodyViajeActual">
@@ -913,9 +913,9 @@
                             </div>
                             
                             <div class="flex justify-between items-center pt-2 border-t text-[11px] font-bold ${estilo.text}">
-                                <span>Bultos: ${c.bultos}</span>
-                                <span class="bg-white/80 px-1.5 py-0.5 rounded border border-slate-200">Peso: ${c.peso.toFixed(2)} kg</span>
-                                <span>Pallets: ${Number(c.pallets).toFixed(2)}</span>
+                                <span>Bultos: ${Math.round(c.bultos)}</span>
+                                <span class="bg-white/80 px-1.5 py-0.5 rounded border border-slate-200">Peso: ${Math.round(c.peso)} kg</span>
+                                <span>Pallets: ${Math.round(c.pallets)}</span>
                             </div>
                         </div>
                     `;
@@ -997,10 +997,10 @@
                     <td class="p-3">${viajeActual.datos.cliente}</td>
                     <td class="p-3">${viajeActual.datos.zona}</td>
                     <td class="p-3 font-black text-blue-900">${viajeActual.cpPrincipal}</td>
-                    <td class="p-3">${viajeActual.complementos.join(', ') || 'Sin complementarias'}</td>
-                    <td class="p-3 text-center ${pesoClass}">${viajeActual.datos.peso.toFixed(2)} kg ${pesoExcedido ? '⚠️ (EXCEDE)' : ''}</td>
-                    <td class="p-3 text-center text-emerald-600">${viajeActual.datos.bultos}</td>
-                    <td class="p-3 text-center ${palletsClass}">${viajeActual.datos.pallets.toFixed(2)} pallets ${palletsExcedidos ? '⚠️ (EXCEDE)' : ''}</td>
+                    <td class="p-3">${viajeActual.complementos.join(', ') || ''}</td>
+                    <td class="p-3 text-center ${pesoClass}">${Math.round(viajeActual.datos.peso)} kg ${pesoExcedido ? '⚠️ (EXCEDE)' : ''}</td>
+                    <td class="p-3 text-center text-emerald-600">${Math.round(viajeActual.datos.bultos)}</td>
+                    <td class="p-3 text-center ${palletsClass}">${Math.round(viajeActual.datos.pallets)} pallets ${palletsExcedidos ? '⚠️ (EXCEDE)' : ''}</td>
                 </tr>
             `;
         }
@@ -1056,10 +1056,10 @@
                         <td class="p-3">${v.tipoViaje}</td>
                         <td class="p-3">${v.cliente}</td>
                         <td class="p-3 font-black text-blue-900">${v.cpPrincipal}</td>
-                        <td class="p-3">${v.cpComplementos || 'Ninguna'}</td>
-                        <td class="p-3 text-center">${Number(v.peso).toFixed(2)}</td>
-                        <td class="p-3 text-center">${v.bultos}</td>
-                        <td class="p-3 text-center">${Number(v.pallets).toFixed(2)}</td>
+                        <td class="p-3">${v.cpComplementos || ''}</td>
+                        <td class="p-3 text-center">${Math.round(Number(v.peso) || 0)}</td>
+                        <td class="p-3 text-center">${Math.round(Number(v.bultos) || 0)}</td>
+                        <td class="p-3 text-center">${Math.round(Number(v.pallets) || 0)}</td>
                         <td class="p-3 text-center">
                             <button onclick="quitarDelBorrador(${index})" class="bg-red-100 hover:bg-red-200 text-red-700 font-bold px-3 py-1 rounded-lg text-xs transition-all">
                                 🗑️ Quitar
@@ -1118,10 +1118,10 @@
                             <td class="p-3">${g.cliente}</td>
                             <td class="p-3">${g.zona}</td>
                             <td class="p-3 font-black text-blue-900">${g.cpPrincipal}</td>
-                            <td class="p-3">${g.cpComplementos || 'Ninguna'}</td>
-                            <td class="p-3 text-center">${Number(g.peso).toFixed(2)}</td>
-                            <td class="p-3 text-center">${g.bultos}</td>
-                            <td class="p-3 text-center">${Number(g.pallets || 0).toFixed(2)}</td>
+                            <td class="p-3">${g.cpComplementos || ''}</td>
+                            <td class="p-3 text-center">${Math.round(Number(g.peso) || 0)}</td>
+                            <td class="p-3 text-center">${Math.round(Number(g.bultos) || 0)}</td>
+                            <td class="p-3 text-center">${Math.round(Number(g.pallets || 0))}</td>
                             <td class="p-3 text-center">
                                 <button onclick="preguntarQuitarDeGrilla('${g.cpPrincipal}', '${g.cpComplementos}', '${g.fechaPedido}')" class="bg-red-100 hover:bg-red-200 text-red-700 font-bold px-3 py-1 rounded-lg text-xs transition-all">
                                     🗑️ Quitar
@@ -1158,10 +1158,10 @@
                             <th style="padding: 8px; border: 1px solid #b0c4de;">Cliente Principal</th>
                             <th style="padding: 8px; border: 1px solid #b0c4de;">Zona</th>
                             <th style="padding: 8px; border: 1px solid #b0c4de;">CP Principal</th>
-                            <th style="padding: 8px; border: 1px solid #b0c4de;">CP Complementarias</th>
+                            <th style="padding: 8px; border: 1px solid #b0c4de;">CP Complemento</th>
                             <th style="padding: 8px; border: 1px solid #b0c4de; text-align: center;">Peso [kg]</th>
                             <th style="padding: 8px; border: 1px solid #b0c4de; text-align: center;">Bultos</th>
-                            <th style="padding: 8px; border: 1px solid #b0c4de; text-align: center;">Pallets</th>
+                            <th style="padding: 8px; border: 1px solid #b0c4de; text-align: center;">Pallets s/ JDE</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1179,10 +1179,10 @@
                         <td style="padding: 6px; border: 1px solid #dcdcdc;">${g.cliente}</td>
                         <td style="padding: 6px; border: 1px solid #dcdcdc;">${g.zona}</td>
                         <td style="padding: 6px; border: 1px solid #dcdcdc;">${g.cpPrincipal}</td>
-                        <td style="padding: 6px; border: 1px solid #dcdcdc;">${g.cpComplementos || 'Ninguna'}</td>
-                        <td style="padding: 6px; border: 1px solid #dcdcdc; text-align: center;">${Number(g.peso).toFixed(2)}</td>
-                        <td style="padding: 6px; border: 1px solid #dcdcdc; text-align: center;">${g.bultos}</td>
-                        <td style="padding: 6px; border: 1px solid #dcdcdc; text-align: center;">${Number(g.pallets || 0).toFixed(2)}</td>
+                        <td style="padding: 6px; border: 1px solid #dcdcdc;">${g.cpComplementos || ''}</td>
+                        <td style="padding: 6px; border: 1px solid #dcdcdc; text-align: center;">${Math.round(Number(g.peso) || 0)}</td>
+                        <td style="padding: 6px; border: 1px solid #dcdcdc; text-align: center;">${Math.round(Number(g.bultos) || 0)}</td>
+                        <td style="padding: 6px; border: 1px solid #dcdcdc; text-align: center;">${Math.round(Number(g.pallets || 0))}</td>
                     </tr>
                 `;
             });
@@ -1194,7 +1194,7 @@
 
             if (navigator.clipboard && window.ClipboardItem) {
                 const blobHtml = new Blob([htmlContent], { type: 'text/html' });
-                const textPlain = filtrados.map(g => `${g.fechaGrilla}\t${g.vuelta || '1RA VUELTA'}\t${g.tipoVehiculo}\t${g.canal}\t${g.tipoViaje}\t${g.cliente}\t${g.zona}\t${g.cpPrincipal}\t${g.cpComplementos || 'Ninguna'}\t${g.peso}\t${g.bultos}\t${g.pallets}`).join('\n');
+                const textPlain = filtrados.map(g => `${g.fechaGrilla}\t${g.vuelta || '1RA VUELTA'}\t${g.tipoVehiculo}\t${g.canal}\t${g.tipoViaje}\t${g.cliente}\t${g.zona}\t${g.cpPrincipal}\t${g.cpComplementos || ''}\t${Math.round(Number(g.peso) || 0)}\t${Math.round(Number(g.bultos) || 0)}\t${Math.round(Number(g.pallets || 0))}`).join('\n');
                 const blobText = new Blob([textPlain], { type: 'text/plain' });
 
                 navigator.clipboard.write([
@@ -1267,7 +1267,7 @@
                     ${vehiculosCards}
                     <div class="px-4 py-2 rounded-xl bg-slate-100 border border-slate-200 flex flex-col items-center justify-center text-center min-w-[110px]">
                         <span class="text-[10px] font-bold text-slate-500 uppercase">Total Bultos</span>
-                        <span class="text-xl font-black ${colorBultosClass} mt-0.5">${totalBultosFecha.toLocaleString('es-ES', { maximumFractionDigits: 2 })}</span>
+                        <span class="text-xl font-black ${colorBultosClass} mt-0.5">${Math.round(totalBultosFecha)}</span>
                     </div>
                 </div>
             `;
