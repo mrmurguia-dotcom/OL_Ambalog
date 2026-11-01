@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -5,631 +6,817 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel de Control de Novedades de Reparto</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <style>
-      @media(max-width:700px){body{padding:8px!important}.modal-card{padding:12px!important}.modal-table{max-height:58vh!important}}
-      .evidence-btn{display:inline-block;padding:5px 8px;border-radius:8px;background:#e0e7ff;color:#1e3a8a;font-weight:700;margin:2px;cursor:pointer}
-      .queue-note{font-size:11px;color:#475569;margin-top:4px}
-    </style>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 </head>
 <body class="bg-slate-100 p-4 md:p-8">
-    <div class="max-w-7xl mx-auto space-y-6">
-        
-        <!-- ENCABEZADO -->
-        <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 flex flex-wrap justify-between items-center gap-4">
+<div class="max-w-7xl mx-auto space-y-6">
+
+    <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 flex flex-wrap justify-between items-center gap-4">
+        <div>
+            <h1 class="text-3xl font-black text-blue-900 italic uppercase">CONTROL DE NOVEDADES GP OK</h1>
+            <p class="text-slate-500 text-sm mt-1">Monitoreo de salidas, llegadas, rechazos y reporte para correo</p>
+        </div>
+        <div class="flex items-center gap-3 flex-wrap">
             <div>
-                <h1 class="text-3xl font-black text-blue-900 italic uppercase">CONTROL DE NOVEDADES GP</h1>
-                <p class="text-slate-500 text-sm mt-1">Monitoreo de salidas, llegadas, rechazos y reporte para correo</p>
+                <label class="block text-[10px] font-bold text-slate-500 uppercase">Fecha Grilla:</label>
+                <input type="date" id="filtroFechaNovedades" onchange="cargarGrillaNovedades()" class="p-2.5 rounded-xl border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none">
             </div>
-            <div class="flex items-center gap-3 flex-wrap">
-                <div>
-                    <label class="block text-[10px] font-bold text-slate-500 uppercase">Fecha Grilla:</label>
-                    <input type="date" id="filtroFechaNovedades" onchange="cargarGrillaNovedades()" class="p-2.5 rounded-xl border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none">
-                </div>
-                <button onclick="copiarTablaParaMail()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs px-5 py-2.5 rounded-xl shadow transition-all mt-4">
-                    📧 Copiar para Mail
-                </button>
-                <button onclick="sincronizarNovedades()" id="btnSyncNovedades" class="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs px-6 py-2.5 rounded-xl shadow transition-all mt-4">
-                    💾 SINCRONIZAR NOVEDADES
-                </button>
-            </div>
-        </div>
-
-        <!-- GRILLA PRINCIPAL DE NOVEDADES -->
-        <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 space-y-4">
-            <div class="flex justify-between items-center border-b pb-3">
-                <h2 class="text-xl font-black text-blue-900">Viajes Registrados y Control de Estados</h2>
-                <span class="text-xs font-bold text-slate-500" id="contadorViajes">Total viajes: 0</span>
-            </div>
-
-            <div class="overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-sm max-h-[550px]">
-                <table class="w-full text-left border-collapse text-xs font-sans">
-                    <thead class="bg-slate-800 text-white font-bold sticky top-0">
-                        <tr>
-                            <th class="p-3">Fecha Grilla</th>
-                            <th class="p-3">Vuelta</th>
-                            <th class="p-3">Vehículo</th>
-                            <th class="p-3">Canal</th>
-                            <th class="p-3">Tipo Viaje</th>
-                            <th class="p-3">Cliente Principal</th>
-                            <th class="p-3">Zona</th>
-                            <th class="p-3">CP Principal</th>
-                            <th class="p-3">CP Complementario</th>
-                            <th class="p-3 text-center">Peso</th>
-                            <th class="p-3 text-center">Bultos</th>
-                            <th class="p-3 text-center">Pallets</th>
-                            <th class="p-3 text-center">Salida</th>
-                            <th class="p-3 text-center">Llegada / Novedad</th>
-                            <th class="p-3 text-center">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tbodyNovedades" class="divide-y divide-slate-100 text-slate-800">
-                        <tr class="text-slate-400 italic"><td colspan="15" class="p-6 text-center">Cargando viajes desde el servidor...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-    </div>
-
-    <!-- MODAL EN FORMATO DE TABLA PARA GESTIÓN DE DOCUMENTOS (FC / RTO) -->
-    <div id="modalNovedadDetalle" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
-        <div class="modal-card bg-white rounded-3xl shadow-2xl max-w-6xl w-full p-6 border border-slate-200 space-y-6 max-h-[90vh] overflow-y-auto">
-            <div class="flex justify-between items-center border-b pb-3">
-                <div>
-                    <h3 class="text-lg font-black text-blue-900">Gestión de Novedades y Evidencia de Documentos</h3>
-                    <p class="text-xs text-slate-500" id="subtituloModalCP">Carta de Porte: --</p>
-                </div>
-                <button onclick="cerrarModalNovedad()" class="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
-            </div>
-
-            <!-- TABLA DE DOCUMENTOS -->
-            <div class="overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-sm max-h-[50vh]">
-                <table class="w-full text-left border-collapse text-xs">
-                    <thead class="bg-slate-100 text-slate-700 font-bold sticky top-0 border-b">
-                        <tr>
-                            <th class="p-3 text-center w-12">
-                                <input type="checkbox" id="chkAllDocs" onchange="toggleSeleccionarTodosDocs(this)">
-                            </th>
-                            <th class="p-3">Nro Documento / Tipo</th>
-                            <th class="p-3">Cliente y Dirección</th>
-                            <th class="p-3">Clasificación de Novedad</th>
-                            <th class="p-3">Observaciones / Motivo</th>
-                            <th class="p-3">Link Foto (Drive)</th>
-                            <th class="p-3">Link Audio (Drive)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tbodyDocumentosModal" class="divide-y divide-slate-100">
-                        <!-- Inyectado dinámicamente -->
-                    </tbody>
-                </table>
-            </div>
-
-            <div class="rounded-xl bg-slate-50 border p-3 flex flex-wrap gap-2 items-center justify-between">
-              <div><b class="text-xs text-slate-700">Evidencias:</b><span id="contadorPendientes" class="queue-note"> archivos pendientes en este equipo.</span>
-              <div class="queue-note">Las fotos y audios quedan guardados localmente y se envían a Drive al sincronizar.</div></div>
-              <button type="button" onclick="mostrarQRMovil()" class="bg-violet-700 text-white font-bold text-xs px-4 py-2 rounded-xl">📱 Abrir carga móvil / QR</button>
-              <div id="qrMovilWrap" class="hidden w-full flex flex-wrap gap-3 items-center"><div id="qrMovil"></div><div class="text-xs text-slate-600">Escaneá este QR con el celular para adjuntar fotos o audios a esta CP.</div></div>
-            </div>
-            <div class="pt-4 border-t flex justify-between items-center">
-                <span class="text-xs text-slate-500 italic">💡 Los cambios quedan guardados en memoria de forma provisoria hasta hacer click en "Sincronizar Novedades".</span>
-                <button onclick="guardarProvisorioModal()" class="bg-blue-900 hover:bg-black text-white font-bold text-xs px-6 py-2.5 rounded-xl shadow transition-all">
-                    💾 Guardar y Cerrar (Provisorio)
-                </button>
-            </div>
+            <button onclick="copiarTablaParaMail()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs px-5 py-2.5 rounded-xl shadow transition-all mt-4">📧 Copiar para Mail</button>
+            <button onclick="sincronizarNovedades()" id="btnSyncNovedades" class="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs px-6 py-2.5 rounded-xl shadow transition-all mt-4">💾 SINCRONIZAR NOVEDADES</button>
         </div>
     </div>
 
-    <script>
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyF9e6gme3wHTVO_RooY_xqbK9VFciCZ0jejU2Vmh9o1OUEKwzmn1WxERq7hFBo0Oo2/exec";
-        
-        let viajesNovedades = [];
-        let estadoNovedadesMap = {}; 
-        let cpActualAbierta = null;
-        let documentosActualesCP = [];
-        const WEB_APP_FC_URL = "https://script.google.com/macros/s/AKfycbzlPL8lhl8n_H2kioGd4CmBRrEG2X9mpa83eo0XgsMIbnxFD9ppAvWS7yT0NqKfNB-KLA/exec";
-        const DB_NOVEDADES = "ControlNovedadesGP";
-        const STORE_NOVEDADES = "pendientes";
-
-
-        const hoy = new Date();
-        document.getElementById('filtroFechaNovedades').valueAsDate = hoy;
-
-        window.onload = () => {
-            cargarGrillaNovedades();
-            actualizarContadorPendientes();
-        };
-
-        async function cargarGrillaNovedades() {
-            const fechaInput = document.getElementById('filtroFechaNovedades').value;
-            const tbody = document.getElementById('tbodyNovedades');
-            tbody.innerHTML = `<tr><td colspan="15" class="p-6 text-center text-slate-500 italic">Consultando viajes registrados...</td></tr>`;
-
-            try {
-                const resp = await fetch(WEB_APP_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: 'obtenerGrillaRegistrada' })
-                });
-                const res = await resp.json();
-
-                if (res.status === "success") {
-                    const grilla = res.grilla || [];
-                    viajesNovedades = grilla.filter(g => String(g.fechaGrilla).trim() === String(fechaInput).trim());
-                    renderizarTablaNovedades();
-                } else {
-                    tbody.innerHTML = `<tr><td colspan="15" class="p-6 text-center text-red-500 font-bold">Error al obtener datos del servidor.</td></tr>`;
-                }
-            } catch (err) {
-                console.error("Error:", err);
-                tbody.innerHTML = `<tr><td colspan="15" class="p-6 text-center text-red-500 font-bold">Error de conexión con el servidor.</td></tr>`;
-            }
-        }
-
-        function renderizarTablaNovedades() {
-            const tbody = document.getElementById('tbodyNovedades');
-            document.getElementById('contadorViajes').innerText = `Total viajes: ${viajesNovedades.length}`;
-
-            if (viajesNovedades.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="15" class="p-6 text-center text-slate-400 italic">No hay viajes registrados para la fecha seleccionada.</td></tr>`;
-                return;
-            }
-
-            tbody.innerHTML = viajesNovedades.map((v, idx) => {
-                const cpKey = v.cpPrincipal || idx;
-                if (!estadoNovedadesMap[cpKey]) {
-                    estadoNovedadesMap[cpKey] = {
-                        salidaEstado: v.salidaEstado || '', // Por defecto en blanco
-                        salidaMotivo: v.salidaMotivo || '',
-                        llegadaEstado: v.llegadaEstado || '', // Por defecto en blanco hasta que se gestione la llegada
-                        documentosSeleccionados: {} 
-                    };
-                }
-                const est = estadoNovedadesMap[cpKey];
-
-                return `
-                    <tr class="hover:bg-slate-50 border-b border-slate-100">
-                        <td class="p-3">${v.fechaGrilla}</td>
-                        <td class="p-3 font-black text-indigo-950">${v.vuelta || '1RA VUELTA'}</td>
-                        <td class="p-3 font-bold text-indigo-900">${v.tipoVehiculo || 'N/A'}</td>
-                        <td class="p-3 uppercase font-bold text-slate-700">${v.canal}</td>
-                        <td class="p-3">${v.tipoViaje}</td>
-                        <td class="p-3 font-semibold">${v.cliente}</td>
-                        <td class="p-3">${v.zona}</td>
-                        <td class="p-3 font-black text-blue-900">${v.cpPrincipal}</td>
-                        <td class="p-3">${v.cpComplementos || 'Ninguna'}</td>
-                        <td class="p-3 text-center">${Number(v.peso || 0).toFixed(2)}</td>
-                        <td class="p-3 text-center">${v.bultos}</td>
-                        <td class="p-3 text-center">${Number(v.pallets || 0).toFixed(2)}</td>
-                        
-                        <!-- NOVEDAD SALIDA -->
-                        <td class="p-2 text-center">
-                            <select onchange="cambiarSalida('${cpKey}', this.value)" class="p-1.5 rounded-xl border border-slate-300 text-xs font-bold bg-white outline-none">
-                                <option value="" ${est.salidaEstado === '' ? 'selected' : ''}>-- Seleccionar --</option>
-                                <option value="SALIO" ${est.salidaEstado === 'SALIO' ? 'selected' : ''}>🟢 Salió</option>
-                                <option value="NO_SALIO" ${est.salidaEstado === 'NO_SALIO' ? 'selected' : ''}>🔴 No Salió</option>
-                                <option value="ENTREGADO" ${est.salidaEstado === 'ENTREGADO' ? 'selected' : ''}>🔵 Entregado</option>
-                            </select>
-                            ${est.salidaEstado === 'NO_SALIO' ? `<input type="text" placeholder="Motivo..." value="${est.salidaMotivo}" oninput="cambiarMotivoSalida('${cpKey}', this.value)" class="mt-1 w-full p-1 rounded border border-red-300 text-[11px] bg-red-50 outline-none">` : ''}
-                        </td>
-
-                        <!-- NOVEDAD LLEGADA / CIERRE -->
-                        <td class="p-2 text-center">
-                            <select onchange="cambiarLlegada('${cpKey}', '${v.cpPrincipal}', this.value)" class="p-1.5 rounded-xl border border-slate-300 text-xs font-bold bg-white outline-none">
-                                <option value="" ${est.llegadaEstado === '' ? 'selected' : ''}>-- Pendiente --</option>
-                                <option value="TERMINADO" ${est.llegadaEstado === 'TERMINADO' ? 'selected' : ''}>🟢 Terminado sin novedad</option>
-                                <option value="TERMINADO_CON_NOVEDAD" ${est.llegadaEstado === 'TERMINADO_CON_NOVEDAD' ? 'selected' : ''}>🟠 Terminado con novedad</option>
-                                <option value="CON_NOVEDAD" ${est.llegadaEstado === 'CON_NOVEDAD' ? 'selected' : ''}>🔴 Sin finalizar con novedad</option>
-                            </select>
-                        </td>
-
-                        <!-- ACCIONES -->
-                        <td class="p-2 text-center">
-                            <button onclick="intentarAbrirModalDetalle('${cpKey}', '${v.cpPrincipal}')" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-900 font-bold px-3 py-1.5 rounded-xl text-xs transition-all">
-                                📝 Detalle Documentos
-                            </button>
-                        </td>
+    <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 space-y-4">
+        <div class="flex justify-between items-center border-b pb-3">
+            <h2 class="text-xl font-black text-blue-900">Viajes Registrados y Control de Estados</h2>
+            <span class="text-xs font-bold text-slate-500" id="contadorViajes">Total viajes: 0</span>
+        </div>
+        <div class="overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-sm max-h-[550px]">
+            <table class="w-full text-left border-collapse text-xs font-sans">
+                <thead class="bg-slate-800 text-white font-bold sticky top-0">
+                    <tr>
+                        <th class="p-3">Fecha Grilla</th><th class="p-3">Vuelta</th><th class="p-3">Vehículo</th>
+                        <th class="p-3">Canal</th><th class="p-3">Tipo Viaje</th><th class="p-3">Cliente Principal</th>
+                        <th class="p-3">Zona</th><th class="p-3">CP Principal</th><th class="p-3">CP Complementario</th>
+                        <th class="p-3 text-center">Peso</th><th class="p-3 text-center">Bultos</th><th class="p-3 text-center">Pallets</th>
+                        <th class="p-3 text-center">Salida</th><th class="p-3 text-center">Llegada / Novedad</th><th class="p-3 text-center">Acciones</th>
                     </tr>
-                `;
-            }).join('');
-        }
+                </thead>
+                <tbody id="tbodyNovedades" class="divide-y divide-slate-100 text-slate-800">
+                    <tr class="text-slate-400 italic"><td colspan="15" class="p-6 text-center">Cargando viajes desde el servidor...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
 
-        function cambiarSalida(cpKey, val) {
-            estadoNovedadesMap[cpKey].salidaEstado = val;
-            renderizarTablaNovedades();
-        }
+<div id="modalNovedadDetalle" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-7xl w-full p-6 border border-slate-200 space-y-6 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center border-b pb-3">
+            <div>
+                <h3 class="text-lg font-black text-blue-900">Gestión de Novedades y Evidencia de Documentos</h3>
+                <p class="text-xs text-slate-500" id="subtituloModalCP">Carta de Porte: --</p>
+            </div>
+            <button onclick="cerrarModalNovedad()" class="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
+        </div>
+        <div class="overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-sm max-h-[50vh]">
+            <table class="w-full text-left border-collapse text-xs">
+                <thead class="bg-slate-100 text-slate-700 font-bold sticky top-0 border-b">
+                    <tr>
+                        <th class="p-3 text-center w-12"><input type="checkbox" id="chkAllDocs" onchange="toggleSeleccionarTodosDocs(this)"></th>
+                        <th class="p-3">Nro Documento / Tipo</th><th class="p-3">Cliente y Dirección</th>
+                        <th class="p-3">Motivo</th><th class="p-3">Observaciones</th>
+                        <th class="p-3 text-center">Bultos Rechazados</th><th class="p-3">Foto (PC / QR Celular)</th><th class="p-3">Audio (PC / QR Celular)</th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyDocumentosModal" class="divide-y divide-slate-100"></tbody>
+            </table>
+        </div>
+        <div class="pt-4 border-t flex justify-between items-center">
+            <span class="text-xs text-slate-500 italic">💡 Los cambios quedan guardados en memoria de forma provisoria hasta hacer click en "Sincronizar Novedades".</span>
+            <button onclick="guardarProvisorioModal()" class="bg-blue-900 hover:bg-black text-white font-bold text-xs px-6 py-2.5 rounded-xl shadow transition-all">💾 Guardar y Cerrar (Provisorio)</button>
+        </div>
+    </div>
+</div>
 
-        function cambiarMotivoSalida(cpKey, val) {
-            estadoNovedadesMap[cpKey].salidaMotivo = val;
-        }
+<div id="modalQRCaptura" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 text-center space-y-4">
+        <h3 class="text-base font-black text-blue-900" id="tituloQRCaptura">Escaneá con tu Celular</h3>
+        <p class="text-xs text-slate-500">Apuntá la cámara de tu teléfono para capturar la foto o adjuntar el audio.</p>
+        <div id="qrContainer" class="flex justify-center p-4 bg-slate-50 rounded-2xl border border-slate-200"></div>
+        <button onclick="verificarLinkMovil()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl shadow">🔄 Verificar si ya se subió</button>
+        <button onclick="cerrarModalQR()" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs py-2.5 rounded-xl">Cerrar Ventana</button>
+    </div>
+</div>
 
-        function cambiarLlegada(cpKey, cpPrincipal, val) {
-            estadoNovedadesMap[cpKey].llegadaEstado = val;
-            if (val === 'CON_NOVEDAD' || val === 'TERMINADO_CON_NOVEDAD') {
-                abrirModalNovedad(cpPrincipal, cpKey);
+<script>
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyF9e6gme3wHTVO_RooY_xqbK9VFciCZ0jejU2Vmh9o1OUEKwzmn1WxERq7hFBo0Oo2/exec";
+const WEB_APP_FC_URL = "https://script.google.com/macros/s/AKfycbzlPL8lhl8n_H2kioGd4CmBRrEG2X9mpa83eo0XgsMIbnxFD9ppAvWS7yT0NqKfNB-KLA/exec";
+
+let viajesNovedades = [];
+let estadoNovedadesMap = {};
+let cpActualAbierta = null;
+let cpPrincipalActualGlobal = '';
+let documentosActualesCP = [];
+let docActualCaptura = null;
+let tipoActualCaptura = null;
+
+// Cola local de archivos de PC
+const DB_ARCHIVOS_NOMBRE = 'NovedadesRepartoArchivos';
+const DB_ARCHIVOS_STORE = 'pendientesPC';
+
+function abrirDBArchivos() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_ARCHIVOS_NOMBRE, 1);
+        request.onupgradeneeded = event => {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains(DB_ARCHIVOS_STORE)) {
+                db.createObjectStore(DB_ARCHIVOS_STORE, { keyPath: 'id' });
             }
-        }
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+}
 
-        function intentarAbrirModalDetalle(cpKey, cpPrincipal) {
-            const est = estadoNovedadesMap[cpKey];
-            if (est.llegadaEstado === '' || est.llegadaEstado === 'TERMINADO') {
-                if (!confirm("Atención: El estado de llegada está en blanco o terminado sin novedad. ¿Desea continuar de todas formas para verificar documentos?")) {
-                    return;
+async function guardarArchivoPendiente(archivo) {
+    const db = await abrirDBArchivos();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(DB_ARCHIVOS_STORE, 'readwrite');
+        tx.objectStore(DB_ARCHIVOS_STORE).put(archivo);
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = () => { db.close(); reject(tx.error); };
+    });
+}
+
+async function obtenerArchivosPendientes() {
+    const db = await abrirDBArchivos();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(DB_ARCHIVOS_STORE, 'readonly');
+        const req = tx.objectStore(DB_ARCHIVOS_STORE).getAll();
+        req.onsuccess = () => { db.close(); resolve(req.result || []); };
+        req.onerror = () => { db.close(); reject(req.error); };
+    });
+}
+
+async function eliminarArchivoPendiente(id) {
+    const db = await abrirDBArchivos();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(DB_ARCHIVOS_STORE, 'readwrite');
+        tx.objectStore(DB_ARCHIVOS_STORE).delete(id);
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = () => { db.close(); reject(tx.error); };
+    });
+}
+
+function archivoABase64(archivo) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(archivo);
+    });
+}
+
+function comprimirArchivoImagen(archivo) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            const img = new Image();
+            img.onload = () => {
+                let width = img.width;
+                let height = img.height;
+                const maxWidth = 1200;
+                if (width > maxWidth) {
+                    height = Math.round(height * maxWidth / width);
+                    width = maxWidth;
                 }
-            }
-            abrirModalNovedad(cpPrincipal, cpKey);
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return reject(new Error('No se pudo procesar la imagen.'));
+                ctx.drawImage(img, 0, 0, width, height);
+                resolve({
+                    bytes: canvas.toDataURL('image/jpeg', 0.8).split(',')[1],
+                    filename: archivo.name.replace(/\.[^.]+$/, '') + '.jpg'
+                });
+            };
+            img.onerror = () => reject(new Error('No se pudo abrir la imagen.'));
+            img.src = reader.result;
+        };
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(archivo);
+    });
+}
+
+const hoy = new Date();
+document.getElementById('filtroFechaNovedades').valueAsDate = hoy;
+window.onload = () => { cargarGrillaNovedades(); };
+
+async function cargarGrillaNovedades() {
+    const fechaInput = document.getElementById('filtroFechaNovedades').value;
+    const tbody = document.getElementById('tbodyNovedades');
+    tbody.innerHTML = `<tr><td colspan="15" class="p-6 text-center text-slate-500 italic">Consultando viajes registrados...</td></tr>`;
+    try {
+        const resp = await fetch(WEB_APP_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'obtenerGrillaRegistrada' })
+        });
+        const res = await resp.json();
+        if (res.status === "success") {
+            const grilla = res.grilla || [];
+            viajesNovedades = grilla.filter(g => String(g.fechaGrilla).trim() === String(fechaInput).trim());
+            renderizarTablaNovedades();
+        } else {
+            tbody.innerHTML = `<tr><td colspan="15" class="p-6 text-center text-red-500 font-bold">Error al obtener datos del servidor.</td></tr>`;
+        }
+    } catch (err) {
+        console.error("Error:", err);
+        tbody.innerHTML = `<tr><td colspan="15" class="p-6 text-center text-red-500 font-bold">Error de conexión con el servidor.</td></tr>`;
+    }
+}
+
+function renderizarTablaNovedades() {
+    const tbody = document.getElementById('tbodyNovedades');
+    document.getElementById('contadorViajes').innerText = `Total viajes: ${viajesNovedades.length}`;
+    if (viajesNovedades.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="15" class="p-6 text-center text-slate-400 italic">No hay viajes registrados para la fecha seleccionada.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = viajesNovedades.map((v, idx) => {
+        const cpKey = v.cpPrincipal || idx;
+        if (!estadoNovedadesMap[cpKey]) {
+            estadoNovedadesMap[cpKey] = {
+                salidaEstado: v.salidaEstado || '',
+                salidaMotivo: v.salidaMotivo || '',
+                llegadaEstado: v.llegadaEstado || '',
+                documentosSeleccionados: {}
+            };
+        }
+        const est = estadoNovedadesMap[cpKey];
+        const cpCompSeguro = String(v.cpComplementos || 'Ninguna').replace(/['"]/g, "");
+
+        return `
+        <tr class="hover:bg-slate-50 border-b border-slate-100">
+            <td class="p-3">${v.fechaGrilla}</td>
+            <td class="p-3 font-black text-indigo-950">${v.vuelta || '1RA VUELTA'}</td>
+            <td class="p-3 font-bold text-indigo-900">${v.tipoVehiculo || 'N/A'}</td>
+            <td class="p-3 uppercase font-bold text-slate-700">${v.canal}</td>
+            <td class="p-3">${v.tipoViaje}</td>
+            <td class="p-3 font-semibold">${v.cliente}</td>
+            <td class="p-3">${v.zona}</td>
+            <td class="p-3 font-black text-blue-900">${v.cpPrincipal}</td>
+            <td class="p-3">${v.cpComplementos || 'Ninguna'}</td>
+            <td class="p-3 text-center">${Number(v.peso || 0).toFixed(2)}</td>
+            <td class="p-3 text-center">${v.bultos}</td>
+            <td class="p-3 text-center">${Number(v.pallets || 0).toFixed(2)}</td>
+            <td class="p-2 text-center">
+                <select onchange="cambiarSalida('${cpKey}', this.value)" class="p-1.5 rounded-xl border border-slate-300 text-xs font-bold bg-white outline-none">
+                    <option value="" ${est.salidaEstado === '' ? 'selected' : ''}>-- Seleccionar --</option>
+                    <option value="SALIO" ${est.salidaEstado === 'SALIO' ? 'selected' : ''}>🟢 Salió</option>
+                    <option value="NO_SALIO" ${est.salidaEstado === 'NO_SALIO' ? 'selected' : ''}>🔴 No Salió</option>
+                    <option value="ENTREGADO" ${est.salidaEstado === 'ENTREGADO' ? 'selected' : ''}>🔵 Entregado</option>
+                </select>
+                ${est.salidaEstado === 'NO_SALIO' ? `<input type="text" placeholder="Motivo..." value="${est.salidaMotivo}" oninput="cambiarMotivoSalida('${cpKey}', this.value)" class="mt-1 w-full p-1 rounded border border-red-300 text-[11px] bg-red-50 outline-none">` : ''}
+            </td>
+            <td class="p-2 text-center">
+                <select onchange="cambiarLlegada('${cpKey}', '${v.cpPrincipal}', '${cpCompSeguro}', this.value)" class="p-1.5 rounded-xl border border-slate-300 text-xs font-bold bg-white outline-none">
+                    <option value="" ${est.llegadaEstado === '' ? 'selected' : ''}>-- Pendiente --</option>
+                    <option value="terminado (sin novedad)" ${est.llegadaEstado === 'terminado (sin novedad)' ? 'selected' : ''}>🟢 Terminado (sin novedad)</option>
+                    <option value="terminado (con novedad)" ${est.llegadaEstado === 'terminado (con novedad)' ? 'selected' : ''}>🟠 Terminado (con novedad)</option>
+                    <option value="sin finalizar (con novedad)" ${est.llegadaEstado === 'sin finalizar (con novedad)' ? 'selected' : ''}>🔴 Sin finalizar (con novedad)</option>
+                </select>
+            </td>
+            <td class="p-2 text-center">
+                <button data-cpkey="${cpKey}" data-cpprincipal="${v.cpPrincipal}" data-cpcomp="${cpCompSeguro}" onclick="clicDetalleBtn(this)" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-900 font-bold px-3 py-1.5 rounded-xl text-xs transition-all">📝 Detalle Documentos</button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function clicDetalleBtn(btn) {
+    intentarAbrirModalDetalle(btn.getAttribute('data-cpkey'), btn.getAttribute('data-cpprincipal'), btn.getAttribute('data-cpcomp'));
+}
+
+function cambiarSalida(cpKey, val) {
+    estadoNovedadesMap[cpKey].salidaEstado = val;
+    renderizarTablaNovedades();
+}
+
+function cambiarMotivoSalida(cpKey, val) {
+    estadoNovedadesMap[cpKey].salidaMotivo = val;
+}
+
+function cambiarLlegada(cpKey, cpPrincipal, cpComp, val) {
+    estadoNovedadesMap[cpKey].llegadaEstado = val;
+    if (val.includes('con novedad')) abrirModalNovedad(cpPrincipal, cpComp, cpKey);
+}
+
+function intentarAbrirModalDetalle(cpKey, cpPrincipal, cpComplementos) {
+    const est = estadoNovedadesMap[cpKey];
+    if (est && (est.llegadaEstado === '' || est.llegadaEstado === 'terminado (sin novedad)')) {
+        if (!confirm("Atención: El estado de llegada está en blanco o sin novedad. ¿Desea continuar para verificar documentos?")) return;
+    }
+    abrirModalNovedad(cpPrincipal, cpComplementos, cpKey);
+}
+
+async function abrirModalNovedad(cpPrincipal, cpComplementarios, cpKey) {
+    cpActualAbierta = cpKey;
+    cpPrincipalActualGlobal = cpPrincipal;
+    document.getElementById('subtituloModalCP').innerText = `Principal: ${cpPrincipal} | Complementarios: ${cpComplementarios || 'Ninguno'}`;
+    document.getElementById('modalNovedadDetalle').classList.remove('hidden');
+    const tbodyDocs = document.getElementById('tbodyDocumentosModal');
+    tbodyDocs.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-500 italic">Buscando documentos principales y complementarios...</td></tr>`;
+
+    try {
+        let cpgLista = [cpPrincipal];
+        if (cpComplementarios && cpComplementarios.trim() !== '' && cpComplementarios !== 'Ninguna') {
+            cpComplementarios.split(',').forEach(c => { if (c.trim()) cpgLista.push(c.trim()); });
         }
 
-        async function abrirModalNovedad(cp, cpKey) {
-            cpActualAbierta = cpKey;
-            document.getElementById('subtituloModalCP').innerText = `Carta de Porte: ${cp}`;
-            document.getElementById('modalNovedadDetalle').classList.remove('hidden');
-            const tbodyDocs = document.getElementById('tbodyDocumentosModal');
-            tbodyDocs.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-500 italic">Buscando documentos de la CP ${cp}...</td></tr>`;
-
-            try {
-                const resp = await fetch(WEB_APP_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: 'obtenerDatosRuteoCP', cp: cp })
-                });
-                const res = await resp.json();
-
-                if (res.status === "success" && res.data && res.data.listaClientes) {
-                    documentosActualesCP = [];
-                    res.data.listaClientes.forEach(cli => {
-                        cli.documentos.forEach(doc => {
-                            documentosActualesCP.push({
-                                numero: doc.numero || 'N/A',
-                                tipo: doc.tipo || 'FACTURA',
-                                fotoLink: doc.fotoLink || '', audioLink: doc.audioLink || '', novedad: doc.novedad || '', observacion: doc.observacion || '',
-                                cliente: cli.nombre || 'N/A',
-                                direccion: cli.direccion || 'N/A'
-                            });
+        documentosActualesCP = [];
+        for (let cp of cpgLista) {
+            const resp = await fetch(WEB_APP_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'obtenerDatosRuteoCP', cp: cp })
+            });
+            const res = await resp.json();
+            if (res.status === "success" && res.data && res.data.listaClientes) {
+                res.data.listaClientes.forEach(cli => {
+                    cli.documentos.forEach(doc => {
+                        documentosActualesCP.push({
+                            numero: doc.numero || 'N/A',
+                            tipo: doc.tipo || 'FACTURA',
+                            cliente: cli.nombre || 'N/A',
+                            direccion: cli.direccion || 'N/A',
+                            cajas: Number(doc.cajas) || 0,
+                            unidades: Number(doc.unidades) || 0,
+                            totalBultosLine: (Number(doc.cajas) || 0) + (Number(doc.unidades) || 0),
+                            motivo: doc.motivo || '',
+                            observacion: doc.observacion || '',
+                            bultosRechazados: doc.bultosRechazados !== undefined && doc.bultosRechazados !== '' ? doc.bultosRechazados : '',
+                            fotoLink: doc.fotoLink || '',
+                            audioLink: doc.audioLink || ''
                         });
                     });
-
-                    if (documentosActualesCP.length === 0) {
-                        tbodyDocs.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400 italic">No se encontraron documentos para esta CP.</td></tr>`;
-                        return;
-                    }
-
-                    renderizarTablaDocumentosModal();
-
-                } else {
-                    tbodyDocs.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-red-500 font-bold">No se pudieron cargar los documentos para esta CP.</td></tr>`;
-                }
-            } catch (err) {
-                console.error(err);
-                tbodyDocs.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-red-500 font-bold">Error de conexión al buscar documentos.</td></tr>`;
+                });
             }
         }
 
-        function renderizarTablaDocumentosModal() {
-            const tbodyDocs = document.getElementById('tbodyDocumentosModal');
-            const est = estadoNovedadesMap[cpActualAbierta] || { documentosSeleccionados: {} };
+        if (documentosActualesCP.length === 0) {
+            tbodyDocs.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400 italic">No se encontraron documentos en la base para estas Cartas de Porte.</td></tr>`;
+            return;
+        }
+        renderizarTablaDocumentosModal();
+    } catch (err) {
+        console.error(err);
+        tbodyDocs.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-red-500 font-bold">Error de conexión al buscar documentos.</td></tr>`;
+    }
+}
 
-            tbodyDocs.innerHTML = documentosActualesCP.map(d => {
-                const docData = est.documentosSeleccionados[d.numero] || { seleccionado: false, clasificacion: 'RECHAZO_PARCIAL', comentario: d.observacion || '', fotoLink: d.fotoLink || '', audioLink: d.audioLink || '' };
+function renderizarTablaDocumentosModal() {
+    const tbodyDocs = document.getElementById('tbodyDocumentosModal');
+    const est = estadoNovedadesMap[cpActualAbierta] || { documentosSeleccionados: {} };
 
-                return `
-                    <tr class="hover:bg-slate-50 border-b">
-                        <td class="p-3 text-center">
-                            <input type="checkbox" class="chkDocItem" value="${d.numero}" ${docData.seleccionado ? 'checked' : ''} onchange="toggleSeleccionDoc('${d.numero}', this.checked)">
-                        </td>
-                        <td class="p-3">
-                            <span class="text-sm font-black text-blue-900">${d.numero}</span>
-                            <span class="block text-[10px] text-slate-500 uppercase font-bold">${d.tipo}</span>
-                        </td>
-                        <td class="p-3 font-semibold text-slate-800">
-                            ${d.cliente}
-                            <span class="block text-[11px] font-normal text-slate-500">${d.direccion}</span>
-                        </td>
-                        <td class="p-3">
-                            <select id="clasif_${d.numero}" class="p-2 rounded-xl border border-slate-300 text-xs font-bold bg-white text-blue-900 outline-none w-full" ${!docData.seleccionado ? 'disabled' : ''}>
-                                <option value="RECHAZO_PARCIAL" ${docData.clasificacion === 'RECHAZO_PARCIAL' ? 'selected' : ''}>Rechazo Parcial</option>
-                                <option value="RECHAZO_TOTAL" ${docData.clasificacion === 'RECHAZO_TOTAL' ? 'selected' : ''}>Rechazo Total</option>
-                                <option value="NO_ENTREGADO" ${docData.clasificacion === 'NO_ENTREGADO' ? 'selected' : ''}>No Entregado</option>
-                            </select>
-                        </td>
-                        <td class="p-3">
-                            <input type="text" id="comet_${d.numero}" placeholder="Observación..." value="${docData.comentario}" class="w-full p-2 rounded-xl border border-slate-300 text-xs bg-white outline-none" ${!docData.seleccionado ? 'disabled' : ''}>
-                        </td>
-                        <td class="p-3">
-                            <input type="text" id="foto_${d.numero}" placeholder="Link foto Drive..." value="${docData.fotoLink || ''}" class="w-full p-2 rounded-xl border border-slate-300 text-xs bg-white outline-none" ${!docData.seleccionado ? 'disabled' : ''}>
-                        </td>
-                        <td class="p-3">
-                            <input type="text" id="audio_${d.numero}" placeholder="Link audio Drive..." value="${docData.audioLink || ''}" class="w-full p-2 rounded-xl border border-slate-300 text-xs bg-white outline-none" ${!docData.seleccionado ? 'disabled' : ''}>
-                            <div class="mt-1">
-                              <label class="evidence-btn">📷 Foto<input type="file" accept="image/*" capture="environment" style="display:none" ${!docData.seleccionado ? 'disabled' : ''} onchange="encolarEvidencia('${d.numero}','foto',this.files[0])"></label>
-                              <label class="evidence-btn">🎤 Audio<input type="file" accept="audio/*" style="display:none" ${!docData.seleccionado ? 'disabled' : ''} onchange="encolarEvidencia('${d.numero}','audio',this.files[0])"></label>
-                            </div>
-                            <div class="queue-note" id="estadoArchivo_${d.numero}"></div>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+    tbodyDocs.innerHTML = documentosActualesCP.map(d => {
+        const docSaved = est.documentosSeleccionados[d.numero] || {
+            seleccionado: !!d.motivo,
+            motivo: d.motivo || '',
+            observacion: d.observacion || '',
+            bultosRechazados: d.bultosRechazados !== '' ? d.bultosRechazados : ((d.observacion === 'rechazo total' || d.observacion === 'no entregado') ? d.totalBultosLine : ''),
+            fotoLink: d.fotoLink || '',
+            audioLink: d.audioLink || ''
+        };
+
+        let bultosVal = docSaved.bultosRechazados;
+        if ((docSaved.observacion === 'rechazo total' || docSaved.observacion === 'no entregado') && (bultosVal === '' || bultosVal === undefined)) {
+            bultosVal = d.totalBultosLine;
+        }
+        const bloquearBultos = (docSaved.observacion === 'rechazo total' || docSaved.observacion === 'no entregado');
+
+        return `
+        <tr class="hover:bg-slate-50 border-b">
+            <td class="p-3 text-center">
+                <input type="checkbox" class="chkDocItem" value="${d.numero}" ${docSaved.seleccionado ? 'checked' : ''} onchange="toggleSeleccionDoc('${d.numero}', this.checked)">
+            </td>
+            <td class="p-3">
+                <span class="text-sm font-black text-blue-900">${d.numero}</span>
+                <span class="block text-[10px] text-slate-500 uppercase font-bold">${d.tipo}</span>
+            </td>
+            <td class="p-3 font-semibold text-slate-800">
+                ${d.cliente}<span class="block text-[11px] font-normal text-slate-500">${d.direccion}</span>
+            </td>
+            <td class="p-3">
+                <select id="motivo_${d.numero}" class="p-2 rounded-xl border border-slate-300 text-xs font-bold bg-white text-blue-900 outline-none w-full" ${!docSaved.seleccionado ? 'disabled' : ''}>
+                    <option value="" ${docSaved.motivo === '' ? 'selected' : ''}>-- Seleccionar Motivo --</option>
+                    <option value="problema interno (AMBALOG)" ${docSaved.motivo === 'problema interno (AMBALOG)' ? 'selected' : ''}>problema interno (AMBALOG)</option>
+                    <option value="problema externo (cliente)" ${docSaved.motivo === 'problema externo (cliente)' ? 'selected' : ''}>problema externo (cliente)</option>
+                </select>
+            </td>
+            <td class="p-3">
+                <select id="obs_${d.numero}" onchange="cambioObservacionDoc('${d.numero}', ${d.totalBultosLine})" class="p-2 rounded-xl border border-slate-300 text-xs font-bold bg-white text-blue-900 outline-none w-full" ${!docSaved.seleccionado ? 'disabled' : ''}>
+                    <option value="" ${docSaved.observacion === '' ? 'selected' : ''}>-- Seleccionar Observación --</option>
+                    <option value="rechazo parcial" ${docSaved.observacion === 'rechazo parcial' ? 'selected' : ''}>rechazo parcial</option>
+                    <option value="rechazo total" ${docSaved.observacion === 'rechazo total' ? 'selected' : ''}>rechazo total</option>
+                    <option value="no entregado" ${docSaved.observacion === 'no entregado' ? 'selected' : ''}>no entregado</option>
+                </select>
+            </td>
+            <td class="p-3 text-center">
+                <input type="number" id="bultos_${d.numero}" value="${bultosVal}" ${!docSaved.seleccionado || bloquearBultos ? 'disabled' : ''} class="w-20 p-1.5 rounded-xl border border-slate-300 text-xs font-bold text-center bg-white outline-none ${bloquearBultos ? 'bg-slate-100 text-slate-500' : 'text-blue-900'}">
+                <span class="block text-[9px] text-slate-400 mt-0.5">Total línea: ${d.totalBultosLine}</span>
+            </td>
+            <td class="p-3 space-y-1">
+                <input type="text" id="foto_${d.numero}" placeholder="Link foto Drive..." value="${docSaved.fotoLink || ''}" class="w-full p-1.5 rounded border border-slate-300 text-[11px] bg-white outline-none" ${!docSaved.seleccionado ? 'disabled' : ''}>
+                <div class="flex gap-1 flex-wrap">
+                    <button onclick="abrirQRModal('FOTO', '${d.numero}')" class="bg-blue-800 hover:bg-blue-900 text-white font-bold text-[10px] px-2.5 py-1 rounded shadow" ${!docSaved.seleccionado ? 'disabled' : ''}>📷 QR Celular</button>
+                    <button onclick="subirDesdePC('FOTO', '${d.numero}')" class="bg-slate-700 hover:bg-slate-800 text-white font-bold text-[10px] px-2.5 py-1 rounded shadow" ${!docSaved.seleccionado ? 'disabled' : ''}>💻 PC</button>
+                </div>
+            </td>
+            <td class="p-3 space-y-1">
+                <input type="text" id="audio_${d.numero}" placeholder="Link audio Drive..." value="${docSaved.audioLink || ''}" class="w-full p-1.5 rounded border border-slate-300 text-[11px] bg-white outline-none" ${!docSaved.seleccionado ? 'disabled' : ''}>
+                <div class="flex gap-1 flex-wrap">
+                    <button onclick="abrirQRModal('AUDIO', '${d.numero}')" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-[10px] px-2.5 py-1 rounded shadow" ${!docSaved.seleccionado ? 'disabled' : ''}>🎤 QR Celular</button>
+                    <button onclick="subirDesdePC('AUDIO', '${d.numero}')" class="bg-slate-700 hover:bg-slate-800 text-white font-bold text-[10px] px-2.5 py-1 rounded shadow" ${!docSaved.seleccionado ? 'disabled' : ''}>💻 PC</button>
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function cambioObservacionDoc(nroDoc, totalBultosLine) {
+    const obsSelect = document.getElementById(`obs_${nroDoc}`);
+    const bultosInput = document.getElementById(`bultos_${nroDoc}`);
+    if (obsSelect.value === 'rechazo total' || obsSelect.value === 'no entregado') {
+        bultosInput.value = totalBultosLine;
+        bultosInput.disabled = true;
+        bultosInput.className = "w-20 p-1.5 rounded-xl border border-slate-300 text-xs font-bold text-center bg-slate-100 text-slate-500 outline-none";
+    } else {
+        bultosInput.disabled = false;
+        bultosInput.className = "w-20 p-1.5 rounded-xl border border-slate-300 text-xs font-bold text-center bg-white text-blue-900 outline-none";
+    }
+    toggleSeleccionDoc(nroDoc, true);
+}
+
+function toggleSeleccionDoc(nroDoc, isChecked) {
+    const est = estadoNovedadesMap[cpActualAbierta];
+    if (!est.documentosSeleccionados[nroDoc]) est.documentosSeleccionados[nroDoc] = {};
+
+    est.documentosSeleccionados[nroDoc].seleccionado = isChecked;
+    est.documentosSeleccionados[nroDoc].motivo = document.getElementById(`motivo_${nroDoc}`).value;
+    est.documentosSeleccionados[nroDoc].observacion = document.getElementById(`obs_${nroDoc}`).value;
+    est.documentosSeleccionados[nroDoc].bultosRechazados = document.getElementById(`bultos_${nroDoc}`).value;
+    est.documentosSeleccionados[nroDoc].fotoLink = document.getElementById(`foto_${nroDoc}`).value;
+    est.documentosSeleccionados[nroDoc].audioLink = document.getElementById(`audio_${nroDoc}`).value;
+
+    renderizarTablaDocumentosModal();
+}
+
+function toggleSeleccionarTodosDocs(chkMaster) {
+    const isChecked = chkMaster.checked;
+    document.querySelectorAll('.chkDocItem').forEach(chk => {
+        chk.checked = isChecked;
+        toggleSeleccionDoc(chk.value, isChecked);
+    });
+}
+
+// Selecciona archivo en PC y lo conserva localmente hasta sincronizar.
+function subirDesdePC(tipo, nroDoc) {
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = tipo === 'FOTO' ? 'image/*' : 'audio/*,.ogg,.mp3,.wav,.m4a,.aac,.opus';
+
+    fileInput.onchange = async e => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (tipo === 'AUDIO' && file.size > 8 * 1024 * 1024) {
+            alert('El audio supera los 8 MB. Seleccioná un archivo más liviano.');
+            return;
         }
 
-        function toggleSeleccionDoc(nroDoc, isChecked) {
+        try {
             const est = estadoNovedadesMap[cpActualAbierta];
-            if (!est.documentosSeleccionados[nroDoc]) {
-                est.documentosSeleccionados[nroDoc] = {};
+            if (!est.documentosSeleccionados[nroDoc]) est.documentosSeleccionados[nroDoc] = {};
+
+            const doc = est.documentosSeleccionados[nroDoc];
+            doc.seleccionado = true;
+            doc.motivo = document.getElementById(`motivo_${nroDoc}`).value;
+            doc.observacion = document.getElementById(`obs_${nroDoc}`).value;
+            doc.bultosRechazados = document.getElementById(`bultos_${nroDoc}`).value;
+            doc.fotoLink = document.getElementById(`foto_${nroDoc}`).value;
+            doc.audioLink = document.getElementById(`audio_${nroDoc}`).value;
+
+            const anteriores = await obtenerArchivosPendientes();
+            for (const anterior of anteriores) {
+                if (anterior.cpKey === cpActualAbierta && anterior.nroDoc === nroDoc && anterior.tipo === tipo) {
+                    await eliminarArchivoPendiente(anterior.id);
+                }
             }
-            est.documentosSeleccionados[nroDoc].seleccionado = isChecked;
-            est.documentosSeleccionados[nroDoc].clasificacion = document.getElementById(`clasif_${nroDoc}`).value;
-            est.documentosSeleccionados[nroDoc].comentario = document.getElementById(`comet_${nroDoc}`).value;
-            est.documentosSeleccionados[nroDoc].fotoLink = document.getElementById(`foto_${nroDoc}`).value;
-            est.documentosSeleccionados[nroDoc].audioLink = document.getElementById(`audio_${nroDoc}`).value;
-            
+
+            await guardarArchivoPendiente({
+                id: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
+                tipo,
+                nroDoc,
+                cpKey: cpActualAbierta,
+                cp: cpPrincipalActualGlobal,
+                file,
+                link: ''
+            });
+
             renderizarTablaDocumentosModal();
+            alert('✓ Archivo guardado provisoriamente en esta PC.\n\nTodavía no se subió a Drive. Se subirá al presionar SINCRONIZAR NOVEDADES.');
+
+        } catch (err) {
+            console.error(err);
+            alert('No se pudo guardar el archivo en el navegador: ' + err.message);
         }
+    };
+    fileInput.click();
+}
 
-        function toggleSeleccionarTodosDocs(chkMaster) {
-            const isChecked = chkMaster.checked;
-            document.querySelectorAll('.chkDocItem').forEach(chk => {
-                chk.checked = isChecked;
-                toggleSeleccionDoc(chk.value, isChecked);
-            });
-        }
-
-        function guardarProvisorioModal() {
-            documentosActualesCP.forEach(d => {
-                const chk = document.querySelector(`.chkDocItem[value="${d.numero}"]`);
-                if (chk && chk.checked) {
-                    const clasif = document.getElementById(`clasif_${d.numero}`).value;
-                    const comentario = document.getElementById(`comet_${d.numero}`).value;
-                    const fotoLink = document.getElementById(`foto_${d.numero}`).value;
-                    const audioLink = document.getElementById(`audio_${d.numero}`).value;
-                    
-                    estadoNovedadesMap[cpActualAbierta].documentosSeleccionados[d.numero] = {
-                        seleccionado: true,
-                        clasificacion: clasif,
-                        comentario: comentario,
-                        fotoLink: fotoLink,
-                        audioLink: audioLink
-                    };
-                } else if (chk) {
-                    if (estadoNovedadesMap[cpActualAbierta].documentosSeleccionados[d.numero]) {
-                        estadoNovedadesMap[cpActualAbierta].documentosSeleccionados[d.numero].seleccionado = false;
-                    }
-                }
-            });
-
-            cerrarModalNovedad();
-            alert("✓ Novedades guardadas provisoriamente en memoria. Recordá presionar 'Sincronizar Novedades' para grabarlas.");
-        }
-
-        function cerrarModalNovedad() {
-            document.getElementById('modalNovedadDetalle').classList.add('hidden');
-        }
-
-        async function sincronizarNovedades() {
-            const btn = document.getElementById('btnSyncNovedades');
-            btn.innerText = "SINCRONIZANDO...";
-            btn.disabled = true;
-            try {
-                const pendientes = await obtenerPendientes();
-                for (const item of pendientes) {
-                    const link = await subirArchivoPendiente(item);
-                    const est = estadoNovedadesMap[item.cpKey];
-                    if (est && est.documentosSeleccionados && est.documentosSeleccionados[item.numero]) {
-                        if (item.tipo === 'foto') est.documentosSeleccionados[item.numero].fotoLink = link;
-                        else est.documentosSeleccionados[item.numero].audioLink = link;
-                    }
-                    await eliminarPendiente(item.id);
-                }
-                const resp = await fetch(WEB_APP_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: 'sincronizarNovedadesReparto', novedades: estadoNovedadesMap })
-                });
-                const res = await resp.json();
-                if (res.status && res.status !== 'success') throw new Error(res.message || 'Falló la sincronización de Reparto.');
-                const respFC = await fetch(WEB_APP_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: 'guardarNovedadesDocumentos', novedades: estadoNovedadesMap })
-                });
-                const resFC = await respFC.json();
-                if (resFC.status && resFC.status !== 'success') throw new Error(resFC.message || 'Falló la sincronización de FC/RTO.');
-                actualizarContadorPendientes();
-                alert((res.message || 'Estados sincronizados en Reparto.') + '\\n' + (resFC.message || 'Novedades de documentos guardadas en FC/RTO.'));
-            } catch (err) {
-                console.error("Error al sincronizar:", err);
-                alert("No se completó la sincronización. Los archivos que todavía estén pendientes permanecen guardados en este equipo. Detalle: " + err.message);
-            } finally {
-                btn.innerText = "💾 SINCRONIZAR NOVEDADES";
-                btn.disabled = false;
+function comprimirImagenBase64(dataUrl, maxWidth, quality) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            let width = img.width;
+            let height = img.height;
+            if (width > maxWidth) {
+                height = Math.round((height * maxWidth) / width);
+                width = maxWidth;
             }
-        }
-
-
-        // Cola local IndexedDB: los archivos no se envían al seleccionarlos.
-        function abrirDBNovedades() {
-            return new Promise((resolve, reject) => {
-                const req = indexedDB.open(DB_NOVEDADES, 1);
-                req.onupgradeneeded = () => {
-                    const db = req.result;
-                    if (!db.objectStoreNames.contains(STORE_NOVEDADES)) db.createObjectStore(STORE_NOVEDADES, { keyPath: 'id' });
-                };
-                req.onsuccess = () => resolve(req.result);
-                req.onerror = () => reject(req.error);
-            });
-        }
-        async function guardarPendiente(item) {
-            const db = await abrirDBNovedades();
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(STORE_NOVEDADES, 'readwrite');
-                tx.objectStore(STORE_NOVEDADES).put(item);
-                tx.oncomplete = () => { db.close(); resolve(); };
-                tx.onerror = () => { db.close(); reject(tx.error); };
-            });
-        }
-        async function obtenerPendientes() {
-            const db = await abrirDBNovedades();
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(STORE_NOVEDADES, 'readonly');
-                const req = tx.objectStore(STORE_NOVEDADES).getAll();
-                req.onsuccess = () => { db.close(); resolve(req.result || []); };
-                req.onerror = () => { db.close(); reject(req.error); };
-            });
-        }
-        async function eliminarPendiente(id) {
-            const db = await abrirDBNovedades();
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(STORE_NOVEDADES, 'readwrite');
-                tx.objectStore(STORE_NOVEDADES).delete(id);
-                tx.oncomplete = () => { db.close(); resolve(); };
-                tx.onerror = () => { db.close(); reject(tx.error); };
-            });
-        }
-        function archivoABase64(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(String(reader.result).split(',')[1]);
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
-            });
-        }
-        async function comprimirFoto(file) {
-            if (!file || !file.type.startsWith('image/')) return file;
-            const bitmap = await createImageBitmap(file);
-            const max = 1600, ratio = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
             const canvas = document.createElement('canvas');
-            canvas.width = Math.round(bitmap.width * ratio); canvas.height = Math.round(bitmap.height * ratio);
-            canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-            bitmap.close && bitmap.close();
-            return await new Promise(resolve => canvas.toBlob(blob => resolve(blob || file), 'image/jpeg', 0.78));
-        }
-        async function encolarEvidencia(numero, tipo, file) {
-            if (!file) return;
-            const maxAudio = 8 * 1024 * 1024;
-            if (tipo === 'audio' && file.size > maxAudio) { alert('El audio supera 8 MB. Recortalo o enviá uno más corto.'); return; }
-            try {
-                let archivo = tipo === 'foto' ? await comprimirFoto(file) : file;
-                const cpKey = cpActualAbierta;
-                const id = [cpKey, numero, tipo].join('|');
-                await guardarPendiente({ id, cpKey, numero: String(numero), tipo, nombre: file.name || (tipo + '.bin'), mimeType: archivo.type || file.type, blob: archivo, fecha: new Date().toISOString() });
-                const est = estadoNovedadesMap[cpKey];
-                if (!est.documentosSeleccionados[numero]) est.documentosSeleccionados[numero] = { seleccionado: true };
-                est.documentosSeleccionados[numero].seleccionado = true;
-                document.getElementById('estadoArchivo_' + numero).textContent = '✓ Guardado en este equipo; se subirá al sincronizar.';
-                actualizarContadorPendientes();
-            } catch (e) { console.error(e); alert('No se pudo guardar el archivo localmente.'); }
-        }
-        async function subirArchivoPendiente(item) {
-            const base64 = await archivoABase64(item.blob);
-            const response = await fetch(WEB_APP_URL, {
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return reject(new Error('No se pudo procesar la imagen.'));
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', quality).split(',')[1]);
+        };
+        img.onerror = () => reject(new Error('No se pudo abrir la imagen.'));
+        img.src = dataUrl;
+    });
+}
+
+async function subirArchivosPendientesPC() {
+    const pendientes = await obtenerArchivosPendientes();
+
+    for (let i = 0; i < pendientes.length; i++) {
+        const archivo = pendientes[i];
+        let link = archivo.link;
+
+        if (!link) {
+            let bytes;
+            let filename = archivo.file.name;
+
+            if (archivo.tipo === 'FOTO' && archivo.file.type.startsWith('image/')) {
+                const comprimida = await comprimirArchivoImagen(archivo.file);
+                bytes = comprimida.bytes;
+                filename = comprimida.filename;
+            } else {
+                bytes = await archivoABase64(archivo.file);
+            }
+
+            const resp = await fetch(WEB_APP_FC_URL, {
                 method: 'POST',
                 body: JSON.stringify({
-                    action: 'procesarSubidaArchivo', cp: item.cpKey, numero: item.numero,
-                    tipo: item.tipo, nombre: item.nombre, mimeType: item.mimeType, base64
+                    action: 'procesarSubidaDirectaPC',
+                    doc: archivo.nroDoc,
+                    cp: archivo.cp,
+                    tipo: archivo.tipo,
+                    filename,
+                    bytes
                 })
             });
-            const result = await response.json();
-            if (!result || result.status !== 'success' || !result.url) throw new Error(result.message || 'No se pudo subir ' + item.nombre);
-            return result.url;
-        }
-        async function actualizarContadorPendientes() {
-            try {
-                const n = (await obtenerPendientes()).length;
-                const el = document.getElementById('contadorPendientes');
-                if (el) el.textContent = n + ' archivos pendientes en este equipo.';
-            } catch(e) {}
-        }
-        function mostrarQRMovil() {
-            const wrap = document.getElementById('qrMovilWrap');
-            wrap.classList.remove('hidden');
-            const destino = WEB_APP_FC_URL + '?page=movil&cp=' + encodeURIComponent(cpActualAbierta) + '&doc=' + encodeURIComponent('');
-            document.getElementById('qrMovil').innerHTML = '';
-            new QRCode(document.getElementById('qrMovil'), { text: destino, width: 150, height: 150 });
-        }
 
-        function copiarTablaParaMail() {
-            const fechaInput = document.getElementById('filtroFechaNovedades').value;
-            let [y, m, d] = fechaInput.split('-');
-            let fechaFmt = `${d}/${m}/${y}`;
-
-            let html = `<p style="font-family: Arial, sans-serif; font-size: 13px;">Estimados, buen dia. Adjunto novedades de las cargas programadas del dia ${fechaFmt}</p><br>`;
-            
-            // Tabla principal
-            html += `<table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; font-family: Arial, sans-serif; font-size: 12px; width: 100%;">`;
-            html += `<tr style="background-color: #1e3a5f; color: white; text-align: left;">
-                        <th>Fecha</th><th>Vuelta</th><th>Vehículo</th><th>Canal</th><th>Cliente Principal</th><th>CP Principal</th><th>Salida</th><th>Llegada</th>
-                     </tr>`;
-
-            let detallesNovedadesHtml = '';
-            let hayDetalles = false;
-
-            viajesNovedades.forEach((v, idx) => {
-                let cpKey = v.cpPrincipal || idx;
-                let est = estadoNovedadesMap[cpKey] || {};
-                
-                let salidaTxt = '';
-                if (est.salidaEstado === 'SALIO') salidaTxt = 'Salió';
-                else if (est.salidaEstado === 'NO_SALIO') salidaTxt = `No Salió (${est.salidaMotivo || 'Sin motivo'})`;
-                else if (est.salidaEstado === 'ENTREGADO') salidaTxt = 'Entregado';
-
-                let llegadaTxt = '';
-                if (est.llegadaEstado === 'TERMINADO') llegadaTxt = 'Terminado';
-                else if (est.llegadaEstado === 'TERMINADO_CON_NOVEDAD') llegadaTxt = 'Terminado con novedad';
-                else if (est.llegadaEstado === 'CON_NOVEDAD') llegadaTxt = 'Sin finalizar con novedad';
-
-                const colorSalida = est.salidaEstado === 'SALIO' ? '#dcfce7' : est.salidaEstado === 'NO_SALIO' ? '#fee2e2' : est.salidaEstado === 'ENTREGADO' ? '#dbeafe' : '#ffffff';
-                const colorLlegada = est.llegadaEstado === 'TERMINADO' ? '#dcfce7' : est.llegadaEstado === 'TERMINADO_CON_NOVEDAD' ? '#ffedd5' : est.llegadaEstado === 'CON_NOVEDAD' ? '#fee2e2' : '#ffffff';
-                html += `<tr>
-                            <td>${v.fechaGrilla}</td>
-                            <td>${v.vuelta || '1RA VUELTA'}</td>
-                            <td>${v.tipoVehiculo || ''}</td>
-                            <td>${v.canal || ''}</td>
-                            <td>${v.cliente || ''}</td>
-                            <td><b>${v.cpPrincipal || ''}</b></td>
-                            <td style="background:${colorSalida};font-weight:bold">${salidaTxt}</td>
-                            <td style="background:${colorLlegada};font-weight:bold">${llegadaTxt}</td>
-                         </tr>`;
-
-                // Recopilar documentos con novedad
-                if (est.documentosSeleccionados) {
-                    Object.keys(est.documentosSeleccionados).forEach(nroDoc => {
-                        let docInfo = est.documentosSeleccionados[nroDoc];
-                        if (docInfo.seleccionado) {
-                            hayDetalles = true;
-                            let fotoIcon = docInfo.fotoLink ? `<a href="${docInfo.fotoLink}" target="_blank">📷 Ver Foto</a>` : '📷 -';
-                            let audioIcon = docInfo.audioLink ? `<a href="${docInfo.audioLink}" target="_blank">🎤 Escuchar Audio</a>` : '🎤 -';
-                            
-                            detallesNovedadesHtml += `<tr>
-                                                        <td><b>${nroDoc}</b></td>
-                                                        <td>${docInfo.clasificacion} (${docInfo.comentario || 'Sin observación'})</td>
-                                                        <td style="text-align: center;">${fotoIcon}</td>
-                                                        <td style="text-align: center;">${audioIcon}</td>
-                                                      </tr>`;
-                        }
-                    });
-                }
-            });
-            html += `</table><br>`;
-
-            // Subtabla de detalle de novedades
-            if (hayDetalles) {
-                html += `<h3 style="font-family: Arial, sans-serif; font-size: 14px; color: #1e3a5f;">Detalle de novedades</h3>`;
-                html += `<table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; font-family: Arial, sans-serif; font-size: 12px; width: 100%;">`;
-                html += `<tr style="background-color: #475569; color: white; text-align: left;">
-                            <th>Nro de documento</th><th>Novedad / Motivo</th><th style="text-align: center;">Foto</th><th style="text-align: center;">Audio</th>
-                         </tr>`;
-                html += detallesNovedadesHtml;
-                html += `</table>`;
+            const res = await resp.json();
+            if (res.status !== 'success' || !res.link) {
+                throw new Error(`Error al subir ${archivo.tipo} del documento ${archivo.nroDoc}: ${res.message || 'Error del servidor'}`);
             }
 
-            // Copiar al portapapeles en formato HTML enriquecido para Outlook
-            const blob = new Blob([html], { type: 'text/html' });
-            const plainBlob = new Blob([html.replace(/<[^>]*>?/gm, '')], { type: 'text/plain' });
-            
-            navigator.clipboard.write([
-                new ClipboardItem({ 'text/html': blob, 'text/plain': plainBlob })
-            ]).then(() => {
-                alert("✓ ¡Tabla copiada al portapapeles con éxito! Ya podés pegarla directamente en tu correo de Outlook.");
-            }).catch(err => {
-                console.error(err);
-                alert("Error al intentar copiar al portapapeles.");
+            link = res.link;
+            archivo.link = link;
+            await guardarArchivoPendiente(archivo);
+        }
+
+        const est = estadoNovedadesMap[archivo.cpKey];
+        if (!est) throw new Error(`No se encontró el estado de la CP ${archivo.cp}.`);
+
+        if (!est.documentosSeleccionados) est.documentosSeleccionados = {};
+        if (!est.documentosSeleccionados[archivo.nroDoc]) est.documentosSeleccionados[archivo.nroDoc] = {};
+
+        const doc = est.documentosSeleccionados[archivo.nroDoc];
+        doc.seleccionado = true;
+        if (archivo.tipo === 'FOTO') doc.fotoLink = link;
+        else doc.audioLink = link;
+    }
+}
+
+function abrirQRModal(tipo, nroDoc) {
+    docActualCaptura = nroDoc;
+    tipoActualCaptura = tipo;
+    document.getElementById('modalQRCaptura').classList.remove('hidden');
+    document.getElementById('tituloQRCaptura').innerText = tipo === 'FOTO'
+        ? `📷 Escaneá para Tomar Foto (${nroDoc})`
+        : `🎤 Escaneá para Audio (${nroDoc})`;
+
+    const qrDiv = document.getElementById('qrContainer');
+    qrDiv.innerHTML = '';
+    const urlMovil = `${WEB_APP_FC_URL}?action=mobileUploadPage&tipo=${tipo}&doc=${nroDoc}&cp=${encodeURIComponent(cpPrincipalActualGlobal)}`;
+
+    new QRCode(qrDiv, { text: urlMovil, width: 200, height: 200 });
+}
+
+async function verificarLinkMovil() {
+    try {
+        const resp = await fetch(WEB_APP_FC_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'consultarLinkCache', doc: docActualCaptura, tipo: tipoActualCaptura })
+        });
+        const res = await resp.json();
+
+        if (res.status === 'success' && res.link) {
+            if (tipoActualCaptura === 'FOTO') {
+                document.getElementById(`foto_${docActualCaptura}`).value = res.link;
+            } else {
+                document.getElementById(`audio_${docActualCaptura}`).value = res.link;
+            }
+            toggleSeleccionDoc(docActualCaptura, true);
+            alert('✓ ¡Archivo recibido del celular y vinculado con éxito!');
+            cerrarModalQR();
+        } else {
+            alert('Aún no se ha completado la subida desde el celular. Inténtalo de nuevo en unos segundos.');
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Error al verificar el link en el servidor.');
+    }
+}
+
+function cerrarModalQR() {
+    document.getElementById('modalQRCaptura').classList.add('hidden');
+}
+
+function guardarProvisorioModal() {
+    documentosActualesCP.forEach(d => {
+        const chk = document.querySelector(`.chkDocItem[value="${d.numero}"]`);
+        if (chk && chk.checked) {
+            const motivo = document.getElementById(`motivo_${d.numero}`).value;
+            const observacion = document.getElementById(`obs_${d.numero}`).value;
+            const bultosRechazados = document.getElementById(`bultos_${d.numero}`).value;
+            const fotoLink = document.getElementById(`foto_${d.numero}`).value;
+            const audioLink = document.getElementById(`audio_${d.numero}`).value;
+
+            estadoNovedadesMap[cpActualAbierta].documentosSeleccionados[d.numero] = {
+                seleccionado: true, motivo, observacion, bultosRechazados, fotoLink, audioLink
+            };
+        } else if (chk) {
+            if (estadoNovedadesMap[cpActualAbierta].documentosSeleccionados[d.numero]) {
+                estadoNovedadesMap[cpActualAbierta].documentosSeleccionados[d.numero].seleccionado = false;
+            }
+        }
+    });
+
+    cerrarModalNovedad();
+    alert("✓ Novedades guardadas provisoriamente en memoria. Recordá presionar 'Sincronizar Novedades'.");
+}
+
+function cerrarModalNovedad() {
+    document.getElementById('modalNovedadDetalle').classList.add('hidden');
+}
+
+async function sincronizarNovedades() {
+    const btn = document.getElementById('btnSyncNovedades');
+    const textoOriginal = btn.innerText;
+    btn.innerText = 'SUBIENDO ARCHIVOS Y SINCRONIZANDO...';
+    btn.disabled = true;
+
+    try {
+        // 1. Subir archivos de PC y actualizar los links en estadoNovedadesMap.
+        await subirArchivosPendientesPC();
+
+        // 2. Sincronizar novedades de Reparto.
+        const respPedidos = await fetch(WEB_APP_URL, {
+            method: 'POST',
+            body: JSON.stringify({
+                action: 'sincronizarNovedadesReparto',
+                novedades: estadoNovedadesMap
+            })
+        });
+        const resPedidos = await respPedidos.json();
+        if (resPedidos.status && resPedidos.status !== 'success') {
+            throw new Error(resPedidos.message || 'Error al sincronizar Reparto.');
+        }
+
+        // 3. Sincronizar documentos FC/RTO.
+        const respFC = await fetch(WEB_APP_FC_URL, {
+            method: 'POST',
+            body: JSON.stringify({
+                action: 'guardarNovedadesDocumentos',
+                novedades: estadoNovedadesMap
+            })
+        });
+        const resFC = await respFC.json();
+        if (resFC.status && resFC.status !== 'success') {
+            throw new Error(resFC.message || 'Error al guardar novedades de documentos.');
+        }
+
+        // 4. Vaciar la cola solamente si ambas sincronizaciones finalizaron.
+        const pendientes = await obtenerArchivosPendientes();
+        for (const archivo of pendientes) await eliminarArchivoPendiente(archivo.id);
+
+        alert('✓ Sincronización exitosa:\n- ' + (resPedidos.message || '') + '\n- ' + (resFC.message || ''));
+
+    } catch (err) {
+        console.error('Error al sincronizar:', err);
+        alert('No se pudo completar la sincronización.\n\n' + err.message +
+            '\n\nLos archivos pendientes se conservaron en esta PC. Podés volver a intentar.');
+    } finally {
+        btn.innerText = textoOriginal;
+        btn.disabled = false;
+    }
+}
+
+function copiarTablaParaMail() {
+    const fechaInput = document.getElementById('filtroFechaNovedades').value;
+    let [y, m, d] = fechaInput.split('-');
+    let fechaFmt = `${d}/${m}/${y}`;
+
+    let html = `<p style="font-family: Arial, sans-serif; font-size: 13px;">Estimados, buen dia. Adjunto novedades de las cargas programadas del dia ${fechaFmt}</p><br>`;
+
+    html += `<table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; font-family: Arial, sans-serif; font-size: 12px; width: 100%;">`;
+    html += `<tr style="background-color: #1e3a5f; color: white; text-align: left;">
+        <th>Fecha</th><th>Vuelta</th><th>Vehículo</th><th>Canal</th><th>Cliente Principal</th><th>CP Principal</th><th>Salida</th><th>Llegada</th>
+    </tr>`;
+
+    let detallesNovedadesHtml = '';
+    let hayDetalles = false;
+
+    viajesNovedades.forEach((v, idx) => {
+        let cpKey = v.cpPrincipal || idx;
+        let est = estadoNovedadesMap[cpKey] || {};
+
+        let salidaTxt = '';
+        if (est.salidaEstado === 'SALIO') salidaTxt = 'Salió';
+        else if (est.salidaEstado === 'NO_SALIO') salidaTxt = `No Salió (${est.salidaMotivo || 'Sin motivo'})`;
+        else if (est.salidaEstado === 'ENTREGADO') salidaTxt = 'Entregado';
+
+        let llegadaTxt = est.llegadaEstado || '';
+
+        let salidaStyle = '';
+        if (est.salidaEstado === 'SALIO') salidaStyle = 'background-color:#dcfce7;color:#166534;font-weight:bold;';
+        else if (est.salidaEstado === 'NO_SALIO') salidaStyle = 'background-color:#fee2e2;color:#991b1b;font-weight:bold;';
+        else if (est.salidaEstado === 'ENTREGADO') salidaStyle = 'background-color:#dbeafe;color:#1e40af;font-weight:bold;';
+
+        let llegadaStyle = '';
+        if (llegadaTxt === 'terminado (sin novedad)') llegadaStyle = 'background-color:#dcfce7;color:#166534;font-weight:bold;';
+        else if (llegadaTxt === 'terminado (con novedad)') llegadaStyle = 'background-color:#ffedd5;color:#9a3412;font-weight:bold;';
+        else if (llegadaTxt === 'sin finalizar (con novedad)') llegadaStyle = 'background-color:#fee2e2;color:#991b1b;font-weight:bold;';
+
+        html += `<tr>
+            <td>${v.fechaGrilla}</td>
+            <td>${v.vuelta || '1RA VUELTA'}</td>
+            <td>${v.tipoVehiculo || ''}</td>
+            <td>${v.canal || ''}</td>
+            <td>${v.cliente || ''}</td>
+            <td><b>${v.cpPrincipal || ''}</b></td>
+            <td style="${salidaStyle}">${salidaTxt}</td>
+            <td style="${llegadaStyle}">${llegadaTxt}</td>
+        </tr>`;
+
+        if (est.documentosSeleccionados) {
+            Object.keys(est.documentosSeleccionados).forEach(nroDoc => {
+                let docInfo = est.documentosSeleccionados[nroDoc];
+                if (docInfo.seleccionado) {
+                    hayDetalles = true;
+                    let docObj = documentosActualesCP.find(d => d.numero === nroDoc);
+                    let nombreClienteDoc = docObj ? docObj.cliente : '-';
+
+                    let fotoIcon = docInfo.fotoLink
+                        ? `<a href="${docInfo.fotoLink}" target="_blank" style="text-decoration:none;font-size:16px;">📷 Ver</a>` : '-';
+                    let audioIcon = docInfo.audioLink
+                        ? `<a href="${docInfo.audioLink}" target="_blank" style="text-decoration:none;font-size:16px;">🎤 Escuchar</a>` : '-';
+
+                    detallesNovedadesHtml += `<tr>
+                        <td><b>${nroDoc}</b></td>
+                        <td>${nombreClienteDoc}</td>
+                        <td>${docInfo.motivo || '-'}</td>
+                        <td>${docInfo.observacion || '-'}</td>
+                        <td style="text-align:center;">${docInfo.bultosRechazados || '-'}</td>
+                        <td style="text-align:center;">${fotoIcon}</td>
+                        <td style="text-align:center;">${audioIcon}</td>
+                    </tr>`;
+                }
             });
         }
-    </script>
+    });
+
+    html += `</table><br>`;
+
+    if (hayDetalles) {
+        html += `<h3 style="font-family:Arial,sans-serif;font-size:14px;color:#1e3a5f;">Detalle de novedades</h3>`;
+        html += `<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px;width:100%;">`;
+        html += `<tr style="background-color:#475569;color:white;text-align:left;">
+            <th>Nro de documento</th><th>Cliente</th><th>Motivo</th><th>Observaciones</th>
+            <th style="text-align:center;">Bultos Rech.</th><th style="text-align:center;">Foto</th><th style="text-align:center;">Audio</th>
+        </tr>`;
+        html += detallesNovedadesHtml;
+        html += `</table>`;
+    }
+
+    const blob = new Blob([html], { type: 'text/html' });
+    const plainBlob = new Blob([html.replace(/<[^>]*>?/gm, '')], { type: 'text/plain' });
+
+    navigator.clipboard.write([
+        new ClipboardItem({ 'text/html': blob, 'text/plain': plainBlob })
+    ]).then(() => {
+        alert('✓ ¡Tabla copiada al portapapeles con cliente, bultos y formato optimizado para Outlook!');
+    }).catch(err => {
+        console.error(err);
+        alert('Error al intentar copiar al portapapeles.');
+    });
+}
+</script>
 </body>
 </html>
