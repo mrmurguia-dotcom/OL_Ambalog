@@ -244,13 +244,13 @@
 
 </div>
 
-<!-- MODAL AUDITORÍA DE DIFERENCIAS (SOLO CARTA DE PORTE) -->
+<!-- MODAL AUDITORÍA DE DIFERENCIAS (SUMANDO PRINCIPAL + COMPLEMENTOS) -->
 <div id="modalDiferenciasFacturacion" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-3xl shadow-2xl max-w-4xl w-full p-6 border border-slate-200 space-y-6 max-h-[90vh] overflow-y-auto">
         <div class="flex justify-between items-center border-b pb-3">
             <div>
                 <h3 class="text-lg font-black text-blue-950">Auditoría de Diferencias: Programado vs. Facturado</h3>
-                <p class="text-xs text-slate-500">Cartas de Porte donde la cantidad facturada difiere de los bultos programados en la grilla.</p>
+                <p class="text-xs text-slate-500">Cartas de Porte (incluyendo complementos) donde la cantidad facturada difiere de los bultos programados.</p>
             </div>
             <button onclick="cerrarModalDiferencias()" class="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
         </div>
@@ -261,7 +261,7 @@
                         <th class="p-3">Fecha Grilla</th>
                         <th class="p-3">Carta de Porte Principal</th>
                         <th class="p-3 text-center">Bultos Programados</th>
-                        <th class="p-3 text-center">Bultos Facturados</th>
+                        <th class="p-3 text-center">Bultos Facturados (Total CPs)</th>
                         <th class="p-3 text-center">Diferencia</th>
                     </tr>
                 </thead>
@@ -357,6 +357,22 @@ async function cargarDatosGenerales() {
     renderizarComercial();
 }
 
+// Función auxiliar para extraer todas las CPs de una fila (Principal + Complementos)
+function obtenerTodasLasCPsDeFila(g) {
+    let lista = [];
+    if (g.cpPrincipal) {
+        lista.push(String(g.cpPrincipal).trim());
+    }
+    if (g.cpComplementos && String(g.cpComplementos).trim().toLowerCase() !== 'ninguna' && String(g.cpComplementos).trim() !== '') {
+        let comps = String(g.cpComplementos).split(/[\s,]+/);
+        comps.forEach(c => {
+            let cl = c.trim();
+            if (cl) lista.push(cl);
+        });
+    }
+    return lista;
+}
+
 async function ejecutarConsultaLogistica() {
     const btnConsultar = document.getElementById('btnConsultarLogistica');
     const tbody = document.getElementById('tbodyLogistica');
@@ -387,7 +403,12 @@ async function ejecutarConsultaLogistica() {
             }
         });
 
-        let cpsUnicas = [...new Set(filtradosGrilla.map(g => g.cpPrincipal).filter(Boolean))];
+        // Recolectar TODAS las CPs únicas (Principales y Complementarias) para traer sus documentos
+        let cpsSet = new Set();
+        filtradosGrilla.forEach(g => {
+            obtenerTodasLasCPsDeFila(g).forEach(cp => cpsSet.add(cp));
+        });
+        let cpsUnicas = [...cpsSet];
         documentosGlobal = [];
 
         for (let cp of cpsUnicas) {
@@ -474,11 +495,14 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
     filtrados.forEach(g => {
         let bultosProg = Math.round(Number(g.bultos) || 0);
 
-        let docsDeCp = documentosGlobal.filter(d => d.cp === g.cpPrincipal);
+        // Obtener documentos de TODAS las CPs de esta fila (Principal + Complementos)
+        let cpsDeFila = obtenerTodasLasCPsDeFila(g);
+        let docsDeFila = documentosGlobal.filter(d => cpsDeFila.includes(d.cp));
+        
         let bultosFactCP = 0;
         let rechazosCP = 0;
 
-        docsDeCp.forEach(d => {
+        docsDeFila.forEach(d => {
             let totalLinea = (Number(d.cajas) || 0) + (Number(d.unidades) || 0);
             bultosFactCP += totalLinea;
 
@@ -491,7 +515,7 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
             }
         });
 
-        // Registrar si hay diferencia entre programado y facturado por Carta de Porte
+        // Registrar si hay diferencia entre programado y facturado combinando principal y complementos
         if (bultosProg !== bultosFactCP) {
             listaDiferenciasGlobal.push({
                 fechaGrilla: g.fechaGrilla,
@@ -515,14 +539,14 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
         let pesoVal = Math.round(Number(g.peso) || 0);
         let palletsVal = Math.round(Number(g.pallets || 0));
 
-        let docsDeCp = documentosGlobal.filter(d => d.cp === g.cpPrincipal);
+        let cpsDeFila = obtenerTodasLasCPsDeFila(g);
+        let docsDeFila = documentosGlobal.filter(d => cpsDeFila.includes(d.cp));
         let rechazosCP = 0;
-        docsDeCp.forEach(d => {
-            let totalLinea = (Number(d.cajas) || 0) + (Number(d.unidades) || 0);
+        docsDeFila.forEach(d => {
             if (d.bultosRechazados !== '' && d.bultosRechazados !== undefined && !isNaN(d.bultosRechazados)) {
                 rechazosCP += Number(d.bultosRechazados);
             } else if (d.observacion === 'rechazo total' || d.observacion === 'no entregado') {
-                rechazosCP += totalLinea;
+                rechazosCP += (Number(d.cajas) || 0) + (Number(d.unidades) || 0);
             } else if (d.observacion === 'rechazo parcial') {
                 rechazosCP += (Number(d.cajas) || 0);
             }
@@ -573,7 +597,7 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
     }
 }
 
-// --- MODAL DE DIFERENCIAS EN FACTURACIÓN (ORGANIZADO SOLO POR CP) ---
+// --- MODAL DE DIFERENCIAS EN FACTURACIÓN ---
 function abrirModalDiferencias() {
     const tbody = document.getElementById('tbodyDiferenciasModal');
     if (listaDiferenciasGlobal.length === 0) {
@@ -653,7 +677,8 @@ function calcularMetricasEjecutivas() {
     filtrados.forEach(g => {
         let b = Number(g.bultos) || 0;
         totalProg += b;
-        documentosGlobal.filter(d => d.cp === g.cpPrincipal).forEach(d => {
+        let cpsDeFila = obtenerTodasLasCPsDeFila(g);
+        documentosGlobal.filter(d => cpsDeFila.includes(d.cp)).forEach(d => {
             let totalLinea = (Number(d.cajas) || 0) + (Number(d.unidades) || 0);
             if (d.bultosRechazados !== '' && d.bultosRechazados !== undefined && !isNaN(d.bultosRechazados)) {
                 totalRech += Number(d.bultosRechazados);
