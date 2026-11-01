@@ -1,1 +1,577 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consulta Despachos GP - Panel Gerencial y Operativo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-slate-100 p-4 md:p-8 font-sans text-slate-800">
+<div class="max-w-7xl mx-auto space-y-6">
 
+    <!-- ENCABEZADO Y SELECTOR DE VISTAS -->
+    <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 flex flex-wrap justify-between items-center gap-4">
+        <div>
+            <h1 class="text-3xl font-black text-blue-900 italic uppercase">CONSULTA DESPACHOS GP</h1>
+            <p class="text-slate-500 text-sm mt-1">Panel exclusivo de consulta (Logística, Ejecutiva y Comercial)</p>
+        </div>
+        
+        <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 flex-wrap">
+            <button onclick="cambiarVistaConsulta('logistica')" id="btnVistaLogistica" class="px-5 py-2.5 rounded-xl text-xs font-black bg-blue-900 text-white shadow transition-all">
+                🚚 VISTA LOGÍSTICA
+            </button>
+            <button onclick="cambiarVistaConsulta('ejecutiva')" id="btnVistaEjecutiva" class="px-5 py-2.5 rounded-xl text-xs font-black bg-transparent text-slate-600 hover:text-blue-900 transition-all">
+                📊 VISTA EJECUTIVA
+            </button>
+            <button onclick="cambiarVistaConsulta('comercial')" id="btnVistaComercial" class="px-5 py-2.5 rounded-xl text-xs font-black bg-transparent text-slate-600 hover:text-blue-900 transition-all">
+                💼 VISTA COMERCIAL
+            </button>
+        </div>
+        
+        <button onclick="cargarDatosGenerales()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow transition-all flex items-center gap-2">
+            🔄 Actualizar Datos
+        </button>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- 1. VISTA LOGÍSTICA -->
+    <!-- =================================================================== -->
+    <div id="seccionLogistica" class="space-y-6">
+        <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 space-y-4">
+            <div class="flex justify-between items-center border-b pb-3 flex-wrap gap-4">
+                <div>
+                    <h2 class="text-xl font-black text-blue-900">Monitoreo Logístico y Novedades de Viajes</h2>
+                    <p class="text-xs text-slate-500">Consulta por fecha única o comparativa de múltiples fechas (ordenadas de más nueva a más vieja).</p>
+                </div>
+                
+                <div class="flex items-center gap-3 flex-wrap">
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase">Fechas de Consulta (Seleccioná una o más):</label>
+                        <div class="flex gap-2 items-center mt-1">
+                            <input type="date" id="logFecha1" class="p-2 rounded-xl border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none">
+                            <span class="text-xs text-slate-400 font-bold">hasta</span>
+                            <input type="date" id="logFecha2" class="p-2 rounded-xl border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none" placeholder="Opcional 2da fecha">
+                        </div>
+                    </div>
+                    <button onclick="filtrarLogistica()" class="bg-blue-800 hover:bg-blue-900 text-white font-black text-xs px-5 py-2.5 rounded-xl shadow mt-5">🔍 Consultar</button>
+                </div>
+            </div>
+
+            <!-- FILTROS RÁPIDOS Y MÉTRICAS OPERATIVAS -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                <div class="bg-white p-3 rounded-xl border shadow-sm">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase">Bultos Programados</span>
+                    <p id="logTotalProg" class="text-xl font-black text-blue-900">0</p>
+                </div>
+                <div class="bg-white p-3 rounded-xl border shadow-sm">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase">Bultos Entregados (Neto)</span>
+                    <p id="logTotalEntregados" class="text-xl font-black text-emerald-600">0</p>
+                </div>
+                <div class="bg-white p-3 rounded-xl border shadow-sm">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase">Bultos Rechazados</span>
+                    <p id="logTotalRechazados" class="text-xl font-black text-red-600">0</p>
+                </div>
+                <div class="flex items-center justify-center">
+                    <label class="flex items-center gap-2 cursor-pointer bg-amber-50 border border-amber-300 px-4 py-2 rounded-xl w-full justify-center">
+                        <input type="checkbox" id="chkSoloNovedades" onchange="renderizarLogistica()" class="rounded text-amber-600">
+                        <span class="text-xs font-bold text-amber-900">⚠️ Filtrar solo cargas con novedades</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- TABLA LOGÍSTICA -->
+            <div class="overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-sm max-h-[550px]">
+                <table class="w-full text-left border-collapse text-xs font-sans">
+                    <thead class="bg-slate-800 text-white font-bold sticky top-0">
+                        <tr>
+                            <th class="p-3">Fecha Grilla</th>
+                            <th class="p-3">Vuelta</th>
+                            <th class="p-3">Vehículo</th>
+                            <th class="p-3">Cliente Principal</th>
+                            <th class="p-3">CP Principal</th>
+                            <th class="p-3 text-center">Bultos Prog.</th>
+                            <th class="p-3 text-center">Bultos Rech.</th>
+                            <th class="p-3 text-center">Bultos Entregados</th>
+                            <th class="p-3">Estado Salida / Llegada</th>
+                            <th class="p-3 text-center">Evidencia (Drive)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyLogistica" class="divide-y divide-slate-100 text-slate-800">
+                        <tr><td colspan="10" class="p-6 text-center text-slate-400 italic">Seleccioná fecha(s) y hacé click en Consultar.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- 2. VISTA EJECUTIVA -->
+    <!-- =================================================================== -->
+    <div id="seccionEjecutiva" class="space-y-6 hidden">
+        <!-- ALERTA UMBRAL 9000 BULTOS -->
+        <div id="alertaUmbralContainer" class="bg-emerald-50 border-2 border-emerald-300 rounded-3xl p-6 shadow-xl flex justify-between items-center flex-wrap gap-4 transition-all">
+            <div class="flex items-center gap-4">
+                <span id="iconoAlerta" class="text-3xl">🟢</span>
+                <div>
+                    <h3 id="tituloAlerta" class="text-lg font-black text-emerald-900">Control de Límite Diario: Por debajo de 9,000 bultos</h3>
+                    <p id="textoAlerta" class="text-xs text-emerald-700 mt-0.5">La operación se mantiene dentro del rango contratado sin generar extracostos.</p>
+                </div>
+            </div>
+            <div class="bg-white px-6 py-3 rounded-2xl border border-emerald-200 shadow-sm text-right">
+                <span class="text-[10px] font-bold text-slate-400 uppercase block">Total Bultos Jornada</span>
+                <span id="metricBultosTotalesJornada" class="text-2xl font-black text-emerald-700">0</span>
+            </div>
+        </div>
+
+        <!-- TARJETAS DE INDICADORES EJECUTIVOS -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200">
+                <span class="text-xs font-bold text-slate-400 uppercase">Nivel de Servicio (SLA)</span>
+                <p id="execSLA" class="text-3xl font-black text-blue-900 mt-2">0.0%</p>
+                <span class="text-[10px] text-slate-500 mt-1 block">Entregados vs. No Entregados/Rechazados</span>
+            </div>
+            <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200">
+                <span class="text-xs font-bold text-slate-400 uppercase">Total Programados</span>
+                <p id="execProg" class="text-3xl font-black text-indigo-900 mt-2">0</p>
+                <span class="text-[10px] text-slate-500 mt-1 block">Suma de bultos en grilla</span>
+            </div>
+            <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200">
+                <span class="text-xs font-bold text-slate-400 uppercase">Total Entregados</span>
+                <p id="execEnt" class="text-3xl font-black text-emerald-600 mt-2">0</p>
+                <span class="text-[10px] text-slate-500 mt-1 block">Éxito en destino</span>
+            </div>
+            <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200">
+                <span class="text-xs font-bold text-slate-400 uppercase">Total Rechazados</span>
+                <p id="execRech" class="text-3xl font-black text-red-600 mt-2">0</p>
+                <span class="text-[10px] text-slate-500 mt-1 block">Parciales o totales</span>
+            </div>
+        </div>
+
+        <!-- GRÁFICOS Y MOTIVOS DE RECHAZO -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 space-y-4">
+                <h3 class="text-base font-black text-blue-900 border-b pb-2">Top Motivos de Rechazo / Novedades</h3>
+                <div id="listaMotivosRechazo" class="space-y-2 max-h-64 overflow-y-auto text-xs">
+                    <p class="text-slate-400 italic">Sin registros de rechazo para el periodo seleccionado.</p>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 space-y-4">
+                <h3 class="text-base font-black text-blue-900 border-b pb-2">Distribución de Estados de Entrega</h3>
+                <div class="h-64 flex items-center justify-center">
+                    <canvas id="chartEjecutiva"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- 3. VISTA COMERCIAL -->
+    <!-- =================================================================== -->
+    <div id="seccionComercial" class="space-y-6 hidden">
+        <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 space-y-4">
+            <div class="flex justify-between items-center border-b pb-3 flex-wrap gap-4">
+                <div>
+                    <h2 class="text-xl font-black text-blue-900">Seguimiento Comercial de Clientes y Pedidos</h2>
+                    <p class="text-xs text-slate-500">Filtros avanzados por cliente, fecha y revisión de incidencias o archivos adjuntos.</p>
+                </div>
+                
+                <div class="flex items-center gap-3 flex-wrap">
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase">Filtrar por Cliente:</label>
+                        <select id="comercialFiltroCliente" onchange="renderizarComercial()" class="p-2 rounded-xl border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none w-48">
+                            <option value="TODOS">-- Todos los Clientes --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase">Fecha:</label>
+                        <input type="date" id="comercialFecha" onchange="cargarDatosGenerales()" class="p-2 rounded-xl border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none">
+                    </div>
+                </div>
+            </div>
+
+            <!-- TABLA COMERCIAL -->
+            <div class="overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-sm max-h-[550px]">
+                <table class="w-full text-left border-collapse text-xs font-sans">
+                    <thead class="bg-slate-800 text-white font-bold sticky top-0">
+                        <tr>
+                            <th class="p-3">Cliente</th>
+                            <th class="p-3">Nro. Documento</th>
+                            <th class="p-3">Tipo</th>
+                            <th class="p-3 text-center">Bultos</th>
+                            <th class="p-3 text-right">Importe ($)</th>
+                            <th class="p-3">Motivo / Incidencia</th>
+                            <th class="p-3 text-center">Multimedia (Drive)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyComercial" class="divide-y divide-slate-100 text-slate-800">
+                        <tr><td colspan="7" class="p-6 text-center text-slate-400 italic">Cargando datos comerciales...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- MODAL VISOR MULTIMEDIA INTEGRADO (FOTOS / AUDIOS) -->
+<div id="modalMultimedia" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-xl w-full p-6 border border-slate-200 space-y-4">
+        <div class="flex justify-between items-center border-b pb-3">
+            <h3 class="text-lg font-black text-blue-900">Evidencia Multimedia Vinculada</h3>
+            <button onclick="cerrarModalMultimedia()" class="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
+        </div>
+        <div id="contenidoMultimedia" class="space-y-4 text-center">
+            <!-- Inyectado dinámicamente -->
+        </div>
+        <div class="pt-3 border-t flex justify-end">
+            <button onclick="cerrarModalMultimedia()" class="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs px-5 py-2 rounded-xl">Cerrar</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyF9e6gme3wHTVO_RooY_xqbK9VFciCZ0jejU2Vmh9o1OUEKwzmn1WxERq7hFBo0Oo2/exec";
+const WEB_APP_FC_URL = "https://script.google.com/macros/s/AKfycbzlPL8lhl8n_H2kioGd4CmBRrEG2X9mpa83eo0XgsMIbnxFD9ppAvWS7yT0NqKfNB-KLA/exec";
+
+let grillaGlobal = [];
+let documentosGlobal = [];
+let chartEjecutivaInstancia = null;
+
+const hoy = new Date();
+document.getElementById('logFecha1').valueAsDate = hoy;
+document.getElementById('comercialFecha').valueAsDate = hoy;
+
+window.onload = () => {
+    cargarDatosGenerales();
+};
+
+function cambiarVistaConsulta(vista) {
+    ['logistica', 'ejecutiva', 'comercial'].forEach(v => {
+        document.getElementById(`seccion${v.charAt(0).toUpperCase() + v.slice(1)}`).classList.add('hidden');
+        document.getElementById(`btnVista${v.charAt(0).toUpperCase() + v.slice(1)}`).className = "px-5 py-2.5 rounded-xl text-xs font-black bg-transparent text-slate-600 hover:text-blue-900 transition-all";
+    });
+
+    document.getElementById(`seccion${vista.charAt(0).toUpperCase() + vista.slice(1)}`).classList.remove('hidden');
+    document.getElementById(`btnVista${vista.charAt(0).toUpperCase() + vista.slice(1)}`).className = "px-5 py-2.5 rounded-xl text-xs font-black bg-blue-900 text-white shadow transition-all";
+
+    if (vista === 'ejecutiva') calcularMetricasEjecutivas();
+}
+
+async function cargarDatosGenerales() {
+    try {
+        // 1. Obtener Grilla Registrada
+        const respGrilla = await fetch(WEB_APP_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'obtenerGrillaRegistrada' })
+        });
+        const resGrilla = await respGrilla.json();
+        if (resGrilla.status === "success") {
+            grillaGlobal = resGrilla.grilla || [];
+        }
+
+        // 2. Obtener Comprobantes / Documentos (para vista comercial y multimedia)
+        // Recorremos las Cartas de Porte presentes en la grilla para consultar sus detalles en FC
+        let cpsUnicas = [...new Set(grillaGlobal.map(g => g.cpPrincipal).filter(Boolean))];
+        documentosGlobal = [];
+        for (let cp of cpsUnicas) {
+            try {
+                const respDoc = await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'obtenerDatosRuteoCP', cp: cp })
+                });
+                const resDoc = await respDoc.json();
+                if (resDoc.status === "success" && resDoc.data && resDoc.data.listaClientes) {
+                    resDoc.data.listaClientes.forEach(cli => {
+                        cli.documentos.forEach(doc => {
+                            documentosGlobal.push({
+                                cp: cp,
+                                cliente: cli.nombre || 'N/A',
+                                direccion: cli.direccion || 'N/A',
+                                numero: doc.numero || 'N/A',
+                                tipo: doc.tipo || 'FACTURA',
+                                cajas: Number(doc.cajas) || 0,
+                                unidades: Number(doc.unidades) || 0,
+                                importe: Number(doc.importe) || 0,
+                                motivo: doc.motivo || '',
+                                observacion: doc.observacion || '',
+                                fotoLink: doc.fotoLink || '',
+                                audioLink: doc.audioLink || ''
+                            });
+                        });
+                    });
+                }
+            } catch (e) {
+                console.error("Error al obtener documentos para CP:", cp, e);
+            }
+        }
+
+        filtrarLogistica();
+        poblarFiltrosComercial();
+        renderizarComercial();
+        if (!document.getElementById('seccionEjecutiva').classList.contains('hidden')) {
+            calcularMetricasEjecutivas();
+        }
+
+    } catch (err) {
+        console.error("Error al cargar datos generales:", err);
+    }
+}
+
+// --- VISTA LOGÍSTICA ---
+function filtrarLogistica() {
+    renderizarLogistica();
+}
+
+function renderizarLogistica() {
+    const f1 = document.getElementById('logFecha1').value;
+    const f2 = document.getElementById('logFecha2').value;
+    const soloNov = document.getElementById('chkSoloNovedades').checked;
+    const tbody = document.getElementById('tbodyLogistica');
+
+    let filtrados = grillaGlobal.filter(g => {
+        let fechaG = String(g.fechaGrilla || '').trim();
+        if (f2) {
+            return fechaG >= f1 && fechaG <= f2;
+        } else {
+            return fechaG === f1;
+        }
+    });
+
+    // Ordenar de más nueva a más vieja si hay rango
+    filtrados.sort((a, b) => new Date(b.fechaGrilla) - new Date(a.fechaGrilla));
+
+    if (soloNov) {
+        filtrados = filtrados.filter(g => g.llegadaEstado && g.llegadaEstado.includes('con novedad'));
+    }
+
+    if (filtrados.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-slate-400 italic">No hay registros para la fecha o filtros seleccionados.</td></tr>`;
+        document.getElementById('logTotalProg').innerText = '0';
+        document.getElementById('logTotalEntregados').innerText = '0';
+        document.getElementById('logTotalRechazados').innerText = '0';
+        return;
+    }
+
+    let totProg = 0, totEnt = 0, totRech = 0;
+
+    tbody.innerHTML = filtrados.map(g => {
+        let bultosProg = Number(g.bultos) || 0;
+        let rechazosAsociados = 0;
+
+        // Buscar rechazos en documentos de esta CP
+        documentosGlobal.filter(d => d.cp === g.cpPrincipal).forEach(d => {
+            if (d.observacion === 'rechazo total' || d.observacion === 'no entregado') {
+                rechazosAsociados += d.cajas + d.unidades;
+            } else if (d.observacion === 'rechazo parcial') {
+                rechazosAsociados += Number(d.cajas) || 0;
+            }
+        });
+
+        let bultosEntregados = Math.max(0, bultosProg - rechazosAsociados);
+
+        totProg += bultosProg;
+        totEnt += bultosEntregados;
+        totRech += rechazosAsociados;
+
+        let docsDeCp = documentosGlobal.filter(d => d.cp === g.cpPrincipal);
+        let tieneFoto = docsDeCp.some(d => d.fotoLink);
+        let tieneAudio = docsDeCp.some(d => d.audioLink);
+
+        let badgeSalida = g.salidaEstado ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold ${g.salidaEstado === 'SALIO' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}">${g.salidaEstado}</span>` : 'S/D';
+        let badgeLlegada = g.llegadaEstado ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold ${g.llegadaEstado.includes('sin novedad') ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">${g.llegadaEstado}</span>` : 'Pendiente';
+
+        return `
+            <tr class="hover:bg-slate-50 border-b">
+                <td class="p-3 font-bold">${g.fechaGrilla}</td>
+                <td class="p-3">${g.vuelta || '1RA VUELTA'}</td>
+                <td class="p-3 font-semibold text-blue-900">${g.tipoVehiculo}</td>
+                <td class="p-3">${g.cliente}</td>
+                <td class="p-3 font-black">${g.cpPrincipal}</td>
+                <td class="p-3 text-center font-bold">${bultosProg}</td>
+                <td class="p-3 text-center font-bold text-red-600">${rechazosAsociados}</td>
+                <td class="p-3 text-center font-bold text-emerald-600">${bultosEntregados}</td>
+                <td class="p-3 space-x-1">${badgeSalida} | ${badgeLlegada}</td>
+                <td class="p-3 text-center space-x-1">
+                    ${tieneFoto ? `<button onclick="abrirMultimediaCP('${g.cpPrincipal}', 'FOTO')" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-800 px-2 py-1 rounded text-[10px] font-bold">📷 Foto</button>` : ''}
+                    ${tieneAudio ? `<button onclick="abrirMultimediaCP('${g.cpPrincipal}', 'AUDIO')" class="bg-purple-100 hover:bg-purple-200 text-purple-800 px-2 py-1 rounded text-[10px] font-bold">🎤 Audio</button>` : ''}
+                    {!tieneFoto && !tieneAudio ? '<span class="text-slate-400">-</span>' : ''}
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    document.getElementById('logTotalProg').innerText = totProg.toLocaleString('es-ES');
+    document.getElementById('logTotalEntregados').innerText = totEnt.toLocaleString('es-ES');
+    document.getElementById('logTotalRechazados').innerText = totRech.toLocaleString('es-ES');
+}
+
+// --- VISTA EJECUTIVA ---
+function calcularMetricasEjecutivas() {
+    const f1 = document.getElementById('logFecha1').value;
+    let filtrados = grillaGlobal.filter(g => String(g.fechaGrilla || '').trim() === f1);
+
+    let totalProg = 0;
+    let totalRech = 0;
+
+    filtrados.forEach(g => {
+        let b = Number(g.bultos) || 0;
+        totalProg += b;
+        documentosGlobal.filter(d => d.cp === g.cpPrincipal).forEach(d => {
+            if (d.observacion) totalRech += (Number(d.cajas) || 0);
+        });
+    });
+
+    let totalEnt = Math.max(0, totalProg - totalRech);
+    let sla = totalProg > 0 ? ((totalEnt / totalProg) * 100).toFixed(1) : 100;
+
+    document.getElementById('execProg').innerText = totalProg.toLocaleString('es-ES');
+    document.getElementById('execEnt').innerText = totalEnt.toLocaleString('es-ES');
+    document.getElementById('execRech').innerText = totalRech.toLocaleString('es-ES');
+    document.getElementById('execSLA').innerText = `${sla}%`;
+
+    // UMBRAL DE 9000 BULTOS Y EXTRACASTO
+    const umbral = 9000;
+    const alertaContainer = document.getElementById('alertaUmbralContainer');
+    const iconoAlerta = document.getElementById('iconoAlerta');
+    const tituloAlerta = document.getElementById('tituloAlerta');
+    const textoAlerta = document.getElementById('textoAlerta');
+    const badgeJornada = document.getElementById('metricBultosTotalesJornada');
+
+    badgeJornada.innerText = totalProg.toLocaleString('es-ES');
+
+    if (totalProg > umbral) {
+        let excedente = totalProg - umbral;
+        alertaContainer.className = "bg-red-50 border-2 border-red-400 rounded-3xl p-6 shadow-xl flex justify-between items-center flex-wrap gap-4 transition-all";
+        iconoAlerta.innerText = "🚨";
+        tituloAlerta.className = "text-lg font-black text-red-900";
+        tituloAlerta.innerText = `¡ATENCIÓN: Superó el límite de los 9,000 bultos diarios!`;
+        textoAlerta.className = "text-xs text-red-700 mt-0.5";
+        textoAlerta.innerText = `Se registró un excedente de ${excedente.toLocaleString('es-ES')} bultos por encima del umbral. Aplica extracosto de cajas.`;
+    } else {
+        alertaContainer.className = "bg-emerald-50 border-2 border-emerald-300 rounded-3xl p-6 shadow-xl flex justify-between items-center flex-wrap gap-4 transition-all";
+        iconoAlerta.innerText = "🟢";
+        tituloAlerta.className = "text-lg font-black text-emerald-900";
+        tituloAlerta.innerText = "Control de Límite Diario: Por debajo de 9,000 bultos";
+        textoAlerta.className = "text-xs text-emerald-700 mt-0.5";
+        textoAlerta.innerText = "La operación se mantiene dentro del rango contratado sin generar extracostos.";
+    }
+
+    // Motivos de rechazo
+    let motivosMap = {};
+    documentosGlobal.forEach(d => {
+        if (d.motivo) {
+            motivosMap[d.motivo] = (motivosMap[d.motivo] || 0) + 1;
+        }
+    });
+
+    const listaMotivos = document.getElementById('listaMotivosRechazo');
+    let motivosKeys = Object.keys(motivosMap);
+    if (motivosKeys.length === 0) {
+        listaMotivos.innerHTML = `<p class="text-slate-400 italic">No hay motivos de rechazo registrados.</p>`;
+    } else {
+        listaMotivos.innerHTML = motivosKeys.map(m => `
+            <div class="flex justify-between items-center bg-slate-50 p-2.5 rounded-xl border">
+                <span class="font-bold text-slate-700">${m}</span>
+                <span class="bg-red-100 text-red-800 px-2 py-0.5 rounded-full font-black">${motivosMap[m]} casos</span>
+            </div>
+        `).join('');
+    }
+
+    // Gráfico de Ejecutiva
+    const ctx = document.getElementById('chartEjecutiva').getContext('2d');
+    if (chartEjecutivaInstancia) chartEjecutivaInstancia.destroy();
+
+    chartEjecutivaInstancia = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Entregados', 'Rechazados / Incidencias'],
+            datasets: [{
+                data: [totalEnt, totalRech],
+                backgroundColor: ['#10b981', '#ef4444']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+}
+
+// --- VISTA COMERCIAL ---
+function poblarFiltrosComercial() {
+    const select = document.getElementById('comercialFiltroCliente');
+    let clientes = [...new Set(documentosGlobal.map(d => d.cliente).filter(Boolean))];
+    select.innerHTML = '<option value="TODOS">-- Todos los Clientes --</option>';
+    clientes.sort().forEach(c => {
+        select.innerHTML += `<option value="${c}">${c}</option>`;
+    });
+}
+
+function renderizarComercial() {
+    const clienteSel = document.getElementById('comercialFiltroCliente').value;
+    const tbody = document.getElementById('tbodyComercial');
+
+    let docsFiltrados = documentosGlobal;
+    if (clienteSel && clienteSel !== 'TODOS') {
+        docsFiltrados = docsFiltrados.filter(d => d.cliente === clienteSel);
+    }
+
+    if (docsFiltrados.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400 italic">No hay documentos comerciales disponibles.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = docsFiltrados.map(d => {
+        let motivoTxt = d.motivo || d.observacion ? `<span class="bg-red-50 text-red-800 px-2 py-0.5 rounded font-bold">${d.motivo || d.observacion}</span>` : '<span class="text-emerald-600 font-bold">Sin incidencias</span>';
+        
+        return `
+            <tr class="hover:bg-slate-50 border-b">
+                <td class="p-3 font-bold">${d.cliente}</td>
+                <td class="p-3 font-black text-blue-900">${d.numero}</td>
+                <td class="p-3"><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">${d.tipo}</span></td>
+                <td class="p-3 text-center">${d.cajas + d.unidades}</td>
+                <td class="p-3 text-right">$${d.importe.toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
+                <td class="p-3">${motivoTxt}</td>
+                <td class="p-3 text-center space-x-1">
+                    ${d.fotoLink ? `<button onclick="abrirVisorLink('${d.fotoLink}', 'FOTO')" class="bg-indigo-100 text-indigo-800 px-2 py-1 rounded text-[10px] font-bold">📷 Ver Foto</button>` : ''}
+                    ${d.audioLink ? `<button onclick="abrirVisorLink('${d.audioLink}', 'AUDIO')" class="bg-purple-100 text-purple-800 px-2 py-1 rounded text-[10px] font-bold">🎤 Escuchar Audio</button>` : ''}
+                    {!d.fotoLink && !d.audioLink ? '<span class="text-slate-400">-</span>' : ''}
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// --- VISOR MULTIMEDIA ---
+function abrirMultimediaCP(cp, tipo) {
+    let docs = documentosGlobal.filter(d => d.cp === cp);
+    let links = docs.map(d => tipo === 'FOTO' ? d.fotoLink : d.audioLink).filter(Boolean);
+    
+    const contenedor = document.getElementById('contenidoMultimedia');
+    if (links.length === 0) {
+        contenedor.innerHTML = `<p class="text-slate-400 italic">No hay archivos ${tipo.toLowerCase()}s cargados para esta CP.</p>`;
+    } else {
+        contenedor.innerHTML = links.map(l => tipo === 'FOTO' ? 
+            `<img src="${l}" class="max-h-80 mx-auto rounded-xl shadow-md border" alt="Evidencia">` :
+            `<audio controls class="mx-auto w-full"><source src="${l}" type="audio/mpeg">Tu navegador no soporta audio.</audio>`
+        ).join('');
+    }
+    document.getElementById('modalMultimedia').classList.remove('hidden');
+}
+
+function abrirVisorLink(link, tipo) {
+    const contenedor = document.getElementById('contenidoMultimedia');
+    contenedor.innerHTML = tipo === 'FOTO' ? 
+        `<img src="${link}" class="max-h-80 mx-auto rounded-xl shadow-md border" alt="Evidencia">` :
+        `<audio controls class="mx-auto w-full"><source src="${link}" type="audio/mpeg">Tu navegador no soporta audio.</audio>`;
+    document.getElementById('modalMultimedia').classList.remove('hidden');
+}
+
+function cerrarModalMultimedia() {
+    document.getElementById('modalMultimedia').classList.add('hidden');
+}
+</script>
+</body>
+</html>
