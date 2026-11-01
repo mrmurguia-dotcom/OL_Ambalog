@@ -350,7 +350,7 @@
                             <select id="motivo_${d.numero}" class="p-2 rounded-xl border border-slate-300 text-xs font-bold bg-white text-blue-900 outline-none w-full" ${!docSaved.seleccionado ? 'disabled' : ''}>
                                 <option value="" ${docSaved.motivo === '' ? 'selected' : ''}>-- Seleccionar Motivo --</option>
                                 <option value="problema interno (AMBALOG)" ${docSaved.motivo === 'problema interno (AMBALOG)' ? 'selected' : ''}>problema interno (AMBALOG)</option>
-                                <option value="problema externo (cliente)" ${docSaved.motivo === 'problema externo' ? 'selected' : ''}>problema externo</option>
+                                <option value="problema externo (cliente)" ${docSaved.motivo === 'problema externo (cliente)' ? 'selected' : ''}>problema externo (cliente)</option>
                             </select>
                         </td>
                         <!-- OBSERVACIONES -->
