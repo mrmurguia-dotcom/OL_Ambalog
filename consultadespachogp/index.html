@@ -52,7 +52,7 @@
             <div class="flex justify-between items-center border-b pb-3 flex-wrap gap-4">
                 <div>
                     <h2 class="text-xl font-black text-blue-900">Monitoreo Logístico y Novedades de Viajes</h2>
-                    <p class="text-xs text-slate-500">Consulta por fecha única o por rango de fechas</p>
+                    <p class="text-xs text-slate-500">Consulta por fecha única o comparativa de múltiples fechas (ordenadas de más nueva a más vieja).</p>
                 </div>
                 
                 <div class="flex items-center gap-3 flex-wrap">
@@ -244,13 +244,13 @@
 
 </div>
 
-<!-- MODAL AUDITORÍA DE DIFERENCIAS (DATO COMPLETO DE CLIENTE) -->
+<!-- MODAL AUDITORÍA DE DIFERENCIAS (CLIENTE COMPLETO DE FC) -->
 <div id="modalDiferenciasFacturacion" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-3xl shadow-2xl max-w-5xl w-full p-6 border border-slate-200 space-y-6 max-h-[90vh] overflow-y-auto">
         <div class="flex justify-between items-center border-b pb-3">
             <div>
                 <h3 class="text-lg font-black text-blue-950">Auditoría de Diferencias: Programado vs. Facturado</h3>
-                <p class="text-xs text-slate-500">Cartas de Porte donde la cantidad facturada difiere de los bultos programados segun el pedido.</p>
+                <p class="text-xs text-slate-500">Cartas de Porte donde la cantidad facturada difiere de los bultos programados en la grilla.</p>
             </div>
             <button onclick="cerrarModalDiferencias()" class="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
         </div>
@@ -260,7 +260,7 @@
                     <tr>
                         <th class="p-3">Fecha Grilla</th>
                         <th class="p-3">Carta de Porte Principal</th>
-                        <th class="p-3">Cliente</th>
+                        <th class="p-3">Cliente (con ID de FC)</th>
                         <th class="p-3 text-center">Bultos Programados</th>
                         <th class="p-3 text-center">Bultos Facturados</th>
                         <th class="p-3 text-center">Diferencia</th>
@@ -464,7 +464,7 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
         document.getElementById('logTotalFact').innerText = '0';
         document.getElementById('logTotalEntregados').innerText = '0';
         document.getElementById('logTotalRechazados').innerText = '0';
-        document.getElementById('logEfectividad').innerText = '100%';
+        document.getElementById('logEfectividad').innerText = '100% ';
         document.getElementById('alertaDiferenciaContainer').classList.add('hidden');
         return;
     }
@@ -494,7 +494,8 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
 
         // Registrar si hay diferencia entre programado y facturado
         if (bultosProg !== bultosFactCP) {
-            let nombreClienteFinal = g.cliente || (docsDeCp.length > 0 ? docsDeCp[0].cliente : 'N/A');
+            // Aquí extraemos directamente el nombre completo CON EL ID de la FC de los documentos descargados
+            let nombreClienteFinal = (docsDeCp.length > 0 && docsDeCp[0].cliente && docsDeCp[0].cliente !== 'N/A') ? docsDeCp[0].cliente : (g.cliente || 'N/A');
             listaDiferenciasGlobal.push({
                 fechaGrilla: g.fechaGrilla,
                 cpPrincipal: g.cpPrincipal,
@@ -576,7 +577,7 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
     }
 }
 
-// --- MODAL DE DIFERENCIAS EN FACTURACIÓN (DATO COMPLETO) ---
+// --- MODAL DE DIFERENCIAS EN FACTURACIÓN (MUESTRA EL CLIENTE CON SU ID) ---
 function abrirModalDiferencias() {
     const tbody = document.getElementById('tbodyDiferenciasModal');
     if (listaDiferenciasGlobal.length === 0) {
@@ -589,7 +590,7 @@ function abrirModalDiferencias() {
                 <tr class="hover:bg-slate-50 border-b">
                     <td class="p-3 font-bold">${d.fechaGrilla}</td>
                     <td class="p-3 font-black text-blue-900">${d.cpPrincipal}</td>
-                    <td class="p-3 font-semibold">${d.cliente}</td>
+                    <td class="p-3 font-semibold text-slate-800">${d.cliente}</td>
                     <td class="p-3 text-center font-bold">${d.bultosProg}</td>
                     <td class="p-3 text-center font-bold">${d.bultosFact}</td>
                     <td class="p-3 text-center font-black ${colorDif}">${signo}${d.diferencia}</td>
