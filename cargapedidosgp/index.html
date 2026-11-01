@@ -17,21 +17,21 @@
         <!-- ENCABEZADO CON BOTONES DE ACCIONES -->
         <div class="flex flex-wrap justify-between items-center mb-8 border-b pb-4 gap-4">
             <div>
-                <h1 class="text-3xl font-black text-blue-900 italic">CARGA PEDIDOS - GP OK</h1>
+                <h1 class="text-3xl font-black text-blue-900 italic">CARGA PEDIDOS - GP</h1>
                 <p class="text-slate-500 text-sm mt-1">Panel Central Ambalog - M2</p>
             </div>
             <div class="flex flex-wrap items-center gap-3">
                 <a href="https://mrmurguia-dotcom.github.io/OL_Ambalog/cargarepartogp/index.html" target="_blank" rel="noopener noreferrer" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-2">
                     🚚 ASIGNAR CP
                 </a>
-                <button onclick="sincronizarPedidos()" id="btnSync" class="bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-2">
-                    🔄 SINCRONIZAR DATOS
-                </button>
                 <button onclick="abrirModalCP()" class="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-2">
                     ✏️ MODIFICA CP
                 </button>
                 <button onclick="abrirModalReprogramar()" class="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-2">
                     🚨 REPROGRAMAR PEDIDOS
+                </button>
+                <button onclick="sincronizarPedidos()" id="btnSync" class="bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-2">
+                    🔄 SINCRONIZAR DATOS
                 </button>
                 <a href="https://docs.google.com/spreadsheets/d/1RBnsNmmuosV45yb5gh_ODPYbAdIW7cDGocNQkXXVvRc/edit?usp=sharing" target="_blank" rel="noopener noreferrer" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-2">
                     📊 VER PLANILLA SHEETS
@@ -116,20 +116,29 @@
 
     <!-- MODAL REPROGRAMAR PEDIDOS -->
     <div id="modalReprogramar" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 border border-slate-200">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-xl w-full p-6 border border-slate-200">
             <div class="flex justify-between items-center border-b pb-3 mb-4">
                 <h2 class="text-xl font-black text-red-600 flex items-center gap-2">🚨 Reprogramar Pedido</h2>
                 <button onclick="cerrarModalReprogramar()" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
             </div>
             <form id="formReprogramar" onsubmit="guardarReprogramacion(event)" class="space-y-4">
-                <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">ID DEL CLIENTE:</label>
-                    <input type="text" id="repoCliente" required placeholder="Ej: 41002005" class="w-full p-2.5 rounded-xl border border-slate-300 focus:border-red-500 outline-none text-sm">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">FECHA ORIGINAL (A buscar):</label>
+                        <input type="date" id="repoFechaOrig" required class="w-full p-2.5 rounded-xl border border-slate-300 focus:border-red-500 outline-none text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">TIPO DE REPROGRAMACIÓN:</label>
+                        <select id="repoTipoCambio" onchange="evaluarTipoCambioRepo()" class="w-full p-2.5 rounded-xl border border-slate-300 focus:border-red-500 outline-none text-sm font-bold">
+                            <option value="TOTAL">Reprogramación Total (Todo el cliente)</option>
+                            <option value="PARCIAL">Reprogramación Parcial (Seleccionar líneas)</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">FECHA ORIGINAL:</label>
-                        <input type="date" id="repoFechaOrig" required class="w-full p-2.5 rounded-xl border border-slate-300 focus:border-red-500 outline-none text-sm">
+                        <label class="block text-xs font-bold text-slate-700 mb-1">ID DEL CLIENTE:</label>
+                        <input type="text" id="repoCliente" required placeholder="Ej: 41002005" class="w-full p-2.5 rounded-xl border border-slate-300 focus:border-red-500 outline-none text-sm">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">FECHA REPROGRAMADA:</label>
@@ -137,13 +146,16 @@
                     </div>
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">CANTIDAD DE BULTOS TOTALES DEL PEDIDO:</label>
-                    <input type="number" id="repoBultos" required placeholder="Ej: 150" class="w-full p-2.5 rounded-xl border border-slate-300 focus:border-red-500 outline-none text-sm">
-                </div>
-                <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">MOTIVO DE REPROGRAMACIÓN:</label>
                     <textarea id="repoMotivo" required rows="2" placeholder="Describa el motivo..." class="w-full p-2.5 rounded-xl border border-slate-300 focus:border-red-500 outline-none text-sm"></textarea>
                 </div>
+
+                <!-- SECCIÓN PARCIAL DENTRO DEL MODAL REPROGRAMAR -->
+                <div id="seccionParcialRepo" class="hidden border p-3 rounded-xl bg-red-50">
+                    <p class="text-xs font-bold text-red-900 mb-2">Seleccioná las líneas específicas que querés reprogramar:</p>
+                    <div id="listaLineasRepo" class="max-h-36 overflow-y-auto space-y-1 text-xs"></div>
+                </div>
+
                 <div class="flex justify-end gap-3 pt-3 border-t">
                     <button type="button" onclick="cerrarModalReprogramar()" class="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold text-xs">Cancelar</button>
                     <button type="submit" id="btnGuardarRepo" class="px-6 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-md">REGISTRAR CAMBIO</button>
@@ -591,45 +603,85 @@
         // --- MANEJO DE MODALES ---
         function abrirModalReprogramar() { 
             document.getElementById('formReprogramar').reset();
+            document.getElementById('repoFechaOrig').valueAsDate = new Date();
+            document.getElementById('repoTipoCambio').value = 'TOTAL'; // Siempre inicia en Total por defecto
+            document.getElementById('seccionParcialRepo').classList.add('hidden');
             document.getElementById('modalReprogramar').classList.remove('hidden'); 
         }
         function cerrarModalReprogramar() { document.getElementById('modalReprogramar').classList.add('hidden'); }
 
+        async function evaluarTipoCambioRepo() {
+            const tipo = document.getElementById('repoTipoCambio').value;
+            const contenedor = document.getElementById('seccionParcialRepo');
+            
+            if (tipo === 'PARCIAL') {
+                const clienteId = document.getElementById('repoCliente').value.trim();
+                const fVal = document.getElementById('repoFechaOrig').value;
+                if (!clienteId || !fVal) {
+                    alert("Ingresá primero el ID del Cliente y la Fecha Original para buscar las líneas.");
+                    document.getElementById('repoTipoCambio').value = 'TOTAL';
+                    return;
+                }
+                const [y, m, d] = fVal.split('-');
+                contenedor.classList.remove('hidden');
+
+                const resp = await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'buscarLineasParaReprogramar',
+                        info: { idCliente: clienteId, fecha: `${d}-${m}-${y}` }
+                    })
+                });
+                const resJson = await resp.json();
+                
+                const lista = document.getElementById('listaLineasRepo');
+                if (resJson.status === "success" && resJson.lineas.length > 0) {
+                    lista.innerHTML = resJson.lineas.map(l => `
+                        <label class="flex items-center gap-2 p-1.5 bg-white rounded border cursor-pointer hover:bg-slate-50">
+                            <input type="checkbox" name="chkRepo" value="${l.filaReal}" class="rounded">
+                            <span>Prod: <b>${l.prodId}</b> | Bultos: <b>${l.bultos}</b> | CP: <b>${l.cpActual}</b> | Dir: ${l.direccion}</span>
+                        </label>
+                    `).join('');
+                } else {
+                    lista.innerHTML = '<p class="text-red-600 font-bold">No se encontraron líneas para ese cliente en esa fecha.</p>';
+                }
+            } else {
+                contenedor.classList.add('hidden');
+            }
+        }
+
         async function guardarReprogramacion(e) {
             e.preventDefault();
-            const clienteInput = document.getElementById('repoCliente').value.trim();
-            const bultosInput = Number(document.getElementById('repoBultos').value);
-
-            // Calcular bultos totales reales cargados para ese cliente en memoria
-            let bultosRealesTotales = 0;
-            filasProcesadas.forEach(r => {
-                let id = String(r[0] || '').trim();
-                if (id === clienteInput) {
-                    bultosRealesTotales += Number(r[4]) || 0;
-                }
-            });
-
-            // Validación estricta solicitada
-            if (filasProcesadas.length > 0 && bultosRealesTotales > 0 && bultosInput !== bultosRealesTotales) {
-                alert(`⚠️ La cantidad de bultos ingresada (${bultosInput}) no coincide con el total de bultos del cliente en esa fecha (${bultosRealesTotales}).\n\nSi la reprogramación es parcial, debe hacerlo manualmente en la base. Para realizarla por este medio, la cantidad debe ser exactamente la misma que el total.`);
-                return;
-            }
-
             const btn = document.getElementById('btnGuardarRepo');
-            btn.innerText = "VERIFICANDO Y PROCESANDO...";
+            btn.innerText = "REGISTRANDO...";
             btn.disabled = true;
 
+            const tipo = document.getElementById('repoTipoCambio').value;
             const [y1, m1, d1] = document.getElementById('repoFechaOrig').value.split('-');
             const [y2, m2, d2] = document.getElementById('repoFechaNueva').value.split('-');
+
+            let seleccionados = [];
+            if (tipo === 'PARCIAL') {
+                document.querySelectorAll('input[name="chkRepo"]:checked').forEach(c => {
+                    seleccionados.push(Number(c.value));
+                });
+                if (seleccionados.length === 0) {
+                    alert("Seleccioná al menos una línea para reprogramar.");
+                    btn.innerText = "REGISTRAR CAMBIO";
+                    btn.disabled = false;
+                    return;
+                }
+            }
 
             const payload = {
                 action: 'reprogramarPedido',
                 info: {
-                    idCliente: clienteInput,
+                    idCliente: document.getElementById('repoCliente').value.trim(),
                     fechaOrig: `${d1}-${m1}-${y1}`,
                     fechaNueva: `${d2}-${m2}-${y2}`,
-                    bultos: bultosInput,
-                    motivo: document.getElementById('repoMotivo').value
+                    motivo: document.getElementById('repoMotivo').value,
+                    esTotal: (tipo === 'TOTAL'),
+                    filasSeleccionadas: seleccionados
                 }
             };
 
@@ -654,6 +706,7 @@
         function abrirModalCP() { 
             document.getElementById('formCP').reset();
             document.getElementById('cpFecha').valueAsDate = new Date();
+            document.getElementById('cpTipoCambio').value = 'TOTAL';
             document.getElementById('seccionParcialCP').classList.add('hidden');
             document.getElementById('modalCP').classList.remove('hidden'); 
         }
