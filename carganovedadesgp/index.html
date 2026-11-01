@@ -35,7 +35,7 @@
                     <tr>
                         <th class="p-3">Fecha Grilla</th><th class="p-3">Vuelta</th><th class="p-3">Vehículo</th>
                         <th class="p-3">Canal</th><th class="p-3">Tipo Viaje</th><th class="p-3">Cliente Principal</th>
-                        <th class="p-3">Zona</th><th class="p-3">CP Principal</th><th class="p-3">CP Complementario</th>
+                        <th class="p-3">Zona</th><th class="p-3">CP Principal</th><th class="p-3">CP Complemento</th>
                         <th class="p-3 text-center">Peso</th><th class="p-3 text-center">Bultos</th><th class="p-3 text-center">Pallets</th>
                         <th class="p-3 text-center">Salida</th><th class="p-3 text-center">Llegada / Novedad</th><th class="p-3 text-center">Acciones</th>
                     </tr>
@@ -283,7 +283,9 @@ function renderizarTablaNovedades() {
             };
         }
         const est = estadoNovedadesMap[cpKey];
-        const cpCompSeguro = String(v.cpComplementos || 'Ninguna').replace(/['"]/g, "");
+        
+        let cpCompRaw = String(v.cpComplementos || '').trim();
+        let cpCompVal = (cpCompRaw === '' || cpCompRaw.toLowerCase() === 'ninguna') ? '' : cpCompRaw;
 
         return `
         <tr class="hover:bg-slate-50 border-b border-slate-100">
@@ -295,10 +297,10 @@ function renderizarTablaNovedades() {
             <td class="p-3 font-semibold">${v.cliente}</td>
             <td class="p-3">${v.zona}</td>
             <td class="p-3 font-black text-blue-900">${v.cpPrincipal}</td>
-            <td class="p-3">${v.cpComplementos || 'Ninguna'}</td>
-            <td class="p-3 text-center">${Number(v.peso || 0).toFixed(2)}</td>
-            <td class="p-3 text-center">${v.bultos}</td>
-            <td class="p-3 text-center">${Number(v.pallets || 0).toFixed(2)}</td>
+            <td class="p-3">${cpCompVal}</td>
+            <td class="p-3 text-center">${Math.round(Number(v.peso || 0))}</td>
+            <td class="p-3 text-center">${Math.round(Number(v.bultos || 0))}</td>
+            <td class="p-3 text-center">${Math.round(Number(v.pallets || 0))}</td>
             <td class="p-2 text-center">
                 <select onchange="cambiarSalida('${cpKey}', this.value)" class="p-1.5 rounded-xl border border-slate-300 text-xs font-bold bg-white outline-none">
                     <option value="" ${est.salidaEstado === '' ? 'selected' : ''}>-- Seleccionar --</option>
@@ -309,7 +311,7 @@ function renderizarTablaNovedades() {
                 ${est.salidaEstado === 'NO_SALIO' ? `<input type="text" placeholder="Motivo..." value="${est.salidaMotivo}" oninput="cambiarMotivoSalida('${cpKey}', this.value)" class="mt-1 w-full p-1 rounded border border-red-300 text-[11px] bg-red-50 outline-none">` : ''}
             </td>
             <td class="p-2 text-center">
-                <select onchange="cambiarLlegada('${cpKey}', '${v.cpPrincipal}', '${cpCompSeguro}', this.value)" class="p-1.5 rounded-xl border border-slate-300 text-xs font-bold bg-white outline-none">
+                <select onchange="cambiarLlegada('${cpKey}', '${v.cpPrincipal}', '${cpCompVal.replace(/['"]/g, "")}', this.value)" class="p-1.5 rounded-xl border border-slate-300 text-xs font-bold bg-white outline-none">
                     <option value="" ${est.llegadaEstado === '' ? 'selected' : ''}>-- Pendiente --</option>
                     <option value="terminado (sin novedad)" ${est.llegadaEstado === 'terminado (sin novedad)' ? 'selected' : ''}>🟢 Terminado (sin novedad)</option>
                     <option value="terminado (con novedad)" ${est.llegadaEstado === 'terminado (con novedad)' ? 'selected' : ''}>🟠 Terminado (con novedad)</option>
@@ -317,7 +319,7 @@ function renderizarTablaNovedades() {
                 </select>
             </td>
             <td class="p-2 text-center">
-                <button data-cpkey="${cpKey}" data-cpprincipal="${v.cpPrincipal}" data-cpcomp="${cpCompSeguro}" onclick="clicDetalleBtn(this)" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-900 font-bold px-3 py-1.5 rounded-xl text-xs transition-all">📝 Detalle Documentos</button>
+                <button data-cpkey="${cpKey}" data-cpprincipal="${v.cpPrincipal}" data-cpcomp="${cpCompVal.replace(/['"]/g, "")}" onclick="clicDetalleBtn(this)" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-900 font-bold px-3 py-1.5 rounded-xl text-xs transition-all">📝 Detalle Documentos</button>
             </td>
         </tr>`;
     }).join('');
@@ -359,7 +361,7 @@ async function abrirModalNovedad(cpPrincipal, cpComplementarios, cpKey) {
 
     try {
         let cpgLista = [cpPrincipal];
-        if (cpComplementarios && cpComplementarios.trim() !== '' && cpComplementarios !== 'Ninguna') {
+        if (cpComplementarios && cpComplementarios.trim() !== '' && cpComplementarios.toLowerCase() !== 'ninguna') {
             cpComplementarios.split(',').forEach(c => { if (c.trim()) cpgLista.push(c.trim()); });
         }
 
@@ -695,7 +697,7 @@ function copiarTablaParaMail() {
 
     html += `<table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; font-family: Arial, sans-serif; font-size: 12px; width: 100%;">`;
     html += `<tr style="background-color: #1e3a5f; color: white; text-align: left;">
-        <th>Fecha</th><th>Vuelta</th><th>Vehículo</th><th>Canal</th><th>Cliente Principal</th><th>CP Principal</th><th>CP Complementario</th><th style="text-align:center;">Peso</th><th style="text-align:center;">Bultos</th><th>Salida</th><th>Llegada</th>
+        <th>Fecha</th><th>Vuelta</th><th>Vehículo</th><th>Canal</th><th>Cliente Principal</th><th>CP Principal</th><th>CP Complemento</th><th style="text-align:center;">Peso</th><th style="text-align:center;">Bultos</th><th>Salida</th><th>Llegada</th>
     </tr>`;
 
     let detallesNovedadesHtml = '';
@@ -722,11 +724,10 @@ function copiarTablaParaMail() {
         else if (llegadaTxt === 'terminado (con novedad)') llegadaStyle = 'background-color:#ffedd5;color:#9a3412;font-weight:bold;';
         else if (llegadaTxt === 'sin finalizar (con novedad)') llegadaStyle = 'background-color:#fee2e2;color:#991b1b;font-weight:bold;';
 
-        let pesoFmt = Number(v.peso || 0).toFixed(2);
-        let bultosVal = v.bultos || '';
+        let pesoVal = Math.round(Number(v.peso || 0));
+        let bultosVal = Math.round(Number(v.bultos || 0));
         
-        // Si no tiene CP complementario o dice "Ninguna", queda en blanco
-        let cpCompRaw = (v.cpComplementos || '').trim();
+        let cpCompRaw = String(v.cpComplementos || '').trim();
         let cpCompVal = (cpCompRaw === '' || cpCompRaw.toLowerCase() === 'ninguna') ? '' : cpCompRaw;
 
         html += `<tr>
@@ -737,7 +738,7 @@ function copiarTablaParaMail() {
             <td>${v.cliente || ''}</td>
             <td><b>${v.cpPrincipal || ''}</b></td>
             <td>${cpCompVal}</td>
-            <td style="text-align:center;">${pesoFmt}</td>
+            <td style="text-align:center;">${pesoVal}</td>
             <td style="text-align:center;">${bultosVal}</td>
             <td style="${salidaStyle}">${salidaTxt}</td>
             <td style="${llegadaStyle}">${llegadaTxt}</td>
