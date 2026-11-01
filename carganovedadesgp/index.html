@@ -11,7 +11,7 @@
 
     <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 flex flex-wrap justify-between items-center gap-4">
         <div>
-            <h1 class="text-3xl font-black text-blue-900 italic uppercase">CONTROL DE NOVEDADES GP</h1>
+            <h1 class="text-3xl font-black text-blue-900 italic uppercase">CONTROL DE NOVEDADES GP OK</h1>
             <p class="text-slate-500 text-sm mt-1">Monitoreo de salidas, llegadas, rechazos y reporte para correo</p>
         </div>
         <div class="flex items-center gap-3 flex-wrap">
@@ -71,8 +71,8 @@
             </table>
         </div>
         <div class="pt-4 border-t flex justify-between items-center">
-            <span class="text-xs text-slate-500 italic">💡 Los cambios quedan guardados en memoria de forma provisoria hasta hacer click en "Sincronizar Novedades".</span>
-            <button onclick="guardarProvisorioModal()" class="bg-blue-900 hover:bg-black text-white font-bold text-xs px-6 py-2.5 rounded-xl shadow transition-all">💾 Guardar y Cerrar (Provisorio)</button>
+            <span class="text-xs text-slate-500 italic">💡 Los cambios se guardan automáticamente en tiempo real. Podés cerrar la ventana cuando termines.</span>
+            <button onclick="cerrarModalNovedad()" class="bg-blue-900 hover:bg-black text-white font-bold text-xs px-6 py-2.5 rounded-xl shadow transition-all">✔ Cerrar Ventana</button>
         </div>
     </div>
 </div>
@@ -86,6 +86,7 @@ let estadoNovedadesMap = {};
 let cpActualAbierta = null;
 let cpPrincipalActualGlobal = '';
 let documentosActualesCP = [];
+window.todosLosDocumentosMap = {};
 
 // Cola local de archivos de PC (IndexedDB)
 const DB_ARCHIVOS_NOMBRE = 'NovedadesRepartoArchivos';
@@ -183,7 +184,7 @@ window.onload = () => { cargarGrillaNovedades(); };
 async function cargarGrillaNovedades() {
     const fechaInput = document.getElementById('filtroFechaNovedades').value;
     const tbody = document.getElementById('tbodyNovedades');
-    tbody.innerHTML = `<tr><td colspan="15" class="p-6 text-center text-slate-500 italic">Consultando viajes registrados...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="15" class="p-6 text-center text-slate-500 italic">Consultando viajes y novedades registradas...</td></tr>`;
     try {
         const resp = await fetch(WEB_APP_URL, {
             method: 'POST',
@@ -193,6 +194,10 @@ async function cargarGrillaNovedades() {
         if (res.status === "success") {
             const grilla = res.grilla || [];
             viajesNovedades = grilla.filter(g => String(g.fechaGrilla).trim() === String(fechaInput).trim());
+            
+            // Precargar documentos de todos los viajes para el reporte de correo
+            await preCargarDocumentosViajes();
+
             renderizarTablaNovedades();
         } else {
             tbody.innerHTML = `<tr><td colspan="15" class="p-6 text-center text-red-500 font-bold">Error al obtener datos del servidor.</td></tr>`;
@@ -200,6 +205,64 @@ async function cargarGrillaNovedades() {
     } catch (err) {
         console.error("Error:", err);
         tbody.innerHTML = `<tr><td colspan="15" class="p-6 text-center text-red-500 font-bold">Error de conexión con el servidor.</td></tr>`;
+    }
+}
+
+async function preCargarDocumentosViajes() {
+    for (let i = 0; i < viajesNovedades.length; i++) {
+        const v = viajesNovedades[i];
+        const cpKey = v.cpPrincipal || i;
+        let cpgLista = [v.cpPrincipal];
+        if (v.cpComplementos && v.cpComplementos.trim() !== '' && v.cpComplementos !== 'Ninguna') {
+            v.cpComplementos.split(',').forEach(c => { if (c.trim()) cpgLista.push(c.trim()); });
+        }
+
+        if (!estadoNovedadesMap[cpKey]) {
+            estadoNovedadesMap[cpKey] = {
+                salidaEstado: v.salidaEstado || '',
+                salidaMotivo: v.salidaMotivo || '',
+                llegadaEstado: v.llegadaEstado || '',
+                documentosSeleccionados: {}
+            };
+        }
+
+        for (let cp of cpgLista) {
+            try {
+                const resp = await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'obtenerDatosRuteoCP', cp: cp })
+                });
+                const res = await resp.json();
+                if (res.status === "success" && res.data && res.data.listaClientes) {
+                    res.data.listaClientes.forEach(cli => {
+                        cli.documentos.forEach(doc => {
+                            window.todosLosDocumentosMap[doc.numero] = {
+                                numero: doc.numero || 'N/A',
+                                tipo: doc.tipo || 'FACTURA',
+                                cliente: cli.nombre || 'N/A',
+                                direccion: cli.direccion || 'N/A',
+                                totalBultosLine: (Number(doc.cajas) || 0) + (Number(doc.unidades) || 0)
+                            };
+
+                            // Si ya tiene motivo, observación, foto o audio guardado, activarlo automáticamente
+                            if (doc.motivo || doc.observacion || (doc.bultosRechazados !== undefined && doc.bultosRechazados !== '') || doc.fotoLink || doc.audioLink) {
+                                estadoNovedadesMap[cpKey].documentosSeleccionados[doc.numero] = {
+                                    seleccionado: true,
+                                    motivo: doc.motivo || '',
+                                    observacion: doc.observacion || '',
+                                    bultosRechazados: doc.bultosRechazados !== undefined ? doc.bultosRechazados : '',
+                                    fotoLink: doc.fotoLink || '',
+                                    audioLink: doc.audioLink || '',
+                                    clienteNombre: cli.nombre || 'N/A'
+                                };
+                            }
+                        });
+                    });
+                }
+            } catch (e) {
+                console.error("Error precargando CP:", cp, e);
+            }
+        }
     }
 }
 
@@ -365,7 +428,7 @@ function renderizarTablaDocumentosModal() {
         return `
         <tr class="hover:bg-slate-50 border-b">
             <td class="p-3 text-center">
-                <input type="checkbox" class="chkDocItem" value="${d.numero}" ${docSaved.seleccionado ? 'checked' : ''} onchange="toggleSeleccionDoc('${d.numero}', this.checked)">
+                <input type="checkbox" class="chkDocItem" value="${d.numero}" ${docSaved.seleccionado ? 'checked' : ''} onchange="actualizarDocEnMemoria('${d.numero}')">
             </td>
             <td class="p-3">
                 <span class="text-sm font-black text-blue-900">${d.numero}</span>
@@ -375,14 +438,14 @@ function renderizarTablaDocumentosModal() {
                 ${d.cliente}<span class="block text-[11px] font-normal text-slate-500">${d.direccion}</span>
             </td>
             <td class="p-3">
-                <select id="motivo_${d.numero}" class="p-2 rounded-xl border border-slate-300 text-xs font-bold bg-white text-blue-900 outline-none w-full" ${!docSaved.seleccionado ? 'disabled' : ''}>
+                <select id="motivo_${d.numero}" onchange="actualizarDocEnMemoria('${d.numero}')" class="p-2 rounded-xl border border-slate-300 text-xs font-bold bg-white text-blue-900 outline-none w-full">
                     <option value="" ${docSaved.motivo === '' ? 'selected' : ''}>-- Seleccionar Motivo --</option>
                     <option value="problema interno (AMBALOG)" ${docSaved.motivo === 'problema interno (AMBALOG)' ? 'selected' : ''}>problema interno (AMBALOG)</option>
                     <option value="problema externo (cliente)" ${docSaved.motivo === 'problema externo (cliente)' ? 'selected' : ''}>problema externo (cliente)</option>
                 </select>
             </td>
             <td class="p-3">
-                <select id="obs_${d.numero}" onchange="cambioObservacionDoc('${d.numero}', ${d.totalBultosLine})" class="p-2 rounded-xl border border-slate-300 text-xs font-bold bg-white text-blue-900 outline-none w-full" ${!docSaved.seleccionado ? 'disabled' : ''}>
+                <select id="obs_${d.numero}" onchange="cambioObservacionDoc('${d.numero}', ${d.totalBultosLine})" class="p-2 rounded-xl border border-slate-300 text-xs font-bold bg-white text-blue-900 outline-none w-full">
                     <option value="" ${docSaved.observacion === '' ? 'selected' : ''}>-- Seleccionar Observación --</option>
                     <option value="rechazo parcial" ${docSaved.observacion === 'rechazo parcial' ? 'selected' : ''}>rechazo parcial</option>
                     <option value="rechazo total" ${docSaved.observacion === 'rechazo total' ? 'selected' : ''}>rechazo total</option>
@@ -390,23 +453,58 @@ function renderizarTablaDocumentosModal() {
                 </select>
             </td>
             <td class="p-3 text-center">
-                <input type="number" id="bultos_${d.numero}" value="${bultosVal}" ${!docSaved.seleccionado || bloquearBultos ? 'disabled' : ''} class="w-20 p-1.5 rounded-xl border border-slate-300 text-xs font-bold text-center bg-white outline-none ${bloquearBultos ? 'bg-slate-100 text-slate-500' : 'text-blue-900'}">
+                <input type="number" id="bultos_${d.numero}" value="${bultosVal}" ${bloquearBultos ? 'disabled' : ''} oninput="actualizarDocEnMemoria('${d.numero}')" class="w-20 p-1.5 rounded-xl border border-slate-300 text-xs font-bold text-center bg-white outline-none ${bloquearBultos ? 'bg-slate-100 text-slate-500' : 'text-blue-900'}">
                 <span class="block text-[9px] text-slate-400 mt-0.5">Total línea: ${d.totalBultosLine}</span>
             </td>
             <td class="p-3 space-y-1">
-                <input type="text" id="foto_${d.numero}" placeholder="Link foto Drive..." value="${docSaved.fotoLink || ''}" class="w-full p-1.5 rounded border border-slate-300 text-[11px] bg-white outline-none" ${!docSaved.seleccionado ? 'disabled' : ''}>
-                <button onclick="subirDesdePC('FOTO', '${d.numero}')" class="w-full bg-slate-700 hover:bg-slate-800 text-white font-bold text-[10px] py-2 px-3 rounded-xl shadow transition-all flex items-center justify-center gap-1" ${!docSaved.seleccionado ? 'disabled' : ''}>
+                <input type="text" id="foto_${d.numero}" placeholder="Link foto Drive..." value="${docSaved.fotoLink || ''}" oninput="actualizarDocEnMemoria('${d.numero}')" class="w-full p-1.5 rounded border border-slate-300 text-[11px] bg-white outline-none">
+                <button onclick="subirDesdePC('FOTO', '${d.numero}')" class="w-full bg-slate-700 hover:bg-slate-800 text-white font-bold text-[10px] py-2 px-3 rounded-xl shadow transition-all flex items-center justify-center gap-1">
                     📂 Cargar archivo
                 </button>
             </td>
             <td class="p-3 space-y-1">
-                <input type="text" id="audio_${d.numero}" placeholder="Link audio Drive..." value="${docSaved.audioLink || ''}" class="w-full p-1.5 rounded border border-slate-300 text-[11px] bg-white outline-none" ${!docSaved.seleccionado ? 'disabled' : ''}>
-                <button onclick="subirDesdePC('AUDIO', '${d.numero}')" class="w-full bg-slate-700 hover:bg-slate-800 text-white font-bold text-[10px] py-2 px-3 rounded-xl shadow transition-all flex items-center justify-center gap-1" ${!docSaved.seleccionado ? 'disabled' : ''}>
+                <input type="text" id="audio_${d.numero}" placeholder="Link audio Drive..." value="${docSaved.audioLink || ''}" oninput="actualizarDocEnMemoria('${d.numero}')" class="w-full p-1.5 rounded border border-slate-300 text-[11px] bg-white outline-none">
+                <button onclick="subirDesdePC('AUDIO', '${d.numero}')" class="w-full bg-slate-700 hover:bg-slate-800 text-white font-bold text-[10px] py-2 px-3 rounded-xl shadow transition-all flex items-center justify-center gap-1">
                     📂 Cargar archivo
                 </button>
             </td>
         </tr>`;
     }).join('');
+}
+
+function actualizarDocEnMemoria(nroDoc) {
+    const est = estadoNovedadesMap[cpActualAbierta];
+    if (!est) return;
+    if (!est.documentosSeleccionados) est.documentosSeleccionados = {};
+
+    const chk = document.querySelector(`.chkDocItem[value="${nroDoc}"]`);
+    const motivoEl = document.getElementById(`motivo_${nroDoc}`);
+    const obsEl = document.getElementById(`obs_${nroDoc}`);
+    const bultosEl = document.getElementById(`bultos_${nroDoc}`);
+    const fotoEl = document.getElementById(`foto_${nroDoc}`);
+    const audioEl = document.getElementById(`audio_${nroDoc}`);
+
+    const seleccionado = chk ? chk.checked : false;
+    const motivo = motivoEl ? motivoEl.value : '';
+    const observacion = obsEl ? obsEl.value : '';
+    const bultosRechazados = bultosEl ? bultosEl.value : '';
+    const fotoLink = fotoEl ? fotoEl.value : '';
+    const audioLink = audioEl ? audioEl.value : '';
+
+    const docObj = documentosActualesCP.find(d => d.numero === nroDoc) || window.todosLosDocumentosMap[nroDoc];
+    const clienteNombre = docObj ? docObj.cliente : 'N/A';
+
+    const hasData = (seleccionado || motivo !== '' || observacion !== '' || bultosRechazados !== '' || fotoLink !== '' || audioLink !== '');
+
+    est.documentosSeleccionados[nroDoc] = {
+        seleccionado: hasData,
+        motivo,
+        observacion,
+        bultosRechazados,
+        fotoLink,
+        audioLink,
+        clienteNombre
+    };
 }
 
 function cambioObservacionDoc(nroDoc, totalBultosLine) {
@@ -420,29 +518,20 @@ function cambioObservacionDoc(nroDoc, totalBultosLine) {
         bultosInput.disabled = false;
         bultosInput.className = "w-20 p-1.5 rounded-xl border border-slate-300 text-xs font-bold text-center bg-white text-blue-900 outline-none";
     }
-    toggleSeleccionDoc(nroDoc, true);
-}
+    
+    const chk = document.querySelector(`.chkDocItem[value="${nroDoc}"]`);
+    if (chk) chk.checked = true;
 
-function toggleSeleccionDoc(nroDoc, isChecked) {
-    const est = estadoNovedadesMap[cpActualAbierta];
-    if (!est.documentosSeleccionados[nroDoc]) est.documentosSeleccionados[nroDoc] = {};
-
-    est.documentosSeleccionados[nroDoc].seleccionado = isChecked;
-    est.documentosSeleccionados[nroDoc].motivo = document.getElementById(`motivo_${nroDoc}`).value;
-    est.documentosSeleccionados[nroDoc].observacion = document.getElementById(`obs_${nroDoc}`).value;
-    est.documentosSeleccionados[nroDoc].bultosRechazados = document.getElementById(`bultos_${nroDoc}`).value;
-    est.documentosSeleccionados[nroDoc].fotoLink = document.getElementById(`foto_${nroDoc}`).value;
-    est.documentosSeleccionados[nroDoc].audioLink = document.getElementById(`audio_${nroDoc}`).value;
-
-    renderizarTablaDocumentosModal();
+    actualizarDocEnMemoria(nroDoc);
 }
 
 function toggleSeleccionarTodosDocs(chkMaster) {
     const isChecked = chkMaster.checked;
     document.querySelectorAll('.chkDocItem').forEach(chk => {
         chk.checked = isChecked;
-        toggleSeleccionDoc(chk.value, isChecked);
+        actualizarDocEnMemoria(chk.value);
     });
+    renderizarTablaDocumentosModal();
 }
 
 function subirDesdePC(tipo, nroDoc) {
@@ -460,16 +549,10 @@ function subirDesdePC(tipo, nroDoc) {
         }
 
         try {
-            const est = estadoNovedadesMap[cpActualAbierta];
-            if (!est.documentosSeleccionados[nroDoc]) est.documentosSeleccionados[nroDoc] = {};
+            const chk = document.querySelector(`.chkDocItem[value="${nroDoc}"]`);
+            if (chk) chk.checked = true;
 
-            const doc = est.documentosSeleccionados[nroDoc];
-            doc.seleccionado = true;
-            doc.motivo = document.getElementById(`motivo_${nroDoc}`).value;
-            doc.observacion = document.getElementById(`obs_${nroDoc}`).value;
-            doc.bultosRechazados = document.getElementById(`bultos_${nroDoc}`).value;
-            doc.fotoLink = document.getElementById(`foto_${nroDoc}`).value;
-            doc.audioLink = document.getElementById(`audio_${nroDoc}`).value;
+            actualizarDocEnMemoria(nroDoc);
 
             const anteriores = await obtenerArchivosPendientes();
             for (const anterior of anteriores) {
@@ -551,30 +634,6 @@ async function subirArchivosPendientesPC() {
         if (archivo.tipo === 'FOTO') doc.fotoLink = link;
         else doc.audioLink = link;
     }
-}
-
-function guardarProvisorioModal() {
-    documentosActualesCP.forEach(d => {
-        const chk = document.querySelector(`.chkDocItem[value="${d.numero}"]`);
-        if (chk && chk.checked) {
-            const motivo = document.getElementById(`motivo_${d.numero}`).value;
-            const observacion = document.getElementById(`obs_${d.numero}`).value;
-            const bultosRechazados = document.getElementById(`bultos_${d.numero}`).value;
-            const fotoLink = document.getElementById(`foto_${d.numero}`).value;
-            const audioLink = document.getElementById(`audio_${d.numero}`).value;
-
-            estadoNovedadesMap[cpActualAbierta].documentosSeleccionados[d.numero] = {
-                seleccionado: true, motivo, observacion, bultosRechazados, fotoLink, audioLink
-            };
-        } else if (chk) {
-            if (estadoNovedadesMap[cpActualAbierta].documentosSeleccionados[d.numero]) {
-                estadoNovedadesMap[cpActualAbierta].documentosSeleccionados[d.numero].seleccionado = false;
-            }
-        }
-    });
-
-    cerrarModalNovedad();
-    alert("✓ Novedades guardadas provisoriamente en memoria. Recordá presionar 'Sincronizar Novedades'.");
 }
 
 function cerrarModalNovedad() {
@@ -686,10 +745,10 @@ function copiarTablaParaMail() {
         if (est.documentosSeleccionados) {
             Object.keys(est.documentosSeleccionados).forEach(nroDoc => {
                 let docInfo = est.documentosSeleccionados[nroDoc];
-                if (docInfo.seleccionado) {
+                if (docInfo && docInfo.seleccionado) {
                     hayDetalles = true;
-                    let docObj = documentosActualesCP.find(d => d.numero === nroDoc);
-                    let nombreClienteDoc = docObj ? docObj.cliente : '-';
+                    let docObj = window.todosLosDocumentosMap[nroDoc];
+                    let nombreClienteDoc = docObj ? docObj.cliente : (docInfo.clienteNombre || '-');
 
                     let fotoIcon = docInfo.fotoLink
                         ? `<a href="${docInfo.fotoLink}" target="_blank" style="text-decoration:none;font-size:16px;">📷 Ver</a>` : '-';
@@ -731,7 +790,7 @@ function copiarTablaParaMail() {
     navigator.clipboard.write([
         new ClipboardItem({ 'text/html': blob, 'text/plain': plainBlob })
     ]).then(() => {
-        alert('✓ ¡Tabla copiada al portapapeles con las columnas nuevas, el detalle de novedades completo y la firma de saludos!');
+        alert('✓ ¡Tabla copiada al portapapeles con las columnas nuevas, el detalle completo de novedades y la firma de saludos!');
     }).catch(err => {
         console.error(err);
         alert('Error al intentar copiar al portapapeles.');
