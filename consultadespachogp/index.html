@@ -135,17 +135,17 @@
     </div>
 
     <!-- =================================================================== -->
-    <!-- 2. VISTA EJECUTIVA (CORREGIDA Y REORGANIZADA SEGÚN PUNTOS 1 AL 6) -->
+    <!-- 2. VISTA EJECUTIVA (CON COLUMNA 2DA VUELTA Y EXTRACostos COMBINADO) -->
     <!-- =================================================================== -->
     <div id="seccionEjecutiva" class="space-y-6 hidden">
         <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 space-y-6">
             <div class="flex justify-between items-center border-b pb-4 flex-wrap gap-4">
                 <div>
                     <h2 class="text-xl font-black text-blue-900">Tablero Ejecutivo - Demanda y Control de Extracostos</h2>
-                    <p class="text-xs text-slate-500">Control de fin de mes: Pedidos pendientes, Grilla operativa, Facturación real y Umbral de 9,000 bultos.</p>
+                    <p class="text-xs text-slate-500">Control de fin de mes: Pedidos pendientes, Grilla operativa, Facturación real, 2ª Vuelta y Umbral de 9,000 bultos.</p>
                 </div>
                 
-                <!-- PUNTO 1: FILTROS DE FECHA EXCLUSIVOS DE VISTA EJECUTIVA -->
+                <!-- FILTROS DE FECHA EXCLUSIVOS DE VISTA EJECUTIVA -->
                 <div class="flex items-center gap-3 flex-wrap">
                     <div>
                         <label class="block text-[10px] font-bold text-slate-500 uppercase">Fechas de Consulta:</label>
@@ -155,14 +155,14 @@
                             <input type="date" id="execFecha2" class="p-2 rounded-xl border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none" placeholder="Opcional">
                         </div>
                     </div>
-                    <button onclick="ejecutarConsultaEjecutiva()" class="bg-blue-800 hover:bg-blue-900 text-white font-black text-xs px-4 py-2.5 rounded-xl shadow mt-5 transition-all">🔍 Consultar</button>
+                    <button id="btnConsultarEjecutiva" onclick="ejecutarConsultaEjecutiva()" class="bg-blue-800 hover:bg-blue-900 text-white font-black text-xs px-4 py-2.5 rounded-xl shadow mt-5 transition-all">🔍 Consultar</button>
                     <button onclick="copiarTablaEjecutiva()" class="bg-slate-800 hover:bg-black text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow mt-5 transition-all flex items-center gap-1">
                         📋 Copiar Tabla
                     </button>
                 </div>
             </div>
 
-            <!-- TABLA EJECUTIVA DESGLOSADA (ORDEN CORREGIDO Y DATOS DE FACTURADO ARREGLADOS) -->
+            <!-- TABLA EJECUTIVA DESGLOSADA -->
             <div class="overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-sm">
                 <table id="tablaEjecutivaExportable" class="w-full text-left border-collapse text-xs font-sans">
                     <thead class="bg-slate-900 text-white font-bold">
@@ -172,20 +172,19 @@
                             <th class="p-3 text-center">Pedidos en GRILLA (Con CP)</th>
                             <th class="p-3 text-center">Demanda Total</th>
                             <th class="p-3 text-center">Bultos Facturados (Real)</th>
-                            <!-- PUNTO 2: BULTOS RECHAZADOS Y EFECTIVIDAD -->
                             <th class="p-3 text-center">Bultos Rechazados</th>
                             <th class="p-3 text-center">Efectividad (%)</th>
-                            <!-- PUNTO 3: EXTRACOSTO AL FINAL DE LA TABLA -->
+                            <th class="p-3 text-center">2ª Vuelta</th>
                             <th class="p-3 text-center">Control Umbral (9k) & Extracosto</th>
                         </tr>
                     </thead>
                     <tbody id="tbodyEjecutivaTabla" class="divide-y divide-slate-100 text-slate-800">
-                        <tr><td colspan="8" class="p-6 text-center text-slate-400 italic">Cargando métricas ejecutivas...</td></tr>
+                        <tr><td colspan="9" class="p-6 text-center text-slate-400 italic">Seleccioná fecha(s) y hacé click en Consultar.</td></tr>
                     </tbody>
                 </table>
             </div>
 
-            <!-- PUNTOS 5 Y 6: GRÁFICOS SINCRONIZADOS CON FILTROS Y GRÁFICO DE TORTA DE RECHAZOS -->
+            <!-- GRÁFICOS DINÁMICOS -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
                 <div class="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-3">
                     <h3 class="text-sm font-black text-blue-900">Demanda Total vs. Bultos Facturados por Fecha</h3>
@@ -358,7 +357,9 @@ function cambiarVistaConsulta(vista) {
     document.getElementById(`seccion${vista.charAt(0).toUpperCase() + vista.slice(1)}`).classList.remove('hidden');
     document.getElementById(`btnVista${vista.charAt(0).toUpperCase() + vista.slice(1)}`).className = "px-5 py-2.5 rounded-xl text-xs font-black bg-blue-900 text-white shadow transition-all";
 
-    if (vista === 'ejecutiva') calcularMetricasEjecutivas();
+    if (vista === 'ejecutiva' && grillaGlobal.length === 0) {
+        ejecutarConsultaEjecutiva();
+    }
 }
 
 async function cargarDatosGenerales() {
@@ -454,7 +455,7 @@ async function ejecutarConsultaLogistica() {
 
     } catch (err) {
         console.error("Error al consultar datos:", err);
-        tbody.innerHTML = `<tr><td colspan="13" class="p-6 text-center text-red-600 font-bold">❌ Error al conectar con el servidor. Intente nuevamente.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="13" class="p-6 text-center text-red-600 font-bold">❌ Error al conectarกับ el servidor. Intente nuevamente.</td></tr>`;
     } finally {
         btnConsultar.disabled = false;
         btnConsultar.innerText = "🔍 Consultar";
@@ -588,41 +589,108 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
     }
 }
 
-// --- CONSULTA EJECUTIVA INDEPENDIENTE ---
+// --- CONSULTA EJECUTIVA CON 2DA VUELTA Y EXTRACostos COMBINADO ---
 async function ejecutarConsultaEjecutiva() {
+    const btnConsultar = document.getElementById('btnConsultarEjecutiva');
+    const tbody = document.getElementById('tbodyEjecutivaTabla');
+    
     const f1 = document.getElementById('execFecha1').value;
     const f2 = document.getElementById('execFecha2').value;
 
     document.getElementById('logFecha1').value = f1;
     document.getElementById('logFecha2').value = f2;
 
-    await ejecutarConsultaLogistica();
-    calcularMetricasEjecutivas();
+    btnConsultar.disabled = true;
+    btnConsultar.innerText = "⏳ Consultando...";
+    tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-blue-900 font-bold italic animate-pulse">🔄 Consultando y procesando datos ejecutivos del servidor, por favor espere...</td></tr>`;
+
+    try {
+        const respGrilla = await fetch(WEB_APP_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'obtenerGrillaRegistrada' })
+        });
+        const resGrilla = await respGrilla.json();
+        if (resGrilla.status === "success") {
+            grillaGlobal = resGrilla.grilla || [];
+        }
+
+        let filtradosGrilla = grillaGlobal.filter(g => {
+            let fechaG = String(g.fechaGrilla || '').trim();
+            if (f2) return fechaG >= f1 && fechaG <= f2;
+            return fechaG === f1;
+        });
+
+        let cpsSet = new Set();
+        filtradosGrilla.forEach(g => {
+            obtenerTodasLasCPsDeFila(g).forEach(cp => cpsSet.add(cp));
+        });
+        let cpsUnicas = [...cpsSet];
+        documentosGlobal = [];
+
+        for (let cp of cpsUnicas) {
+            try {
+                const respDoc = await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'obtenerDatosRuteoCP', cp: cp })
+                });
+                const resDoc = await respDoc.json();
+                if (resDoc.status === "success" && resDoc.data && resDoc.data.listaClientes) {
+                    let filaAsociada = filtradosGrilla.find(gr => obtenerTodasLasCPsDeFila(gr).includes(cp));
+                    let fechaFila = filaAsociada ? filaAsociada.fechaGrilla : f1;
+
+                    resDoc.data.listaClientes.forEach(cli => {
+                        cli.documentos.forEach(doc => {
+                            documentosGlobal.push({
+                                cp: cp,
+                                fechaGrilla: fechaFila,
+                                cliente: cli.nombre || 'N/A',
+                                direccion: cli.direccion || 'N/A',
+                                numero: doc.numero || 'N/A',
+                                tipo: doc.tipo || 'FACTURA',
+                                cajas: Number(doc.cajas) || 0,
+                                unidades: Number(doc.unidades) || 0,
+                                importe: Number(doc.importe) || 0,
+                                motivo: doc.motivo || '',
+                                observacion: doc.observacion || '',
+                                bultosRechazados: doc.bultosRechazados !== undefined ? doc.bultosRechazados : '',
+                                fotoLink: doc.fotoLink || '',
+                                audioLink: doc.audioLink || ''
+                            });
+                        });
+                    });
+                }
+            } catch (e) {
+                console.error("Error al obtener documentos para CP:", cp, e);
+            }
+        }
+
+        renderizarMetricasEjecutivasCompletas(filtradosGrilla);
+        poblarFiltrosComercial();
+        renderizarComercial();
+
+    } catch (err) {
+        console.error("Error al consultar datos ejecutivos:", err);
+        tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-red-600 font-bold">❌ Error al conectar con el servidor. Intente nuevamente.</td></tr>`;
+    } finally {
+        btnConsultar.disabled = false;
+        btnConsultar.innerText = "🔍 Consultar";
+    }
 }
 
-// --- CÁLCULO DE MÉTRICAS EJECUTIVAS (REVISION COMPLETA DE PUNTOS 1 AL 6) ---
-function calcularMetricasEjecutivas() {
-    const f1 = document.getElementById('execFecha1').value;
-    const f2 = document.getElementById('execFecha2').value;
-
-    let filtradosGrilla = grillaGlobal.filter(g => {
-        let fechaG = String(g.fechaGrilla || '').trim();
-        if (f2) return fechaG >= f1 && fechaG <= f2;
-        return fechaG === f1;
-    });
-
+// --- RENDERIZADO GLOBAL DE LA VISTA EJECUTIVA ---
+function renderizarMetricasEjecutivasCompletas(filtradosGrilla) {
     let fechasUnicas = [...new Set(filtradosGrilla.map(g => g.fechaGrilla).filter(Boolean))].sort((a, b) => new Date(b) - new Date(a));
 
     const tbody = document.getElementById('tbodyEjecutivaTabla');
     if (fechasUnicas.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400 italic">No hay registros ejecutivos para las fechas seleccionadas.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-slate-400 italic">No hay registros ejecutivos para las fechas seleccionadas.</td></tr>`;
         if (chartEjecutivaBarrasInstancia) chartEjecutivaBarrasInstancia.destroy();
         if (chartEjecutivaTortaInstancia) chartEjecutivaTortaInstancia.destroy();
         return;
     }
 
     let filasHtml = '';
-    let tPendientes = 0, tGrilla = 0, tDemanda = 0, tFact = 0, tRech = 0, tExt = 0;
+    let tPendientes = 0, tGrilla = 0, tDemanda = 0, tFact = 0, tRech = 0, tExt = 0, tSegundasVueltas = 0;
     
     let chartLabels = [];
     let chartDemandaData = [];
@@ -635,16 +703,22 @@ function calcularMetricasEjecutivas() {
         let grillasFecha = filtradosGrilla.filter(g => g.fechaGrilla === fecha);
         let bultosGrillaFecha = 0;
         let cpsDeFecha = [];
+        let cuentaSegundaVuelta = 0;
 
         grillasFecha.forEach(g => { 
             bultosGrillaFecha += Number(g.bultos) || 0; 
             obtenerTodasLasCPsDeFila(g).forEach(c => cpsDeFecha.push(c));
+
+            // Detectar si la fila tiene 2da vuelta (columna vuelta o similar en grilla)
+            let vueltaVal = String(g.vuelta || '').trim().toUpperCase();
+            if (vueltaVal.includes('2')) {
+                cuentaSegundaVuelta++;
+            }
         });
 
         let bultosPendientesFecha = 0; 
         let demandaTotalFecha = bultosPendientesFecha + bultosGrillaFecha;
 
-        // Bultos Facturados Reales y Rechazos
         let docsFecha = documentosGlobal.filter(d => cpsDeFecha.includes(d.cp));
         let factFecha = 0;
         let rechFecha = 0;
@@ -673,21 +747,33 @@ function calcularMetricasEjecutivas() {
             }
         });
 
-        // PUNTO 2: CÁLCULO DE EFECTIVIDAD (FACTURADO VS RECHAZOS)
         let efectividadFecha = factFecha > 0 ? (((factFecha - rechFecha) / factFecha) * 100).toFixed(1) : 100;
+        let extracostoBultos = factFecha > 9000 ? factFecha - 9000 : 0;
+        let tieneSegundaVuelta = cuentaSegundaVuelta > 0;
 
-        // PUNTO 3: CONTROL DE UMBRAL Y EXTRACOSTO AL FINAL
-        let extracosto = factFecha > 9000 ? factFecha - 9000 : 0;
-        let badgeUmbral = factFecha > 9000 
-            ? `<span class="bg-red-100 text-red-800 px-2.5 py-1 rounded-full font-black text-[11px]">🚨 Exceso: +${extracosto.toLocaleString('es-ES')} bultos</span>`
-            : `<span class="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full font-bold text-[11px]">🟢 En rango (&lt;9k)</span>`;
+        // LÓGICA DE AVISO DE EXTRACOSTO COMBINADO (BULTOS + 2DA VUELTA)
+        let badgeUmbral = "";
+        if (extracostoBultos > 0 && tieneSegundaVuelta) {
+            badgeUmbral = `<span class="bg-red-200 text-red-900 px-2.5 py-1 rounded-full font-black text-[11px]">🚨 Ambos: +${extracostoBultos.toLocaleString('es-ES')} bultos + 2ª Vuelta</span>`;
+        } else if (extracostoBultos > 0) {
+            badgeUmbral = `<span class="bg-red-100 text-red-800 px-2.5 py-1 rounded-full font-black text-[11px]">🚨 Exceso bultos: +${extracostoBultos.toLocaleString('es-ES')}</span>`;
+        } else if (tieneSegundaVuelta) {
+            badgeUmbral = `<span class="bg-amber-100 text-amber-900 px-2.5 py-1 rounded-full font-black text-[11px]">⚠️ Extracosto por 2ª Vuelta</span>`;
+        } else {
+            badgeUmbral = `<span class="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full font-bold text-[11px]">🟢 En rango (&lt;9k) sin 2ªv</span>`;
+        }
+
+        let badgeSegundaVuelta = tieneSegundaVuelta 
+            ? `<span class="bg-amber-100 text-amber-900 px-2.5 py-1 rounded-full font-bold text-[11px]">1 (Sí)</span>` 
+            : `<span class="text-slate-400 font-bold">0</span>`;
 
         tPendientes += bultosPendientesFecha;
         tGrilla += bultosGrillaFecha;
         tDemanda += demandaTotalFecha;
         tFact += factFecha;
         tRech += rechFecha;
-        tExt += extracosto;
+        tExt += extracostoBultos;
+        if (tieneSegundaVuelta) tSegundasVueltas++;
 
         chartLabels.push(fecha);
         chartDemandaData.push(demandaTotalFecha);
@@ -702,13 +788,16 @@ function calcularMetricasEjecutivas() {
                 <td class="p-3 text-center font-black text-indigo-900">${Math.round(factFecha).toLocaleString('es-ES')}</td>
                 <td class="p-3 text-center font-bold text-red-600">${Math.round(rechFecha).toLocaleString('es-ES')}</td>
                 <td class="p-3 text-center font-black text-emerald-700">${efectividadFecha}%</td>
+                <td class="p-3 text-center">${badgeSegundaVuelta}</td>
                 <td class="p-3 text-center">${badgeUmbral}</td>
             </tr>
         `;
     });
 
     let efTotal = tFact > 0 ? (((tFact - tRech) / tFact) * 100).toFixed(1) : 100;
-    let badgeTotalUmbral = tExt > 0 ? `<span class="text-red-400 font-black">+${tExt.toLocaleString('es-ES')} excedente</span>` : `<span class="text-emerald-400 font-bold">Sin exceso acumulado</span>`;
+    let badgeTotalUmbral = tExt > 0 || tSegundasVueltas > 0 
+        ? `<span class="text-red-400 font-black">Extracostos detectados (${tSegundasVueltas} días con 2ªv)</span>` 
+        : `<span class="text-emerald-400 font-bold">Sin extracostos acumulados</span>`;
 
     filasHtml += `
         <tr class="bg-slate-900 text-white font-black text-xs">
@@ -719,13 +808,14 @@ function calcularMetricasEjecutivas() {
             <td class="p-3 text-center text-indigo-300">${Math.round(tFact).toLocaleString('es-ES')}</td>
             <td class="p-3 text-center text-red-400">${Math.round(tRech).toLocaleString('es-ES')}</td>
             <td class="p-3 text-center text-emerald-400">${efTotal}%</td>
+            <td class="p-3 text-center text-amber-300">${tSegundasVueltas} días</td>
             <td class="p-3 text-center">${badgeTotalUmbral}</td>
         </tr>
     `;
 
     tbody.innerHTML = filasHtml;
 
-    // PUNTO 6: GRÁFICO DE BARRAS DINÁMICO SEGÚN FILTROS
+    // Gráfico de Barras Dinámico
     const ctxBarras = document.getElementById('chartEjecutivaBarras').getContext('2d');
     if (chartEjecutivaBarrasInstancia) chartEjecutivaBarrasInstancia.destroy();
 
@@ -758,7 +848,7 @@ function calcularMetricasEjecutivas() {
         }
     });
 
-    // PUNTO 5: GRÁFICO DE TORTA DETALLE RECHAZOS (INTERNOS VS EXTERNOS)
+    // Gráfico de Torta de Rechazos
     const ctxTorta = document.getElementById('chartEjecutivaTorta').getContext('2d');
     if (chartEjecutivaTortaInstancia) chartEjecutivaTortaInstancia.destroy();
 
@@ -781,7 +871,7 @@ function calcularMetricasEjecutivas() {
     });
 }
 
-// --- FUNCIÓN PARA COPIAR TABLA EJECUTIVA DIRECTO A EXCEL/MAIL ---
+// --- FUNCIÓN PARA COPIAR TABLA EJECUTIVA ---
 function copiarTablaEjecutiva() {
     let tabla = document.getElementById('tablaEjecutivaExportable');
     let rango = document.createRange();
