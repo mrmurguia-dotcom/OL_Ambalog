@@ -135,7 +135,7 @@
     </div>
 
     <!-- =================================================================== -->
-    <!-- 2. VISTA EJECUTIVA (CON COLUMNA 2DA VUELTA Y EXTRACostos COMBINADO) -->
+    <!-- 2. VISTA EJECUTIVA -->
     <!-- =================================================================== -->
     <div id="seccionEjecutiva" class="space-y-6 hidden">
         <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 space-y-6">
@@ -145,7 +145,6 @@
                     <p class="text-xs text-slate-500">Control de fin de mes: Pedidos pendientes, Grilla operativa, Facturación real, 2ª Vuelta y Umbral de 9,000 bultos.</p>
                 </div>
                 
-                <!-- FILTROS DE FECHA EXCLUSIVOS DE VISTA EJECUTIVA -->
                 <div class="flex items-center gap-3 flex-wrap">
                     <div>
                         <label class="block text-[10px] font-bold text-slate-500 uppercase">Fechas de Consulta:</label>
@@ -204,27 +203,45 @@
     </div>
 
     <!-- =================================================================== -->
-    <!-- 3. VISTA COMERCIAL -->
+    <!-- 3. VISTA COMERCIAL (AJUSTES PUNTOS 1 AL 5 IMPLEMENTADOS) -->
     <!-- =================================================================== -->
     <div id="seccionComercial" class="space-y-6 hidden">
         <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 space-y-4">
             <div class="flex justify-between items-center border-b pb-3 flex-wrap gap-4">
                 <div>
                     <h2 class="text-xl font-black text-blue-900">Seguimiento Comercial de Clientes y Pedidos</h2>
-                    <p class="text-xs text-slate-500">Filtros avanzados por cliente, fecha y revisión de incidencias o archivos adjuntos.</p>
+                    <p class="text-xs text-slate-500">Filtros avanzados por código/nombre de cliente, rango de fechas de factura e incidencias.</p>
                 </div>
                 
                 <div class="flex items-center gap-3 flex-wrap">
+                    <!-- PUNTO 1: FILTRO CLIENTE POR TEXTO/NÚMERO O LISTA DESPLEGABLE -->
                     <div>
-                        <label class="block text-[10px] font-bold text-slate-500 uppercase">Filtrar por Cliente:</label>
-                        <select id="comercialFiltroCliente" onchange="renderizarComercial()" class="p-2 rounded-xl border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none w-48">
-                            <option value="TODOS">-- Todos los Clientes --</option>
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase">Buscar Cliente (Nombre o Nro):</label>
+                        <input type="text" id="comercialBusquedaCliente" list="listaClientesDatalist" oninput="renderizarComercial()" placeholder="Escribí o seleccioná..." class="p-2 rounded-xl border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none w-56">
+                        <datalist id="listaClientesDatalist"></datalist>
+                    </div>
+
+                    <!-- PUNTO 2: FILTRO POR FECHA ÚNICA O RANGO (FECHA DE FACTURA) -->
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase">Fechas de Consulta (por Fecha de Factura):</label>
+                        <div class="flex gap-2 items-center mt-1">
+                            <input type="date" id="comFecha1" class="p-2 rounded-xl border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none">
+                            <span class="text-xs text-slate-400 font-bold">hasta</span>
+                            <input type="date" id="comFecha2" class="p-2 rounded-xl border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none" placeholder="Opcional">
+                        </div>
+                    </div>
+
+                    <!-- PUNTO 3: FILTRO POR INCIDENCIAS -->
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase">Estado de Incidencia:</label>
+                        <select id="comercialFiltroIncidencia" onchange="renderizarComercial()" class="p-2 rounded-xl border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none mt-1">
+                            <option value="TODOS">-- Todos los Estados --</option>
+                            <option value="CON_INCIDENCIA">⚠️ Con Incidencia / Rechazo</option>
+                            <option value="SIN_INCIDENCIA">🟢 Sin Incidencia (Entregados)</option>
                         </select>
                     </div>
-                    <div>
-                        <label class="block text-[10px] font-bold text-slate-500 uppercase">Fecha:</label>
-                        <input type="date" id="comercialFecha" onchange="cargarDatosGenerales()" class="p-2 rounded-xl border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none">
-                    </div>
+
+                    <button id="btnConsultarComercial" onclick="ejecutarConsultaComercial()" class="bg-blue-800 hover:bg-blue-900 text-white font-black text-xs px-4 py-2.5 rounded-xl shadow mt-5 transition-all">🔍 Consultar</button>
                 </div>
             </div>
 
@@ -238,12 +255,15 @@
                             <th class="p-3">Tipo</th>
                             <th class="p-3 text-center">Bultos</th>
                             <th class="p-3 text-right">Importe ($)</th>
-                            <th class="p-3">Motivo / Incidencia</th>
-                            <th class="p-3 text-center">Multimedia (Drive)</th>
+                            <!-- PUNTO 4: SEPARACIÓN DE MOTIVO Y TIPO DE OBSERVACIÓN -->
+                            <th class="p-3">Motivo de Incidencia</th>
+                            <th class="p-3 text-center">Tipo de Novedad / Rechazo</th>
+                            <!-- PUNTO 5: SOLO ÍCONOS EN MULTIMEDIA -->
+                            <th class="p-3 text-center">Multimedia</th>
                         </tr>
                     </thead>
                     <tbody id="tbodyComercial" class="divide-y divide-slate-100 text-slate-800">
-                        <tr><td colspan="7" class="p-6 text-center text-slate-400 italic">Cargando datos comerciales...</td></tr>
+                        <tr><td colspan="8" class="p-6 text-center text-slate-400 italic">Seleccioná fechas y hacé click en Consultar.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -342,7 +362,7 @@ let chartEjecutivaTortaInstancia = null;
 const hoy = new Date();
 document.getElementById('logFecha1').valueAsDate = hoy;
 document.getElementById('execFecha1').valueAsDate = hoy;
-document.getElementById('comercialFecha').valueAsDate = hoy;
+document.getElementById('comFecha1').valueAsDate = hoy;
 
 window.onload = () => {
     ejecutarConsultaLogistica();
@@ -359,6 +379,8 @@ function cambiarVistaConsulta(vista) {
 
     if (vista === 'ejecutiva' && grillaGlobal.length === 0) {
         ejecutarConsultaEjecutiva();
+    } else if (vista === 'comercial' && documentosGlobal.length === 0) {
+        ejecutarConsultaComercial();
     }
 }
 
@@ -455,7 +477,7 @@ async function ejecutarConsultaLogistica() {
 
     } catch (err) {
         console.error("Error al consultar datos:", err);
-        tbody.innerHTML = `<tr><td colspan="13" class="p-6 text-center text-red-600 font-bold">❌ Error al conectarกับ el servidor. Intente nuevamente.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="13" class="p-6 text-center text-red-600 font-bold">❌ Error al conectar con el servidor. Intente nuevamente.</td></tr>`;
     } finally {
         btnConsultar.disabled = false;
         btnConsultar.innerText = "🔍 Consultar";
@@ -589,7 +611,7 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
     }
 }
 
-// --- CONSULTA EJECUTIVA CON 2DA VUELTA Y EXTRACostos COMBINADO ---
+// --- CONSULTA EJECUTIVA ---
 async function ejecutarConsultaEjecutiva() {
     const btnConsultar = document.getElementById('btnConsultarEjecutiva');
     const tbody = document.getElementById('tbodyEjecutivaTabla');
@@ -709,7 +731,6 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla) {
             bultosGrillaFecha += Number(g.bultos) || 0; 
             obtenerTodasLasCPsDeFila(g).forEach(c => cpsDeFecha.push(c));
 
-            // Detectar si la fila tiene 2da vuelta (columna vuelta o similar en grilla)
             let vueltaVal = String(g.vuelta || '').trim().toUpperCase();
             if (vueltaVal.includes('2')) {
                 cuentaSegundaVuelta++;
@@ -751,7 +772,6 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla) {
         let extracostoBultos = factFecha > 9000 ? factFecha - 9000 : 0;
         let tieneSegundaVuelta = cuentaSegundaVuelta > 0;
 
-        // LÓGICA DE AVISO DE EXTRACOSTO COMBINADO (BULTOS + 2DA VUELTA)
         let badgeUmbral = "";
         if (extracostoBultos > 0 && tieneSegundaVuelta) {
             badgeUmbral = `<span class="bg-red-200 text-red-900 px-2.5 py-1 rounded-full font-black text-[11px]">🚨 Ambos: +${extracostoBultos.toLocaleString('es-ES')} bultos + 2ª Vuelta</span>`;
@@ -815,7 +835,6 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla) {
 
     tbody.innerHTML = filasHtml;
 
-    // Gráfico de Barras Dinámico
     const ctxBarras = document.getElementById('chartEjecutivaBarras').getContext('2d');
     if (chartEjecutivaBarrasInstancia) chartEjecutivaBarrasInstancia.destroy();
 
@@ -848,7 +867,6 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla) {
         }
     });
 
-    // Gráfico de Torta de Rechazos
     const ctxTorta = document.getElementById('chartEjecutivaTorta').getContext('2d');
     if (chartEjecutivaTortaInstancia) chartEjecutivaTortaInstancia.destroy();
 
@@ -871,7 +889,6 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla) {
     });
 }
 
-// --- FUNCIÓN PARA COPIAR TABLA EJECUTIVA ---
 function copiarTablaEjecutiva() {
     let tabla = document.getElementById('tablaEjecutivaExportable');
     let rango = document.createRange();
@@ -890,6 +907,130 @@ function copiarTablaEjecutiva() {
     }
     window.getSelection().removeAllRanges();
 }
+
+// --- VISTA COMERCIAL: FUNCIONES ACTUALIZADAS ---
+async function ejecutarConsultaComercial() {
+    const btnConsultar = document.getElementById('btnConsultarComercial');
+    const f1 = document.getElementById('comFecha1').value;
+    const f2 = document.getElementById('comFecha2').value;
+
+    document.getElementById('logFecha1').value = f1;
+    document.getElementById('logFecha2').value = f2;
+
+    btnConsultar.disabled = true;
+    btnConsultar.innerText = "⏳ Consultando...";
+
+    await ejecutarConsultaLogistica();
+
+    btnConsultar.disabled = false;
+    btnConsultar.innerText = "🔍 Consultar";
+}
+
+function poblarFiltrosComercial() {
+    const datalist = document.getElementById('listaClientesDatalist');
+    let clientes = [...new Set(documentosGlobal.map(d => d.cliente).filter(Boolean))];
+    datalist.innerHTML = '';
+    clientes.sort().forEach(c => {
+        datalist.innerHTML += `<option value="${c}"></option>`;
+    });
+}
+
+function renderizarComercial() {
+    const textoCliente = document.getElementById('comercialBusquedaCliente').value.trim().toLowerCase();
+    const f1 = document.getElementById('comFecha1').value;
+    const f2 = document.getElementById('comFecha2').value;
+    const filtroInc = document.getElementById('comercialFiltroIncidencia').value;
+
+    const tbody = document.getElementById('tbodyComercial');
+    let docsFiltrados = documentosGlobal;
+
+    // PUNTO 2: Filtrado por Rango/Única Fecha de Factura
+    if (f1) {
+        docsFiltrados = docsFiltrados.filter(d => {
+            let fechaD = String(d.fechaGrilla || '').trim();
+            if (f2) return fechaD >= f1 && fechaD <= f2;
+            return fechaD === f1;
+        });
+    }
+
+    // PUNTO 1: Filtrado por Código o Nombre de Cliente
+    if (textoCliente) {
+        docsFiltrados = docsFiltrados.filter(d => 
+            String(d.cliente || '').toLowerCase().includes(textoCliente)
+        );
+    }
+
+    // PUNTO 3: Filtrado por Incidencia
+    if (filtroInc === 'CON_INCIDENCIA') {
+        docsFiltrados = docsFiltrados.filter(d => (d.motivo && d.motivo.trim() !== '') || (d.observacion && d.observacion.trim() !== ''));
+    } else if (filtroInc === 'SIN_INCIDENCIA') {
+        docsFiltrados = docsFiltrados.filter(d => (!d.motivo || d.motivo.trim() === '') && (!d.observacion || d.observacion.trim() === ''));
+    }
+
+    if (docsFiltrados.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400 italic">No hay documentos comerciales disponibles para los filtros seleccionados.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = docsFiltrados.map(d => {
+        // PUNTO 4: Separación de Motivos e Incidencias
+        let tieneIncidencia = (d.motivo && d.motivo.trim() !== '') || (d.observacion && d.observacion.trim() !== '');
+        
+        let motivoTxt = tieneIncidencia 
+            ? `<span class="bg-red-50 text-red-800 px-2 py-0.5 rounded font-bold">${d.motivo || d.observacion}</span>` 
+            : '<span class="text-emerald-600 font-bold">Sin incidencias</span>';
+
+        let tipoNovedadBadge = '<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">Sin Novedad</span>';
+        if (d.observacion === 'rechazo total' || d.observacion === 'no entregado') {
+            tipoNovedadBadge = '<span class="bg-red-100 text-red-800 px-2 py-0.5 rounded font-bold">Rechazo Total</span>';
+        } else if (d.observacion === 'rechazo parcial') {
+            tipoNovedadBadge = '<span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-bold">Rechazo Parcial</span>';
+        } else if (tieneIncidencia) {
+            tipoNovedadBadge = `<span class="bg-purple-100 text-purple-800 px-2 py-0.5 rounded font-bold">${d.observacion || 'Con Novedad'}</span>`;
+        }
+
+        // PUNTO 5: Solo íconos limpios en Multimedia
+        let fotoBtn = d.fotoLink ? `<button onclick="abrirVisorLink('${d.fotoLink}', 'FOTO')" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-800 px-2.5 py-1 rounded-xl text-sm font-bold shadow-sm transition-all" title="Ver Evidencia Fotográfica">📷</button>` : '';
+        let audioBtn = d.audioLink ? `<button onclick="abrirVisorLink('${d.audioLink}', 'AUDIO')" class="bg-purple-100 hover:bg-purple-200 text-purple-800 px-2.5 py-1 rounded-xl text-sm font-bold shadow-sm transition-all" title="Escuchar Evidencia de Audio">🎤</button>` : '';
+        let multimediaContent = (fotoBtn || audioBtn) ? `<div class="flex items-center justify-center gap-1.5">${fotoBtn}${audioBtn}</div>` : '<span class="text-slate-300 font-bold">-</span>';
+
+        return `
+            <tr class="hover:bg-slate-50 border-b">
+                <td class="p-3 font-bold">${d.cliente}</td>
+                <td class="p-3 font-black text-blue-900">${d.numero}</td>
+                <td class="p-3"><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">${d.tipo}</span></td>
+                <td class="p-3 text-center">${(Number(d.cajas) || 0) + (Number(d.unidades) || 0)}</td>
+                <td class="p-3 text-right">$${d.importe.toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
+                <td class="p-3">${motivoTxt}</td>
+                <td class="p-3 text-center">${tipoNovedadBadge}</td>
+                <td class="p-3 text-center">${multimediaContent}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function convertirLinkDriveDirecto(urlOriginal, tipo) {
+    if (!urlOriginal) return '';
+    let match = urlOriginal.match(/\/d\/([a-zA-Z0-9_-]+)/) || urlOriginal.match(/id=([a-zA-Z0-9_-]+)/);
+    if (match && match[1]) {
+        let fileId = match[1];
+        return tipo === 'FOTO' ? `https://drive.google.com/uc?export=view&id=${fileId}` : `https://drive.google.com/uc?export=download&id=${fileId}`;
+    }
+    return urlOriginal;
+}
+
+function abrirVisorLink(linkOriginal, tipo) {
+    let linkDirecto = convertirLinkDriveDirecto(linkOriginal, tipo);
+    const contenedor = document.getElementById('contenidoMultimedia');
+    if (tipo === 'FOTO') {
+        contenedor.innerHTML = `<div class="space-y-2"><img src="${linkDirecto}" class="max-h-80 mx-auto rounded-xl shadow-md border object-contain" alt="Evidencia" onerror="this.onerror=null; this.src='https://placehold.co/400x300?text=Error+al+cargar+imagen';"><div><a href="${linkOriginal}" target="_blank" class="text-xs font-bold text-blue-600 hover:underline">🔗 Abrir imagen original en Google Drive</a></div></div>`;
+    } else {
+        contenedor.innerHTML = `<div class="space-y-2"><audio controls class="mx-auto w-full"><source src="${linkDirecto}" type="audio/mpeg">Tu navegador no soporta audio.</audio><div><a href="${linkOriginal}" target="_blank" class="text-xs font-bold text-blue-600 hover:underline">🔗 Abrir audio original en Google Drive</a></div></div>`;
+    }
+    document.getElementById('modalMultimedia').classList.remove('hidden');
+}
+
+function cerrarModalMultimedia() { document.getElementById('modalMultimedia').classList.add('hidden'); }
 
 function abrirModalDiferencias() {
     const tbody = document.getElementById('tbodyDiferenciasModal');
@@ -947,67 +1088,6 @@ function abrirDetalleNovedadesModal(cpPrincipal) {
 }
 
 function cerrarModalDetalleNovedades() { document.getElementById('modalDetalleNovedades').classList.add('hidden'); }
-
-function poblarFiltrosComercial() {
-    const select = document.getElementById('comercialFiltroCliente');
-    let clientes = [...new Set(documentosGlobal.map(d => d.cliente).filter(Boolean))];
-    select.innerHTML = '<option value="TODOS">-- Todos los Clientes --</option>';
-    clientes.sort().forEach(c => { select.innerHTML += `<option value="${c}">${c}</option>`; });
-}
-
-function renderizarComercial() {
-    const clienteSel = document.getElementById('comercialFiltroCliente').value;
-    const tbody = document.getElementById('tbodyComercial');
-    let docsFiltrados = documentosGlobal;
-    if (clienteSel && clienteSel !== 'TODOS') {
-        docsFiltrados = docsFiltrados.filter(d => d.cliente === clienteSel);
-    }
-    if (docsFiltrados.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400 italic">No hay documentos comerciales disponibles.</td></tr>`;
-        return;
-    }
-    tbody.innerHTML = docsFiltrados.map(d => {
-        let motivoTxt = d.motivo || d.observacion ? `<span class="bg-red-50 text-red-800 px-2 py-0.5 rounded font-bold">${d.motivo || d.observacion}</span>` : '<span class="text-emerald-600 font-bold">Sin incidencias</span>';
-        return `
-            <tr class="hover:bg-slate-50 border-b">
-                <td class="p-3 font-bold">${d.cliente}</td>
-                <td class="p-3 font-black text-blue-900">${d.numero}</td>
-                <td class="p-3"><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">${d.tipo}</span></td>
-                <td class="p-3 text-center">${(Number(d.cajas) || 0) + (Number(d.unidades) || 0)}</td>
-                <td class="p-3 text-right">$${d.importe.toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
-                <td class="p-3">${motivoTxt}</td>
-                <td class="p-3 text-center space-x-1">
-                    ${d.fotoLink ? `<button onclick="abrirVisorLink('${d.fotoLink}', 'FOTO')" class="bg-indigo-100 text-indigo-800 px-2 py-1 rounded text-[10px] font-bold">📷 Ver Foto</button>` : ''}
-                    ${d.audioLink ? `<button onclick="abrirVisorLink('${d.audioLink}', 'AUDIO')" class="bg-purple-100 text-purple-800 px-2 py-1 rounded text-[10px] font-bold">🎤 Escuchar Audio</button>` : ''}
-                    {!d.fotoLink && !d.audioLink ? '<span class="text-slate-400">-</span>' : ''}
-                </td>
-            </tr>
-        `;
-    }).join('');
-}
-
-function convertirLinkDriveDirecto(urlOriginal, tipo) {
-    if (!urlOriginal) return '';
-    let match = urlOriginal.match(/\/d\/([a-zA-Z0-9_-]+)/) || urlOriginal.match(/id=([a-zA-Z0-9_-]+)/);
-    if (match && match[1]) {
-        let fileId = match[1];
-        return tipo === 'FOTO' ? `https://drive.google.com/uc?export=view&id=${fileId}` : `https://drive.google.com/uc?export=download&id=${fileId}`;
-    }
-    return urlOriginal;
-}
-
-function abrirVisorLink(linkOriginal, tipo) {
-    let linkDirecto = convertirLinkDriveDirecto(linkOriginal, tipo);
-    const contenedor = document.getElementById('contenidoMultimedia');
-    if (tipo === 'FOTO') {
-        contenedor.innerHTML = `<div class="space-y-2"><img src="${linkDirecto}" class="max-h-80 mx-auto rounded-xl shadow-md border object-contain" alt="Evidencia" onerror="this.onerror=null; this.src='https://placehold.co/400x300?text=Error+al+cargar+imagen';"><div><a href="${linkOriginal}" target="_blank" class="text-xs font-bold text-blue-600 hover:underline">🔗 Abrir imagen original en Google Drive</a></div></div>`;
-    } else {
-        contenedor.innerHTML = `<div class="space-y-2"><audio controls class="mx-auto w-full"><source src="${linkDirecto}" type="audio/mpeg">Tu navegador no soporta audio.</audio><div><a href="${linkOriginal}" target="_blank" class="text-xs font-bold text-blue-600 hover:underline">🔗 Abrir audio original en Google Drive</a></div></div>`;
-    }
-    document.getElementById('modalMultimedia').classList.remove('hidden');
-}
-
-function cerrarModalMultimedia() { document.getElementById('modalMultimedia').classList.add('hidden'); }
 </script>
 </body>
 </html>
