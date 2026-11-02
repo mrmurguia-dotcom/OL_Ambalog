@@ -1,8 +1,8 @@
 {
   "name": "Ambalog",
   "short_name": "Ambalog",
-  "start_url": "/OL_Ambalog/index.html",
-  "scope": "/OL_Ambalog/",
+  "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#1e3a5f",
