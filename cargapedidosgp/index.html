@@ -274,7 +274,7 @@
                     }
 
                     const worksheet = workbook.Sheets[sheetName];
-                    const rango = XLSX.utils.decode_range(worksheet['!ref'] || 'A1:AD1');
+                    const rango = XLSX.utils.decode_range(worksheet['!ref'] || 'A1:AF1');
                     rango.s.r = 0;
                     rango.s.c = 0;
 
@@ -290,7 +290,7 @@
                         return;
                     }
 
-                    headersOriginales = (json[3] || []).slice(0, 30);
+                    headersOriginales = (json[3] || []).slice(0, 32); // Actualizado a 32 columnas
                     filasProcesadas = [];
 
                     for (let i = 4; i < json.length; i++) {
@@ -299,7 +299,7 @@
                         if (!tieneDatos) continue;
 
                         const fila = [];
-                        for (let c = 0; c < 30; c++) {
+                        for (let c = 0; c < 32; c++) { // Actualizado a 32 columnas
                             fila.push(r[c] !== undefined && r[c] !== null ? r[c] : "");
                         }
                         filasProcesadas.push(fila);
@@ -358,7 +358,7 @@
             const select = document.getElementById('filtroCustomer');
             const customers = new Set();
             filasProcesadas.forEach(r => {
-                let cust = String(r[22] || '').trim();
+                let cust = String(r[23] || '').trim(); // Customer desplazado al índice 23
                 if (cust) customers.add(cust);
             });
 
@@ -408,15 +408,15 @@
                 
                 let agruparGeneral = {};
                 filasProcesadas.forEach(r => {
-                    let customer = String(r[22] || '').trim();
+                    let customer = String(r[23] || '').trim(); // Customer en índice 23
                     if (customerFiltro && customerFiltro !== 'TODOS' && customer !== customerFiltro) return;
 
-                    let cp = String(r[23] || '').trim();
-                    let transporte = String(r[25] || '').trim();
+                    let cp = String(r[24] || '').trim();           // CP en índice 24
+                    let transporte = String(r[26] || '').trim();   // Transporte 2 en índice 26
                     let idCliente = String(r[0] || '').trim();
                     let nombreCliente = String(r[15] || '').trim();
                     let prioridad = String(r[14] || '').trim();
-                    let canal = String(r[21] || '').trim();
+                    let canal = String(r[22] || '').trim();        // Canal en índice 22
                     let localidad = String(r[16] || '').trim();
                     let direccion = String(r[19] || '').trim();
                     let turno = String(r[20] || '').trim();
@@ -473,8 +473,8 @@
             } else if (vistaActual === 'cliente') {
                 let agrupar = {};
                 filasProcesadas.forEach(r => {
-                    let cp = String(r[23] || '').trim();
-                    let transporte = String(r[25] || '').trim();
+                    let cp = String(r[24] || '').trim();           // CP en índice 24
+                    let transporte = String(r[26] || '').trim();   // Transporte 2 en índice 26
                     let reparto = String(r[10] || '').trim();
                     let idCliente = String(r[0] || '').trim();
                     let key = `${cp}___${transporte}___${reparto}`;
@@ -607,7 +607,6 @@
             const clienteTexto = `${c.idCliente} - ${c.nombreCliente}`;
             const pesoFormateado = c.peso.toFixed(2).replace('.', ',');
 
-            // 1. Estructura HTML para que al pegar en Excel mantenga las columnas exactas
             let htmlContent = `
                 <table border="0" cellpadding="0" cellspacing="0" style="font-family: Calibri, Arial, sans-serif; font-size: 11pt;">
                     <tr>
@@ -635,14 +634,12 @@
 
             htmlContent += `</table>`;
 
-            // 2. Estructura en Texto Plano tabulado (fallback)
             let textPlain = `cliente\t${clienteTexto}\t\t\n`;
             textPlain += `pedido (orden)\tembarque\tbultos\tpeso\n`;
             c.unicos.forEach(u => {
                 textPlain += `${u.pedido}\t${u.embarque}\t${c.bultos}\t${pesoFormateado}\n`;
             });
 
-            // Copiado mediante Clipboard API
             if (navigator.clipboard && window.ClipboardItem) {
                 const blobHtml = new Blob([htmlContent], { type: 'text/html' });
                 const blobText = new Blob([textPlain], { type: 'text/plain' });
@@ -726,7 +723,7 @@
         function abrirModalReprogramar() { 
             document.getElementById('formReprogramar').reset();
             document.getElementById('repoFechaOrig').valueAsDate = new Date();
-            document.getElementById('repoTipoCambio').value = 'TOTAL'; // Siempre inicia en Total por defecto
+            document.getElementById('repoTipoCambio').value = 'TOTAL';
             document.getElementById('seccionParcialRepo').classList.add('hidden');
             document.getElementById('modalReprogramar').classList.remove('hidden'); 
         }
