@@ -401,6 +401,9 @@ function obtenerTodasLasCPsDeFila(g) {
 function normalizarFechaAISO(str) {
     if (!str) return '';
     str = String(str).trim();
+    if (str.includes('T')) {
+        str = str.split('T')[0];
+    }
     if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
     let p = str.split(/[-/]/);
     if (p.length === 3) {
@@ -435,7 +438,7 @@ async function ejecutarConsultaLogistica() {
         const f2 = document.getElementById('logFecha2').value;
 
         let filtradosGrilla = grillaGlobal.filter(g => {
-            let fechaG = String(g.fechaGrilla || '').trim();
+            let fechaG = normalizarFechaAISO(g.fechaGrilla);
             if (f2) return fechaG >= f1 && fechaG <= f2;
             return fechaG === f1;
         });
@@ -457,7 +460,7 @@ async function ejecutarConsultaLogistica() {
                 const resDoc = await respDoc.json();
                 if (resDoc.status === "success" && resDoc.data && resDoc.data.listaClientes) {
                     let filaAsociada = filtradosGrilla.find(gr => obtenerTodasLasCPsDeFila(gr).includes(cp));
-                    let fechaFila = filaAsociada ? filaAsociada.fechaGrilla : f1;
+                    let fechaFila = filaAsociada ? normalizarFechaAISO(filaAsociada.fechaGrilla) : f1;
 
                     resDoc.data.listaClientes.forEach(cli => {
                         cli.documentos.forEach(doc => {
@@ -514,7 +517,7 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
     const soloNov = document.getElementById('chkSoloNovedades').checked;
     const tbody = document.getElementById('tbodyLogistica');
 
-    filtrados.sort((a, b) => new Date(b.fechaGrilla) - new Date(a.fechaGrilla));
+    filtrados.sort((a, b) => new Date(normalizarFechaAISO(b.fechaGrilla)) - new Date(normalizarFechaAISO(a.fechaGrilla)));
 
     if (soloNov) {
         filtrados = filtrados.filter(g => {
@@ -575,7 +578,7 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
 
         if (bultosProg !== bultosFactCP) {
             listaDiferenciasGlobal.push({
-                fechaGrilla: g.fechaGrilla,
+                fechaGrilla: normalizarFechaAISO(g.fechaGrilla),
                 cpPrincipal: g.cpPrincipal,
                 bultosProg: bultosProg,
                 bultosFact: bultosFactCP,
@@ -620,7 +623,7 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
 
         return `
             <tr class="hover:bg-slate-50 border-b">
-                <td class="p-3 font-bold text-slate-700">${g.fechaGrilla || ''}</td>
+                <td class="p-3 font-bold text-slate-700">${normalizarFechaAISO(g.fechaGrilla) || ''}</td>
                 <td class="p-3">${badgeVuelta}</td>
                 <td class="p-3 uppercase font-bold text-slate-700">${g.canal || ''}</td>
                 <td class="p-3">${g.tipoViaje || ''}</td>
@@ -659,7 +662,7 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
     }
 }
 
-// --- CONSULTA EJECUTIVA CON OBTENCIÓN COMPLETA DE PENDIENTES (CON O SIN CP) ---
+// --- CONSULTA EJECUTIVA CON OBTENCIÓN COMPLETA DE PENDIENTES Y UNIFICACIÓN DE FECHAS ---
 async function ejecutarConsultaEjecutiva() {
     const btnConsultar = document.getElementById('btnConsultarEjecutiva');
     const tbody = document.getElementById('tbodyEjecutivaTabla');
@@ -698,7 +701,7 @@ async function ejecutarConsultaEjecutiva() {
         }
 
         let filtradosGrilla = grillaGlobal.filter(g => {
-            let fechaG = String(g.fechaGrilla || '').trim();
+            let fechaG = normalizarFechaAISO(g.fechaGrilla);
             if (f2) return fechaG >= f1 && fechaG <= f2;
             return fechaG === f1;
         });
@@ -725,7 +728,7 @@ async function ejecutarConsultaEjecutiva() {
                 const resDoc = await respDoc.json();
                 if (resDoc.status === "success" && resDoc.data && resDoc.data.listaClientes) {
                     let filaAsociada = filtradosGrilla.find(gr => obtenerTodasLasCPsDeFila(gr).includes(cp));
-                    let fechaFila = filaAsociada ? filaAsociada.fechaGrilla : f1;
+                    let fechaFila = filaAsociada ? normalizarFechaAISO(filaAsociada.fechaGrilla) : f1;
 
                     resDoc.data.listaClientes.forEach(cli => {
                         cli.documentos.forEach(doc => {
@@ -775,12 +778,15 @@ async function ejecutarConsultaEjecutiva() {
     }
 }
 
-// --- RENDERIZADO GLOBAL DE LA VISTA EJECUTIVA INCLUYENDO PEDIDOS SIN CARTA DE PORTE ---
+// --- RENDERIZADO GLOBAL DE LA VISTA EJECUTIVA CON FECHAS UNIFICADAS Y PEDIDOS SIN CP ---
 function renderizarMetricasEjecutivasCompletas(filtradosGrilla, pendientesGlobal, f1, f2) {
     let fechasSet = new Set();
 
     filtradosGrilla.forEach(g => {
-        if (g.fechaGrilla) fechasSet.add(g.fechaGrilla);
+        if (g.fechaGrilla) {
+            let fNorm = normalizarFechaAISO(g.fechaGrilla);
+            if (fNorm) fechasSet.add(fNorm);
+        }
     });
 
     if (pendientesGlobal) {
@@ -798,7 +804,7 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla, pendientesGlobal
         let curr = new Date(f1 + 'T00:00:00');
         let endDate = f2 ? new Date(f2 + 'T00:00:00') : new Date(f1 + 'T00:00:00');
         while (curr <= endDate) {
-            let isoStr = curr.toISOString().split('T00:00:00')[0];
+            let isoStr = curr.toISOString().split('T')[0];
             fechasSet.add(isoStr);
             curr.setDate(curr.getDate() + 1);
         }
@@ -825,7 +831,7 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla, pendientesGlobal
     let totalRechExternos = 0;
 
     fechasUnicas.forEach(fecha => {
-        let grillasFecha = filtradosGrilla.filter(g => g.fechaGrilla === fecha);
+        let grillasFecha = filtradosGrilla.filter(g => normalizarFechaAISO(g.fechaGrilla) === fecha);
         let bultosGrillaFecha = 0;
         let cpsDeFecha = [];
         let cuentaSegundaVuelta = 0;
@@ -1061,7 +1067,7 @@ function renderizarComercial() {
 
     if (f1) {
         docsFiltrados = docsFiltrados.filter(d => {
-            let fechaD = String(d.fechaGrilla || '').trim();
+            let fechaD = normalizarFechaAISO(d.fechaGrilla);
             if (f2) return fechaD >= f1 && fechaD <= f2;
             return fechaD === f1;
         });
