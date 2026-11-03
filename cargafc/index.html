@@ -87,79 +87,104 @@
             }
         });
 
+        // --- PROCESAMIENTO OPTIMIZADO CON PARALELIZACIÓN (Promise.all) ---
         async function procesar(files) {
-            for (let file of files) {
-                const pdf = await pdfjsLib.getDocument(await file.arrayBuffer()).promise;
-                for (let i = 1; i <= pdf.numPages; i++) {
-                    const pg = await pdf.getPage(i);
-                    const txt = (await pg.getTextContent()).items.map(it => it.str).join(' ');
-
-                    const esRemito = /(Remito\s*R|Documento\s*no\s*v[aá]lido\s*como\s*factura)/i.test(txt);
-                    const labelTipo = esRemito ? "REMITO" : "FACTURA";
+            const archivosArray = Array.from(files);
+            
+            // Mostrar indicador visual rápido de procesamiento si se desea
+            const btnSync = document.getElementById('btnSync');
+            
+            const promesasProcesamiento = archivosArray.map(async (file) => {
+                try {
+                    const pdf = await pdfjsLib.getDocument(await file.arrayBuffer()).promise;
+                    let docsArchivo = [];
                     
-                    const nroMatch = txt.match(/Nro\.:\s*(\d{4,5}\s*-\s*\d{8})/);
-                    let nro = nroMatch ? nroMatch[1] : null;
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const pg = await pdf.getPage(i);
+                        const txt = (await pg.getTextContent()).items.map(it => it.str).join(' ');
 
-                    if (nro) {
-                        const cp = txt.match(/Carta\s+Porte.*?:\s*([\d-]+)/)?.[1] || "S/CP";
-                        const cliMatch = txt.match(/Cliente:\s*(\d+\s+.*?)(?=\s+SN\s+|\s+SR\s+|\s+VN\s+|\s+Direcci)/i);
-                        const cli = cliMatch ? cliMatch[1].trim() : (txt.match(/Cliente:\s*(\d+\s+[A-Za-z\s.,]+)/)?.[1]?.trim() || "Cliente");
+                        const esRemito = /(Remito\s*R|Documento\s*no\s*v[aá]lido\s*como\s*factura)/i.test(txt);
+                        const labelTipo = esRemito ? "REMITO" : "FACTURA";
                         
-                        const dirMatch = txt.match(/Dirección\s+(.*?)(?=\s+Categoría|\s+LU\s+A\s+VI|\s+VN\s+|\s+SR\s+\d{4}|\s+SN\s+\d{4}|\s+\d[A-Z]\s+\d{4})/i);
-                        const dir = dirMatch ? dirMatch[1].trim() : (txt.match(/Dirección\s+(.*?)(?=\s+Categoría)/)?.[1]?.trim() || "S/D");
-                        
-                        const cajas = parseFloat(txt.match(/Total\s+Cajas\s*:\s*([\d.,]+)/)?.[1]?.replaceAll('.','').replace(',','.')) || 0;
+                        const nroMatch = txt.match(/Nro\.:\s*(\d{4,5}\s*-\s*\d{8})/);
+                        let nro = nroMatch ? nroMatch[1] : null;
 
-                        // --- CÁLCULO DE UNIDADES DIFERENCIADO ---
-                        let unidades = 0;
-                        if (esRemito) {
-                            // Para REMITOS: Suma estricta de las líneas del detalle que indican UM = UN
-                            const unMatches = [...txt.matchAll(/\bUN\b\s*(\d+[\.,]\d+)/gi)];
-                            unMatches.forEach(m => {
-                                let val = parseFloat(m[1].replaceAll('.', '').replace(',', '.')) || 0;
-                                unidades += val;
-                            });
-                        } else {
-                            // Para FACTURAS: Método original (busca el total de unidades o botellas del resumen al pie)
-                            const matchUnidades = txt.match(/Total\s+Unidades\s*:\s*([\d.,]+)/i);
-                            const matchBotellas = txt.match(/Botellas\s*:\s*([\d.,]+)/i);
+                        if (nro) {
+                            const cp = txt.match(/Carta\s+Porte.*?:\s*([\d-]+)/)?.[1] || "S/CP";
+                            const cliMatch = txt.match(/Cliente:\s*(\d+\s+.*?)(?=\s+SN\s+|\s+SR\s+|\s+VN\s+|\s+Direcci)/i);
+                            const cli = cliMatch ? cliMatch[1].trim() : (txt.match(/Cliente:\s*(\d+\s+[A-Za-z\s.,]+)/)?.[1]?.trim() || "Cliente");
+                            
+                            const dirMatch = txt.match(/Dirección\s+(.*?)(?=\s+Categoría|\s+LU\s+A\s+VI|\s+VN\s+|\s+SR\s+\d{4}|\s+SN\s+\d{4}|\s+\d[A-Z]\s+\d{4})/i);
+                            const dir = dirMatch ? dirMatch[1].trim() : (txt.match(/Dirección\s+(.*?)(?=\s+Categoría)/)?.[1]?.trim() || "S/D");
+                            
+                            const cajas = parseFloat(txt.match(/Total\s+Cajas\s*:\s*([\d.,]+)/)?.[1]?.replaceAll('.','').replace(',','.')) || 0;
 
-                            if (matchUnidades) {
-                                unidades = parseFloat(matchUnidades[1].replaceAll('.','').replace(',','.'));
-                            } else if (matchBotellas) {
-                                unidades = parseFloat(matchBotellas[1].replaceAll('.','').replace(',','.'));
+                            let unidades = 0;
+                            if (esRemito) {
+                                const unMatches = [...txt.matchAll(/\bUN\b\s*(\d+[\.,]\d+)/gi)];
+                                unMatches.forEach(m => {
+                                    let val = parseFloat(m[1].replaceAll('.', '').replace(',', '.')) || 0;
+                                    unidades += val;
+                                });
+                            } else {
+                                const matchUnidades = txt.match(/Total\s+Unidades\s*:\s*([\d.,]+)/i);
+                                const matchBotellas = txt.match(/Botellas\s*:\s*([\d.,]+)/i);
+
+                                if (matchUnidades) {
+                                    unidades = parseFloat(matchUnidades[1].replaceAll('.','').replace(',','.'));
+                                } else if (matchBotellas) {
+                                    unidades = parseFloat(matchBotellas[1].replaceAll('.','').replace(',','.'));
+                                }
                             }
-                        }
 
-                        const total = parseFloat(txt.match(/Total:\s*([\d.,]+)/)?.[1]?.replaceAll('.','').replace(',','.')) || 0;
-                        
-                        // Extraer código VI si existe (Ej: VI 6342 0001)
-                        const viMatch = txt.match(/VI\s+(\d[\d\s]+)/i);
-                        let viCode = viMatch ? viMatch[1].trim().replace(/\s+/g, ' ') : null;
+                            const total = parseFloat(txt.match(/Total:\s*([\d.,]+)/)?.[1]?.replaceAll('.','').replace(',','.')) || 0;
+                            
+                            const viMatch = txt.match(/VI\s+(\d[\d\s]+)/i);
+                            let viCode = viMatch ? viMatch[1].trim().replace(/\s+/g, ' ') : null;
 
-                        if (!store[cp]) store[cp] = { docs: [] };
-                        
-                        let index = store[cp].docs.findIndex(d => d.numero === nro);
-                        if (index === -1) {
-                            store[cp].docs.push({ 
-                                numero: nro, 
-                                tipo: labelTipo, 
-                                cliente: cli, 
-                                direccion: dir, 
-                                cajas: cajas,
-                                unidades: unidades,
-                                importe: total,
-                                vi: viCode
+                            docsArchivo.push({
+                                cp: cp,
+                                doc: {
+                                    numero: nro,
+                                    tipo: labelTipo,
+                                    cliente: cli,
+                                    direccion: dir,
+                                    cajas: cajas,
+                                    unidades: unidades,
+                                    importe: total,
+                                    vi: viCode
+                                }
                             });
-                        } else if (cajas > store[cp].docs[index].cajas) {
-                            store[cp].docs[index].cajas = cajas;
-                            store[cp].docs[index].unidades = unidades;
-                            store[cp].docs[index].importe = total;
-                            store[cp].docs[index].vi = viCode;
                         }
                     }
+                    return docsArchivo;
+                } catch (err) {
+                    console.error("Error procesando PDF:", err);
+                    return [];
                 }
-            }
+            });
+
+            // Resolver todos los PDFs en paralelo
+            const resultados = await Promise.all(promesasProcesamiento);
+
+            // Consolidar en el store con validación estricta de duplicidad por línea
+            resultados.forEach(listaDocs => {
+                listaDocs.forEach(item => {
+                    const cp = item.cp;
+                    const d = item.doc;
+
+                    if (!store[cp]) store[cp] = { docs: [] };
+                    
+                    // Validación de duplicidad por línea exacta (mismo número y tipo dentro del mismo CP)
+                    let index = store[cp].docs.findIndex(existing => existing.numero === d.numero && existing.tipo === d.tipo);
+                    if (index === -1) {
+                        store[cp].docs.push(d);
+                    } else if (d.cajas > store[cp].docs[index].cajas) {
+                        // Actualizar si trae mayor información de cajas
+                        store[cp].docs[index] = d;
+                    }
+                });
+            });
 
             // --- FILTRO DE DUPLICADOS PARA PEDIDOS VI ---
             for (let cp in store) {
@@ -178,7 +203,7 @@
                         indicesAEliminar.push(viMap[vi].remito);
                     }
                 }
-                store[cp].docs = docs.filter((d, idx) => !indicesAEliminar.includes(idx));
+                store[cp].docs = docs.filter((_, idx) => !indicesAEliminar.includes(idx));
             }
 
             dibujar();
