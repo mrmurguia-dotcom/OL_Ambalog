@@ -290,7 +290,7 @@
                         return;
                     }
 
-                    headersOriginales = (json[3] || []).slice(0, 32); // Actualizado a 32 columnas
+                    headersOriginales = (json[3] || []).slice(0, 32);
                     filasProcesadas = [];
 
                     for (let i = 4; i < json.length; i++) {
@@ -299,7 +299,7 @@
                         if (!tieneDatos) continue;
 
                         const fila = [];
-                        for (let c = 0; c < 32; c++) { // Actualizado a 32 columnas
+                        for (let c = 0; c < 32; c++) {
                             fila.push(r[c] !== undefined && r[c] !== null ? r[c] : "");
                         }
                         filasProcesadas.push(fila);
@@ -358,7 +358,7 @@
             const select = document.getElementById('filtroCustomer');
             const customers = new Set();
             filasProcesadas.forEach(r => {
-                let cust = String(r[23] || '').trim(); // Customer desplazado al índice 23
+                let cust = String(r[23] || '').trim();
                 if (cust) customers.add(cust);
             });
 
@@ -408,30 +408,32 @@
                 
                 let agruparGeneral = {};
                 filasProcesadas.forEach(r => {
-                    let customer = String(r[23] || '').trim(); // Customer en índice 23
+                    let customer = String(r[23] || '').trim();
                     if (customerFiltro && customerFiltro !== 'TODOS' && customer !== customerFiltro) return;
 
-                    let cp = String(r[24] || '').trim();           // CP en índice 24
-                    let transporte = String(r[26] || '').trim();   // Transporte 2 en índice 26
+                    let cp = String(r[24] || '').trim();
+                    let transporte = String(r[26] || '').trim();
                     let idCliente = String(r[0] || '').trim();
                     let nombreCliente = String(r[15] || '').trim();
                     let prioridad = String(r[14] || '').trim();
-                    let canal = String(r[22] || '').trim();        // Canal en índice 22
+                    let canal = String(r[22] || '').trim();
+                    let segundaVuelta = String(r[21] || '').trim(); // Columna 22 (2da Vuelta)
+                    let customerVal = String(r[23] || '').trim();
                     let localidad = String(r[16] || '').trim();
                     let direccion = String(r[19] || '').trim();
                     let turno = String(r[20] || '').trim();
 
-                    let key = `${cp}_${transporte}_${idCliente}_${nombreCliente}_${prioridad}_${canal}_${customer}_${localidad}_${direccion}_${turno}`;
+                    let key = `${cp}_${transporte}_${idCliente}_${nombreCliente}_${prioridad}_${segundaVuelta}_${canal}_${customerVal}_${localidad}_${direccion}_${turno}`;
 
                     if (!agruparGeneral[key]) {
-                        agruparGeneral[key] = { cp, transporte, idCliente, nombreCliente, prioridad, canal, customer, localidad, direccion, turno, bultos: 0, peso: 0, pallets: 0 };
+                        agruparGeneral[key] = { cp, transporte, idCliente, nombreCliente, prioridad, segundaVuelta, canal, customer: customerVal, localidad, direccion, turno, bultos: 0, peso: 0, pallets: 0 };
                     }
                     agruparGeneral[key].bultos += Number(r[4]) || 0;
                     agruparGeneral[key].peso += Number(r[12]) || 0;
                     agruparGeneral[key].pallets += Number(r[3]) || 0;
                 });
 
-                const cols = ["CP", "Transporte 2", "ID del Cliente", "Nombre Cliente", "Prioridad", "Canal", "Customer", "Localidad", "Dirección", "Turno (Hora)", "Bultos", "Peso [kg]", "Pallets"];
+                const cols = ["CP", "Transporte 2", "ID del Cliente", "Nombre Cliente", "Prioridad", "2da Vuelta", "Canal", "Customer", "Localidad", "Dirección", "Turno (Hora)", "Bultos", "Peso [kg]", "Pallets"];
                 thead.innerHTML = cols.map(c => `<th class="p-3">${c}</th>`).join('');
 
                 const itemsGeneral = Object.values(agruparGeneral);
@@ -447,6 +449,7 @@
                             <td class="p-3 font-bold text-blue-900 cursor-pointer hover:underline" onclick="verInfoCliente('${item.idCliente}')">${item.idCliente}</td>
                             <td class="p-3">${item.nombreCliente}</td>
                             <td class="p-3">${item.prioridad}</td>
+                            <td class="p-3 font-semibold text-amber-700">${item.segundaVuelta}</td>
                             <td class="p-3">${item.canal}</td>
                             <td class="p-3">${item.customer}</td>
                             <td class="p-3">${item.localidad}</td>
@@ -461,7 +464,7 @@
 
                 tfoot.innerHTML = `
                     <tr>
-                        <td colspan="10" class="p-3 text-right uppercase">TOTALES:</td>
+                        <td colspan="11" class="p-3 text-right uppercase">TOTALES:</td>
                         <td class="p-3">${acumuladoBultos.toFixed(2)}</td>
                         <td class="p-3">${acumuladoPeso.toFixed(2)}</td>
                         <td class="p-3">${acumuladoPallets.toFixed(2)}</td>
@@ -473,8 +476,8 @@
             } else if (vistaActual === 'cliente') {
                 let agrupar = {};
                 filasProcesadas.forEach(r => {
-                    let cp = String(r[24] || '').trim();           // CP en índice 24
-                    let transporte = String(r[26] || '').trim();   // Transporte 2 en índice 26
+                    let cp = String(r[24] || '').trim();
+                    let transporte = String(r[26] || '').trim();
                     let reparto = String(r[10] || '').trim();
                     let idCliente = String(r[0] || '').trim();
                     let key = `${cp}___${transporte}___${reparto}`;
