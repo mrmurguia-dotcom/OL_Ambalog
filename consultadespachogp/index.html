@@ -111,6 +111,7 @@
                 <table class="w-full text-left border-collapse text-xs font-sans">
                     <thead class="bg-slate-800 text-white font-bold sticky top-0">
                         <tr>
+                            <th class="p-3">Fecha</th>
                             <th class="p-3">Canal</th>
                             <th class="p-3">Tipo Viaje</th>
                             <th class="p-3">Cliente Principal</th>
@@ -127,7 +128,7 @@
                         </tr>
                     </thead>
                     <tbody id="tbodyLogistica" class="divide-y divide-slate-100 text-slate-800">
-                        <tr><td colspan="13" class="p-6 text-center text-slate-400 italic">Seleccioná fecha(s) y hacé click en Consultar.</td></tr>
+                        <tr><td colspan="14" class="p-6 text-center text-slate-400 italic">Seleccioná fecha(s) y hacé click en Consultar.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -203,7 +204,7 @@
     </div>
 
     <!-- =================================================================== -->
-    <!-- 3. VISTA COMERCIAL (AJUSTES PUNTOS 1 AL 5 IMPLEMENTADOS) -->
+    <!-- 3. VISTA COMERCIAL -->
     <!-- =================================================================== -->
     <div id="seccionComercial" class="space-y-6 hidden">
         <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 space-y-4">
@@ -214,14 +215,12 @@
                 </div>
                 
                 <div class="flex items-center gap-3 flex-wrap">
-                    <!-- PUNTO 1: FILTRO CLIENTE POR TEXTO/NÚMERO O LISTA DESPLEGABLE -->
                     <div>
                         <label class="block text-[10px] font-bold text-slate-500 uppercase">Buscar Cliente (Nombre o Nro):</label>
                         <input type="text" id="comercialBusquedaCliente" list="listaClientesDatalist" oninput="renderizarComercial()" placeholder="Escribí o seleccioná..." class="p-2 rounded-xl border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none w-56">
                         <datalist id="listaClientesDatalist"></datalist>
                     </div>
 
-                    <!-- PUNTO 2: FILTRO POR FECHA ÚNICA O RANGO (FECHA DE FACTURA) -->
                     <div>
                         <label class="block text-[10px] font-bold text-slate-500 uppercase">Fechas de Consulta (por Fecha de Factura):</label>
                         <div class="flex gap-2 items-center mt-1">
@@ -231,7 +230,6 @@
                         </div>
                     </div>
 
-                    <!-- PUNTO 3: FILTRO POR INCIDENCIAS -->
                     <div>
                         <label class="block text-[10px] font-bold text-slate-500 uppercase">Estado de Incidencia:</label>
                         <select id="comercialFiltroIncidencia" onchange="renderizarComercial()" class="p-2 rounded-xl border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none mt-1">
@@ -250,20 +248,19 @@
                 <table class="w-full text-left border-collapse text-xs font-sans">
                     <thead class="bg-slate-800 text-white font-bold sticky top-0">
                         <tr>
+                            <th class="p-3">Carta de Porte</th>
                             <th class="p-3">Cliente</th>
                             <th class="p-3">Nro. Documento</th>
                             <th class="p-3">Tipo</th>
                             <th class="p-3 text-center">Bultos</th>
                             <th class="p-3 text-right">Importe ($)</th>
-                            <!-- PUNTO 4: SEPARACIÓN DE MOTIVO Y TIPO DE OBSERVACIÓN -->
                             <th class="p-3">Motivo de Incidencia</th>
                             <th class="p-3 text-center">Tipo de Novedad / Rechazo</th>
-                            <!-- PUNTO 5: SOLO ÍCONOS EN MULTIMEDIA -->
                             <th class="p-3 text-center">Multimedia</th>
                         </tr>
                     </thead>
                     <tbody id="tbodyComercial" class="divide-y divide-slate-100 text-slate-800">
-                        <tr><td colspan="8" class="p-6 text-center text-slate-400 italic">Seleccioná fechas y hacé click en Consultar.</td></tr>
+                        <tr><td colspan="9" class="p-6 text-center text-slate-400 italic">Seleccioná fechas y hacé click en Consultar.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -406,7 +403,7 @@ async function ejecutarConsultaLogistica() {
     
     btnConsultar.disabled = true;
     btnConsultar.innerText = "⏳ Consultando...";
-    tbody.innerHTML = `<tr><td colspan="13" class="p-8 text-center text-blue-900 font-bold italic animate-pulse">🔄 Consultando datos y descargando novedades del servidor, por favor espere...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="14" class="p-8 text-center text-blue-900 font-bold italic animate-pulse">🔄 Consultando datos y descargando novedades del servidor, por favor espere...</td></tr>`;
 
     try {
         const respGrilla = await fetch(WEB_APP_URL, {
@@ -433,8 +430,9 @@ async function ejecutarConsultaLogistica() {
         });
         let cpsUnicas = [...cpsSet];
         documentosGlobal = [];
+        let mapaDocumentosUnicos = new Map();
 
-        for (let cp of cpsUnicas) {
+        let promesasDocs = cpsUnicas.map(async (cp) => {
             try {
                 const respDoc = await fetch(WEB_APP_URL, {
                     method: 'POST',
@@ -447,29 +445,39 @@ async function ejecutarConsultaLogistica() {
 
                     resDoc.data.listaClientes.forEach(cli => {
                         cli.documentos.forEach(doc => {
-                            documentosGlobal.push({
-                                cp: cp,
-                                fechaGrilla: fechaFila,
-                                cliente: cli.nombre || 'N/A',
-                                direccion: cli.direccion || 'N/A',
-                                numero: doc.numero || 'N/A',
-                                tipo: doc.tipo || 'FACTURA',
-                                cajas: Number(doc.cajas) || 0,
-                                unidades: Number(doc.unidades) || 0,
-                                importe: Number(doc.importe) || 0,
-                                motivo: doc.motivo || '',
-                                observacion: doc.observacion || '',
-                                bultosRechazados: doc.bultosRechazados !== undefined ? doc.bultosRechazados : '',
-                                fotoLink: doc.fotoLink || '',
-                                audioLink: doc.audioLink || ''
-                            });
+                            let nroDoc = String(doc.numero || 'N/A').trim();
+                            let tipoDoc = String(doc.tipo || 'FACTURA').trim();
+                            let keyDoc = `${cp}_${nroDoc}_${tipoDoc}`;
+
+                            if (!mapaDocumentosUnicos.has(keyDoc)) {
+                                mapAUnico = {
+                                    cp: cp,
+                                    fechaGrilla: fechaFila,
+                                    cliente: cli.nombre || 'N/A',
+                                    direccion: cli.direccion || 'N/A',
+                                    numero: nroDoc,
+                                    tipo: tipoDoc,
+                                    cajas: Number(doc.cajas) || 0,
+                                    unidades: Number(doc.unidades) || 0,
+                                    importe: Number(doc.importe) || 0,
+                                    motivo: doc.motivo || '',
+                                    observacion: doc.observacion || '',
+                                    bultosRechazados: doc.bultosRechazados !== undefined ? doc.bultosRechazados : '',
+                                    fotoLink: doc.fotoLink || '',
+                                    audioLink: doc.audioLink || ''
+                                };
+                                mapaDocumentosUnicos.set(keyDoc, mapAUnico);
+                            }
                         });
                     });
                 }
             } catch (e) {
                 console.error("Error al obtener documentos para CP:", cp, e);
             }
-        }
+        });
+
+        await Promise.all(promesasDocs);
+        documentosGlobal = Array.from(mapaDocumentosUnicos.values());
 
         renderizarLogisticaConDatosFiltrados(filtradosGrilla);
         poblarFiltrosComercial();
@@ -477,7 +485,7 @@ async function ejecutarConsultaLogistica() {
 
     } catch (err) {
         console.error("Error al consultar datos:", err);
-        tbody.innerHTML = `<tr><td colspan="13" class="p-6 text-center text-red-600 font-bold">❌ Error al conectar con el servidor. Intente nuevamente.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="14" class="p-6 text-center text-red-600 font-bold">❌ Error al conectar con el servidor. Intente nuevamente.</td></tr>`;
     } finally {
         btnConsultar.disabled = false;
         btnConsultar.innerText = "🔍 Consultar";
@@ -494,11 +502,29 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
     filtrados.sort((a, b) => new Date(b.fechaGrilla) - new Date(a.fechaGrilla));
 
     if (soloNov) {
-        filtrados = filtrados.filter(g => g.llegadaEstado && g.llegadaEstado.includes('con novedad'));
+        filtrados = filtrados.filter(g => {
+            let cpsDeFila = obtenerTodasLasCPsDeFila(g);
+            let docsDeFila = documentosGlobal.filter(d => cpsDeFila.includes(d.cp));
+            let tieneRechazos = docsDeFila.some(d => {
+                let bRech = 0;
+                let totalLinea = (Number(d.cajas) || 0) + (Number(d.unidades) || 0);
+                if (d.bultosRechazados !== '' && d.bultosRechazados !== undefined && !isNaN(d.bultosRechazados)) {
+                    bRech = Number(d.bultosRechazados);
+                } else if (d.observacion === 'rechazo total' || d.observacion === 'no entregado') {
+                    bRech = totalLinea;
+                } else if (d.observacion === 'rechazo parcial') {
+                    bRech = Number(d.cajas) || 0;
+                }
+                return bRech > 0;
+            });
+            let llegadaConNov = g.llegadaEstado && !String(g.llegadaEstado).toLowerCase().includes('sin novedad');
+            let salidaConNov = g.salidaEstado && g.salidaEstado !== 'SALIO';
+            return tieneRechazos || llegadaConNov || salidaConNov;
+        });
     }
 
     if (filtrados.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="13" class="p-6 text-center text-slate-400 italic">No hay registros para la fecha o filtros seleccionados.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="14" class="p-6 text-center text-slate-400 italic">No hay registros para la fecha o filtros seleccionados.</td></tr>`;
         document.getElementById('logTotalProg').innerText = '0';
         document.getElementById('logTotalFact').innerText = '0';
         document.getElementById('logTotalEntregados').innerText = '0';
@@ -574,6 +600,7 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
 
         return `
             <tr class="hover:bg-slate-50 border-b">
+                <td class="p-3 font-bold text-slate-700">${g.fechaGrilla || ''}</td>
                 <td class="p-3 uppercase font-bold text-slate-700">${g.canal || ''}</td>
                 <td class="p-3">${g.tipoViaje || ''}</td>
                 <td class="p-3 font-semibold">${g.cliente || ''}</td>
@@ -648,8 +675,9 @@ async function ejecutarConsultaEjecutiva() {
         });
         let cpsUnicas = [...cpsSet];
         documentosGlobal = [];
+        let mapaDocumentosUnicos = new Map();
 
-        for (let cp of cpsUnicas) {
+        let promesasDocs = cpsUnicas.map(async (cp) => {
             try {
                 const respDoc = await fetch(WEB_APP_URL, {
                     method: 'POST',
@@ -662,29 +690,38 @@ async function ejecutarConsultaEjecutiva() {
 
                     resDoc.data.listaClientes.forEach(cli => {
                         cli.documentos.forEach(doc => {
-                            documentosGlobal.push({
-                                cp: cp,
-                                fechaGrilla: fechaFila,
-                                cliente: cli.nombre || 'N/A',
-                                direccion: cli.direccion || 'N/A',
-                                numero: doc.numero || 'N/A',
-                                tipo: doc.tipo || 'FACTURA',
-                                cajas: Number(doc.cajas) || 0,
-                                unidades: Number(doc.unidades) || 0,
-                                importe: Number(doc.importe) || 0,
-                                motivo: doc.motivo || '',
-                                observacion: doc.observacion || '',
-                                bultosRechazados: doc.bultosRechazados !== undefined ? doc.bultosRechazados : '',
-                                fotoLink: doc.fotoLink || '',
-                                audioLink: doc.audioLink || ''
-                            });
+                            let nroDoc = String(doc.numero || 'N/A').trim();
+                            let tipoDoc = String(doc.tipo || 'FACTURA').trim();
+                            let keyDoc = `${cp}_${nroDoc}_${tipoDoc}`;
+
+                            if (!mapaDocumentosUnicos.has(keyDoc)) {
+                                mapaDocumentosUnicos.set(keyDoc, {
+                                    cp: cp,
+                                    fechaGrilla: fechaFila,
+                                    cliente: cli.nombre || 'N/A',
+                                    direccion: cli.direccion || 'N/A',
+                                    numero: nroDoc,
+                                    tipo: tipoDoc,
+                                    cajas: Number(doc.cajas) || 0,
+                                    unidades: Number(doc.unidades) || 0,
+                                    importe: Number(doc.importe) || 0,
+                                    motivo: doc.motivo || '',
+                                    observacion: doc.observacion || '',
+                                    bultosRechazados: doc.bultosRechazados !== undefined ? doc.bultosRechazados : '',
+                                    fotoLink: doc.fotoLink || '',
+                                    audioLink: doc.audioLink || ''
+                                });
+                            }
                         });
                     });
                 }
             } catch (e) {
                 console.error("Error al obtener documentos para CP:", cp, e);
             }
-        }
+        });
+
+        await Promise.all(promesasDocs);
+        documentosGlobal = Array.from(mapaDocumentosUnicos.values());
 
         renderizarMetricasEjecutivasCompletas(filtradosGrilla);
         poblarFiltrosComercial();
@@ -784,7 +821,7 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla) {
         }
 
         let badgeSegundaVuelta = tieneSegundaVuelta 
-            ? `<span class="bg-amber-100 text-amber-900 px-2.5 py-1 rounded-full font-bold text-[11px]">1 (Sí)</span>` 
+            ? `<span class="bg-amber-100 text-amber-900 px-2.5 py-1 rounded-full font-bold text-[11px]">1</span>` 
             : `<span class="text-slate-400 font-bold">0</span>`;
 
         tPendientes += bultosPendientesFecha;
@@ -908,7 +945,7 @@ function copiarTablaEjecutiva() {
     window.getSelection().removeAllRanges();
 }
 
-// --- VISTA COMERCIAL: FUNCIONES ACTUALIZADAS ---
+// --- VISTA COMERCIAL ---
 async function ejecutarConsultaComercial() {
     const btnConsultar = document.getElementById('btnConsultarComercial');
     const f1 = document.getElementById('comFecha1').value;
@@ -944,7 +981,6 @@ function renderizarComercial() {
     const tbody = document.getElementById('tbodyComercial');
     let docsFiltrados = documentosGlobal;
 
-    // PUNTO 2: Filtrado por Rango/Única Fecha de Factura
     if (f1) {
         docsFiltrados = docsFiltrados.filter(d => {
             let fechaD = String(d.fechaGrilla || '').trim();
@@ -953,14 +989,12 @@ function renderizarComercial() {
         });
     }
 
-    // PUNTO 1: Filtrado por Código o Nombre de Cliente
     if (textoCliente) {
         docsFiltrados = docsFiltrados.filter(d => 
             String(d.cliente || '').toLowerCase().includes(textoCliente)
         );
     }
 
-    // PUNTO 3: Filtrado por Incidencia
     if (filtroInc === 'CON_INCIDENCIA') {
         docsFiltrados = docsFiltrados.filter(d => (d.motivo && d.motivo.trim() !== '') || (d.observacion && d.observacion.trim() !== ''));
     } else if (filtroInc === 'SIN_INCIDENCIA') {
@@ -968,12 +1002,11 @@ function renderizarComercial() {
     }
 
     if (docsFiltrados.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400 italic">No hay documentos comerciales disponibles para los filtros seleccionados.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-slate-400 italic">No hay documentos comerciales disponibles para los filtros seleccionados.</td></tr>`;
         return;
     }
 
     tbody.innerHTML = docsFiltrados.map(d => {
-        // PUNTO 4: Separación de Motivos e Incidencias
         let tieneIncidencia = (d.motivo && d.motivo.trim() !== '') || (d.observacion && d.observacion.trim() !== '');
         
         let motivoTxt = tieneIncidencia 
@@ -989,13 +1022,13 @@ function renderizarComercial() {
             tipoNovedadBadge = `<span class="bg-purple-100 text-purple-800 px-2 py-0.5 rounded font-bold">${d.observacion || 'Con Novedad'}</span>`;
         }
 
-        // PUNTO 5: Solo íconos limpios en Multimedia
         let fotoBtn = d.fotoLink ? `<button onclick="abrirVisorLink('${d.fotoLink}', 'FOTO')" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-800 px-2.5 py-1 rounded-xl text-sm font-bold shadow-sm transition-all" title="Ver Evidencia Fotográfica">📷</button>` : '';
         let audioBtn = d.audioLink ? `<button onclick="abrirVisorLink('${d.audioLink}', 'AUDIO')" class="bg-purple-100 hover:bg-purple-200 text-purple-800 px-2.5 py-1 rounded-xl text-sm font-bold shadow-sm transition-all" title="Escuchar Evidencia de Audio">🎤</button>` : '';
         let multimediaContent = (fotoBtn || audioBtn) ? `<div class="flex items-center justify-center gap-1.5">${fotoBtn}${audioBtn}</div>` : '<span class="text-slate-300 font-bold">-</span>';
 
         return `
             <tr class="hover:bg-slate-50 border-b">
+                <td class="p-3 font-black text-blue-900">${d.cp || ''}</td>
                 <td class="p-3 font-bold">${d.cliente}</td>
                 <td class="p-3 font-black text-blue-900">${d.numero}</td>
                 <td class="p-3"><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">${d.tipo}</span></td>
