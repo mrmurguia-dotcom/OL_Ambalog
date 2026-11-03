@@ -571,7 +571,7 @@
                 if (estadoCP === 'CON_CP' && cpActual === "") return;
 
                 const idCliente = String(r[0] || '').trim();
-                const vehiculoVal = String(r[28] || '').trim(); // Vehiculos en índice 28
+                const vehiculoVal = String(r[26] || '').trim(); // Transporte2 en columna AA (índice 26)
                 const localidad = String(r[16] || '').trim();
                 const turno = String(r[20] || '').trim();
                 const segundaVuelta = String(r[21] || '').trim(); // 2da Vuelta en índice 21
@@ -1019,7 +1019,7 @@
                 if (!cp) return;
 
                 const fechaOrig = item.fechaPedido || "Sin_Fecha";
-                const vehiculoNombre = String(r[28] || 'Sin Vehículo').trim(); // Vehiculos en índice 28
+                const vehiculoNombre = String(r[26] || 'Sin Vehículo').trim(); // Transporte2 en columna AA (índice 26)
                 const segundaVueltaVal = String(r[21] || '').trim(); // 2da Vuelta en índice 21
 
                 if (!cpAgrupados[cp]) {
