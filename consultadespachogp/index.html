@@ -398,6 +398,21 @@ function obtenerTodasLasCPsDeFila(g) {
     return lista;
 }
 
+function normalizarFechaAISO(str) {
+    if (!str) return '';
+    str = String(str).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+    let p = str.split(/[-/]/);
+    if (p.length === 3) {
+        if (p[0].length === 4) {
+            return `${p[0]}-${p[1].padStart(2,'0')}-${p[2].padStart(2,'0')}`;
+        } else {
+            return `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
+        }
+    }
+    return str;
+}
+
 async function ejecutarConsultaLogistica() {
     const btnConsultar = document.getElementById('btnConsultarLogistica');
     const tbody = document.getElementById('tbodyLogistica');
@@ -644,7 +659,7 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
     }
 }
 
-// --- CONSULTA EJECUTIVA ---
+// --- CONSULTA EJECUTIVA CON INTEGRACIÓN DE PENDIENTES DE RUTEO ---
 async function ejecutarConsultaEjecutiva() {
     const btnConsultar = document.getElementById('btnConsultarEjecutiva');
     const tbody = document.getElementById('tbodyEjecutivaTabla');
@@ -657,16 +672,29 @@ async function ejecutarConsultaEjecutiva() {
 
     btnConsultar.disabled = true;
     btnConsultar.innerText = "⏳ Consultando...";
-    tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-blue-900 font-bold italic animate-pulse">🔄 Consultando y procesando datos ejecutivos del servidor, por favor espere...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-blue-900 font-bold italic animate-pulse">🔄 Consultando grilla y pedidos pendientes del servidor, por favor espere...</td></tr>`;
 
     try {
-        const respGrilla = await fetch(WEB_APP_URL, {
-            method: 'POST',
-            body: JSON.stringify({ action: 'obtenerGrillaRegistrada' })
-        });
+        const [respGrilla, respPend] = await Promise.all([
+            fetch(WEB_APP_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'obtenerGrillaRegistrada' })
+            }),
+            fetch(WEB_APP_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'obtenerTodasCPsPendientes' })
+            })
+        ]);
+
         const resGrilla = await respGrilla.json();
         if (resGrilla.status === "success") {
             grillaGlobal = resGrilla.grilla || [];
+        }
+
+        let pendientesGlobal = [];
+        const resPend = await respPend.json();
+        if (resPend.status === "success") {
+            pendientesGlobal = resPend.pendientes || [];
         }
 
         let filtradosGrilla = grillaGlobal.filter(g => {
@@ -679,6 +707,11 @@ async function ejecutarConsultaEjecutiva() {
         filtradosGrilla.forEach(g => {
             obtenerTodasLasCPsDeFila(g).forEach(cp => cpsSet.add(cp));
         });
+        pendientesGlobal.forEach(p => {
+            let cp = String(p.data[24] || '').trim();
+            if (cp) cpsSet.add(cp);
+        });
+
         let cpsUnicas = [...cpsSet];
         documentosGlobal = [];
         let mapaDocumentosUnicos = new Map();
@@ -729,12 +762,12 @@ async function ejecutarConsultaEjecutiva() {
         await Promise.all(promesasDocs);
         documentosGlobal = Array.from(mapaDocumentosUnicos.values());
 
-        renderizarMetricasEjecutivasCompletas(filtradosGrilla);
+        renderizarMetricasEjecutivasCompletas(filtradosGrilla, pendientesGlobal, f1, f2);
         poblarFiltrosComercial();
         renderizarComercial();
 
     } catch (err) {
-        console.error("Error al consultar datos ejecutivos:", err);
+        console.error("Error al conectar con el servidor:", err);
         tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-red-600 font-bold">❌ Error al conectar con el servidor. Intente nuevamente.</td></tr>`;
     } finally {
         btnConsultar.disabled = false;
@@ -742,9 +775,36 @@ async function ejecutarConsultaEjecutiva() {
     }
 }
 
-// --- RENDERIZADO GLOBAL DE LA VISTA EJECUTIVA ---
-function renderizarMetricasEjecutivasCompletas(filtradosGrilla) {
-    let fechasUnicas = [...new Set(filtradosGrilla.map(g => g.fechaGrilla).filter(Boolean))].sort((a, b) => new Date(b) - new Date(a));
+// --- RENDERIZADO GLOBAL DE LA VISTA EJECUTIVA CON PENDIENTES ---
+function renderizarMetricasEjecutivasCompletas(filtradosGrilla, pendientesGlobal, f1, f2) {
+    let fechasSet = new Set();
+
+    filtradosGrilla.forEach(g => {
+        if (g.fechaGrilla) fechasSet.add(g.fechaGrilla);
+    });
+
+    if (pendientesGlobal) {
+        pendientesGlobal.forEach(p => {
+            let fIso = normalizarFechaAISO(p.fechaPedido);
+            if (fIso) {
+                if (f2 ? (fIso >= f1 && fIso <= f2) : (fIso === f1)) {
+                    fechasSet.add(fIso);
+                }
+            }
+        });
+    }
+
+    if (f1) {
+        let curr = new Date(f1 + 'T00:00:00');
+        let endDate = f2 ? new Date(f2 + 'T00:00:00') : new Date(f1 + 'T00:00:00');
+        while (curr <= endDate) {
+            let isoStr = curr.toISOString().split('T00:00:00')[0];
+            fechasSet.add(isoStr);
+            curr.setDate(curr.getDate() + 1);
+        }
+    }
+
+    let fechasUnicas = [...fechasSet].sort((a, b) => new Date(b) - new Date(a));
 
     const tbody = document.getElementById('tbodyEjecutivaTabla');
     if (fechasUnicas.length === 0) {
@@ -780,7 +840,18 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla) {
             }
         });
 
-        let bultosPendientesFecha = 0; 
+        let bultosPendientesFecha = 0;
+        if (pendientesGlobal) {
+            pendientesGlobal.forEach(p => {
+                let fIso = normalizarFechaAISO(p.fechaPedido);
+                if (fIso === fecha) {
+                    bultosPendientesFecha += Number(p.data[4]) || 0;
+                    let cp = String(p.data[24] || '').trim();
+                    if (cp) cpsDeFecha.push(cp);
+                }
+            });
+        }
+
         let demandaTotalFecha = bultosPendientesFecha + bultosGrillaFecha;
 
         let docsFecha = documentosGlobal.filter(d => cpsDeFecha.includes(d.cp));
@@ -821,7 +892,7 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla) {
         } else if (extracostoBultos > 0) {
             badgeUmbral = `<span class="bg-red-100 text-red-800 px-2.5 py-1 rounded-full font-black text-[11px]">🚨 Exceso bultos: +${extracostoBultos.toLocaleString('es-ES')}</span>`;
         } else if (tieneSegundaVuelta) {
-            badgeUmbral = `<span class="bg-amber-100 text-amber-900 px-2.5 py-1 rounded-full font-black text-[11px]">⚠️ Extracosto por 2ª Vuelta</span>`;
+            badgeUmbral = `<span class="bg-amber-100 text-amber-900 px-2.5 py-1 rounded-full font-bold text-[11px]">⚠️ Extracosto por 2ª Vuelta</span>`;
         } else {
             badgeUmbral = `<span class="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full font-bold text-[11px]">🟢 En rango (&lt;9k) sin 2ªv</span>`;
         }
