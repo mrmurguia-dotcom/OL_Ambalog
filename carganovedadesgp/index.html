@@ -207,9 +207,9 @@ async function cargarGrillaNovedades() {
     }
 }
 
+// OPTIMIZADO: Precarga en paralelo con Promise.all para máxima velocidad
 async function preCargarDocumentosViajes() {
-    for (let i = 0; i < viajesNovedades.length; i++) {
-        const v = viajesNovedades[i];
+    const promesasViajes = viajesNovedades.map(async (v, i) => {
         const cpKey = v.cpPrincipal || i;
         let cpgLista = [v.cpPrincipal];
         if (v.cpComplementos && v.cpComplementos.trim() !== '' && v.cpComplementos !== 'Ninguna') {
@@ -225,7 +225,7 @@ async function preCargarDocumentosViajes() {
             };
         }
 
-        for (let cp of cpgLista) {
+        const promesasCPs = cpgLista.map(async (cp) => {
             try {
                 const resp = await fetch(WEB_APP_URL, {
                     method: 'POST',
@@ -260,8 +260,12 @@ async function preCargarDocumentosViajes() {
             } catch (e) {
                 console.error("Error precargando CP:", cp, e);
             }
-        }
-    }
+        });
+
+        await Promise.all(promesasCPs);
+    });
+
+    await Promise.all(promesasViajes);
 }
 
 function renderizarTablaNovedades() {
@@ -366,7 +370,9 @@ async function abrirModalNovedad(cpPrincipal, cpComplementarios, cpKey) {
         }
 
         documentosActualesCP = [];
-        for (let cp of cpgLista) {
+        
+        // Optimizado: Solicitud en paralelo para los documentos del modal
+        const promesasModal = cpgLista.map(async (cp) => {
             const resp = await fetch(WEB_APP_URL, {
                 method: 'POST',
                 body: JSON.stringify({ action: 'obtenerDatosRuteoCP', cp: cp })
@@ -392,7 +398,9 @@ async function abrirModalNovedad(cpPrincipal, cpComplementarios, cpKey) {
                     });
                 });
             }
-        }
+        });
+
+        await Promise.all(promesasModal);
 
         if (documentosActualesCP.length === 0) {
             tbodyDocs.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400 italic">No se encontraron documentos en la base para estas Cartas de Porte.</td></tr>`;
