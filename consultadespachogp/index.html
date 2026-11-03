@@ -571,7 +571,7 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
         totProg += bultosProg;
         totFact += bultosFactCP;
         totRech += rechazosCP;
-        totEnt += Math.max(0, bultosProg - rechazosCP);
+        totEnt += Math.max(0, bultosFactCP - rechazosCP);
     });
 
     tbody.innerHTML = filtrados.map(g => {
