@@ -233,7 +233,10 @@
             <!-- 1. VIAJES YA REGISTRADOS EN LA GRILLA -->
             <div class="space-y-3">
                 <div class="flex justify-between items-center flex-wrap gap-2">
-                    <h3 class="text-xs font-bold text-slate-800 uppercase">Viajes Ya Registrados en la Grilla (Fecha Seleccionada):</h3>
+                    <h3 class="text-xs font-bold text-slate-800 uppercase">
+                        Viajes Ya Registrados en la Grilla (Fecha Seleccionada): 
+                        <span id="contadorGrillaRegistrada" class="text-blue-900 font-bold normal-case ml-1"></span>
+                    </h3>
                     <button onclick="copiarGrillaRegistrada()" class="bg-blue-900 hover:bg-black text-white font-black text-xs px-4 py-2 rounded-xl shadow transition-all flex items-center gap-1.5">
                         📋 COPIAR GRILLA
                     </button>
@@ -287,7 +290,10 @@
 
             <!-- 3. VIAJES EN BORRADOR -->
             <div class="space-y-3">
-                <h3 class="text-xs font-bold text-emerald-800 uppercase">Viajes en Borrador (Pendientes de Sincronización Masiva):</h3>
+                <h3 class="text-xs font-bold text-emerald-800 uppercase">
+                    Viajes en Borrador (Pendientes de Sincronización Masiva): 
+                    <span id="contadorBorradorGrilla" class="text-emerald-700 font-bold normal-case ml-1"></span>
+                </h3>
                 <div class="overflow-x-auto border border-emerald-200 rounded-2xl bg-white shadow-sm max-h-60">
                     <table class="w-full text-left border-collapse text-xs">
                         <thead class="bg-emerald-100 text-emerald-900 font-bold sticky top-0">
@@ -377,6 +383,11 @@
                         🔍 CONSULTAR PROGRAMACIÓN
                     </button>
                 </div>
+            </div>
+
+            <!-- CONTADOR DE REGISTROS DE HOJA DE RUTA -->
+            <div class="flex items-center justify-between px-1">
+                <span id="contadorHojaRuta" class="text-xs font-bold text-blue-900 uppercase"></span>
             </div>
 
             <!-- TABLA ESTILO EXCEL (DESGLOSADA POR CARTA DE PORTE INDIVIDUAL) -->
@@ -1222,6 +1233,13 @@
 
         function renderizarBorradorGrilla() {
             const tbody = document.getElementById('tbodyBorradorGrilla');
+            
+            // Actualizar contador de registros en borrador
+            const contadorBorrador = document.getElementById('contadorBorradorGrilla');
+            if (contadorBorrador) {
+                contadorBorrador.innerText = `(${viajesBorrador.length} registro${viajesBorrador.length === 1 ? '' : 's'} cargado${viajesBorrador.length === 1 ? '' : 's'})`;
+            }
+
             if (viajesBorrador.length === 0) {
                 tbody.innerHTML = `<tr class="text-slate-400 italic"><td colspan="12" class="p-4 text-center">No hay viajes en el borrador.</td></tr>`;
                 return;
@@ -1262,7 +1280,7 @@
 
         async function sincronizarGrillaMasiva() {
             if (viajesBorrador.length === 0) return alert("El borrador está vacío. Agregá al menos un viaje antes de sincronizar.");
-            if (isSincronizandoGrilla) return; // Evita envíos duplicados por clics múltiples
+            if (isSincronizandoGrilla) return;
 
             const btn = document.getElementById('btnSyncGrilla');
             isSincronizandoGrilla = true;
@@ -1295,6 +1313,12 @@
             const tbody = document.getElementById('tbodyGrillaRegistrada');
             const fechaFiltroGrilla = document.getElementById('filtroFechaGrilla').value;
             const filtrados = grillaRegistrada.filter(g => String(g.fechaGrilla).trim() === String(fechaFiltroGrilla).trim());
+
+            // Actualizar contador de registros en grilla registrada
+            const contadorGrilla = document.getElementById('contadorGrillaRegistrada');
+            if (contadorGrilla) {
+                contadorGrilla.innerText = `(${filtrados.length} registro${filtrados.length === 1 ? '' : 's'} cargado${filtrados.length === 1 ? '' : 's'})`;
+            }
 
             if (filtrados.length === 0) {
                 tbody.innerHTML = `<tr class="text-slate-400 italic"><td colspan="13" class="p-4 text-center">No hay viajes registrados para la fecha de grilla seleccionada.</td></tr>`;
@@ -1504,6 +1528,12 @@
         function renderizarTablaHojaRuta() {
             const tbody = document.getElementById('tbodyHojaRuta');
             
+            // Actualizar contador de registros en hoja de ruta
+            const contadorHR = document.getElementById('contadorHojaRuta');
+            if (contadorHR) {
+                contadorHR.innerText = `${listaCPsHojaRutaIndividual.length} registro${listaCPsHojaRutaIndividual.length === 1 ? '' : 's'} cargado${listaCPsHojaRutaIndividual.length === 1 ? '' : 's'}`;
+            }
+
             if (listaCPsHojaRutaIndividual.length === 0) {
                 tbody.innerHTML = `<tr class="text-slate-400 italic"><td colspan="6" class="p-4 text-center">No hay cartas de porte programadas para esta fecha en la grilla.</td></tr>`;
                 return;
