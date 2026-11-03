@@ -1060,6 +1060,7 @@
                     let numB = parseInt(String(b.cp).replace(/\D/g, "")) || 0;
                     return numA - numB;
                 });
+
                 let fechaFormateada = fecha;
                 if (fecha.includes('-')) {
                     let p = fecha.split('-');
@@ -1257,16 +1258,23 @@
             renderizarBorradorGrilla();
         }
 
+        let isSincronizandoGrilla = false;
+
         async function sincronizarGrillaMasiva() {
             if (viajesBorrador.length === 0) return alert("El borrador está vacío. Agregá al menos un viaje antes de sincronizar.");
+            if (isSincronizandoGrilla) return; // Evita envíos duplicados por clics múltiples
+
             const btn = document.getElementById('btnSyncGrilla');
+            isSincronizandoGrilla = true;
             btn.innerText = "SINCRONIZANDO...";
             btn.disabled = true;
+
+            const viajesASincronizar = [...viajesBorrador];
 
             try {
                 const resp = await fetch(WEB_APP_URL, {
                     method: 'POST',
-                    body: JSON.stringify({ action: 'sincronizarGrillaMasiva', viajes: viajesBorrador })
+                    body: JSON.stringify({ action: 'sincronizarGrillaMasiva', viajes: viajesASincronizar })
                 });
                 const res = await resp.json();
                 alert(res.message);
@@ -1274,9 +1282,13 @@
                 viajesBorrador = [];
                 renderizarBorradorGrilla();
                 cargarGrillaYCPs();
-            } catch (err) { alert("Error al sincronizar la grilla."); }
-            btn.innerText = "💾 SINCRONIZAR TODA LA GRILLA";
-            btn.disabled = false;
+            } catch (err) { 
+                alert("Error al sincronizar la grilla."); 
+            } finally {
+                isSincronizandoGrilla = false;
+                btn.innerText = "💾 SINCRONIZAR TODA LA GRILLA";
+                btn.disabled = false;
+            }
         }
 
         function renderizarTablaGrillaRegistrada() {
