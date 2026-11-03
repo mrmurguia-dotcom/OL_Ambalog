@@ -1053,6 +1053,13 @@
 
             contenedor.innerHTML = fechasOrdenadas.map(fecha => {
                 let itemsDeFecha = porFecha[fecha];
+                
+                // ORDENAMIENTO DE MENOR A MAYOR POR NÚMERO DE CARTA DE PORTE (SIN TOCAR LA FECHA)
+                itemsDeFecha.sort((a, b) => {
+                    let numA = parseInt(String(a.cp).replace(/\D/g, "")) || 0;
+                    let numB = parseInt(String(b.cp).replace(/\D/g, "")) || 0;
+                    return numA - numB;
+                });
                 let fechaFormateada = fecha;
                 if (fecha.includes('-')) {
                     let p = fecha.split('-');
