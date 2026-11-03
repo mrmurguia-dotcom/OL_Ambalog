@@ -659,7 +659,7 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
     }
 }
 
-// --- CONSULTA EJECUTIVA CON INTEGRACIÓN DE PENDIENTES DE RUTEO ---
+// --- CONSULTA EJECUTIVA CON OBTENCIÓN COMPLETA DE PENDIENTES (CON O SIN CP) ---
 async function ejecutarConsultaEjecutiva() {
     const btnConsultar = document.getElementById('btnConsultarEjecutiva');
     const tbody = document.getElementById('tbodyEjecutivaTabla');
@@ -775,7 +775,7 @@ async function ejecutarConsultaEjecutiva() {
     }
 }
 
-// --- RENDERIZADO GLOBAL DE LA VISTA EJECUTIVA CON PENDIENTES ---
+// --- RENDERIZADO GLOBAL DE LA VISTA EJECUTIVA INCLUYENDO PEDIDOS SIN CARTA DE PORTE ---
 function renderizarMetricasEjecutivasCompletas(filtradosGrilla, pendientesGlobal, f1, f2) {
     let fechasSet = new Set();
 
@@ -840,6 +840,7 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla, pendientesGlobal
             }
         });
 
+        // Suma TODOS los pedidos pendientes de la fecha, TENGAN O NO Carta de Porte
         let bultosPendientesFecha = 0;
         if (pendientesGlobal) {
             pendientesGlobal.forEach(p => {
