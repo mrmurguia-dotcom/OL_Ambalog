@@ -13,12 +13,10 @@
                 margin: 8mm;
             }
             
-            /* Ocultar todo el body y botones de interfaz */
             body * {
                 visibility: hidden !important;
             }
             
-            /* Desestructurar el modal para que las hojas impriman como paginas independientes */
             #modalVistaPreviaPDF, 
             #modalVistaPreviaPDF *,
             #contenidoHojasPDF,
@@ -40,7 +38,6 @@
                 display: block !important;
             }
 
-            /* Eliminar sombras y bordes de la tarjeta contenedora del modal en impresión */
             #modalVistaPreviaPDF > div {
                 box-shadow: none !important;
                 border: none !important;
@@ -62,7 +59,6 @@
                 display: none !important;
             }
 
-            /* REGLAS FORZADAS DE SALTO DE PÁGINA PERMITIENDO 1 CP POR HOJA */
             .hoja-pagina {
                 page-break-before: always !important;
                 break-before: page !important;
@@ -124,9 +120,14 @@
                     <h2 class="text-xl font-black text-blue-900">1. Asignación de Carta de Porte (Vista Dinámica Agrupada)</h2>
                     <p class="text-xs text-slate-500 mt-0.5">Seleccioná uno o más grupos para asignar CP y novedades de forma masiva.</p>
                 </div>
-                <button onclick="sincronizarCambiosCP()" id="btnSyncCP" class="bg-orange-500 hover:bg-orange-600 text-white font-black text-xs px-6 py-2.5 rounded-xl shadow transition-all">
-                    💾 SINCRONIZAR CAMBIOS
-                </button>
+                <div class="flex items-center gap-3">
+                    <button onclick="copiarTablaAsignarCP()" class="bg-blue-900 hover:bg-black text-white font-black text-xs px-4 py-2.5 rounded-xl shadow transition-all flex items-center gap-1.5">
+                        📋 COPIAR TABLA
+                    </button>
+                    <button onclick="sincronizarCambiosCP()" id="btnSyncCP" class="bg-orange-500 hover:bg-orange-600 text-white font-black text-xs px-6 py-2.5 rounded-xl shadow transition-all">
+                        💾 SINCRONIZAR CAMBIOS
+                    </button>
+                </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200">
@@ -149,7 +150,7 @@
                     </select>
                 </div>
                 <div class="flex items-end">
-                    <button onclick="cargarPedidosServidor()" class="w-full bg-blue-800 hover:bg-blue-900 text-white font-bold text-xs py-2.5 rounded-xl shadow">
+                    <button onclick="cargarPedidosServidor()" id="btnConsultarBase" class="w-full bg-blue-800 hover:bg-blue-900 text-white font-bold text-xs py-2.5 rounded-xl shadow transition-all">
                         🔍 CONSULTAR BASE
                     </button>
                 </div>
@@ -166,6 +167,7 @@
                             <th class="p-3">Nombre Cliente</th>
                             <th class="p-3">Localidad</th>
                             <th class="p-3">Turno (Hora)</th>
+                            <th class="p-3">2da Vuelta</th>
                             <th class="p-3">Dirección</th>
                             <th class="p-3 text-center">Bultos</th>
                             <th class="p-3 text-center">Peso [kg]</th>
@@ -521,6 +523,10 @@
             if (!fechaInput) return;
             const [y, m, d] = fechaInput.split('-');
 
+            const btnConsultar = document.getElementById('btnConsultarBase');
+            btnConsultar.innerText = "BUSCANDO...";
+            btnConsultar.disabled = true;
+
             try {
                 const resp = await fetch(WEB_APP_URL, {
                     method: 'POST',
@@ -532,13 +538,18 @@
                     poblarCanales();
                     filtrarYRenderizarCP();
                 }
-            } catch (err) { console.error("Error al cargar pedidos:", err); }
+            } catch (err) { 
+                console.error("Error al cargar pedidos:", err); 
+            }
+
+            btnConsultar.innerText = "🔍 CONSULTAR BASE";
+            btnConsultar.disabled = false;
         }
 
         function poblarCanales() {
             const select = document.getElementById('filtroCanal');
             const canales = new Set();
-            rawPedidos.forEach(item => { let c = String(item.data[21] || '').trim(); if (c) canales.add(c); });
+            rawPedidos.forEach(item => { let c = String(item.data[22] || '').trim(); if (c) canales.add(c); });
             select.innerHTML = '<option value="TODOS">-- Todos los Canales --</option>';
             Array.from(canales).sort().forEach(c => { select.innerHTML += `<option value="${c}">${c}</option>`; });
         }
@@ -550,28 +561,29 @@
 
             rawPedidos.forEach(item => {
                 const r = item.data;
-                const canal = String(r[21] || '').trim();
+                const canal = String(r[22] || '').trim(); // Canal en índice 22
                 if (canalSel !== 'TODOS' && canal !== canalSel) return;
 
                 const filaNum = item.filaReal;
-                const cpActual = cambiosCP[filaNum]?.cpNuevo !== undefined ? cambiosCP[filaNum].cpNuevo : String(r[23] || '').trim();
+                const cpActual = cambiosCP[filaNum]?.cpNuevo !== undefined ? cambiosCP[filaNum].cpNuevo : String(r[24] || '').trim(); // CP en índice 24
 
                 if (estadoCP === 'SIN_CP' && cpActual !== "") return;
                 if (estadoCP === 'CON_CP' && cpActual === "") return;
 
                 const idCliente = String(r[0] || '').trim();
-                const vehiculoVal = String(r[25] || '').trim(); 
+                const vehiculoVal = String(r[28] || '').trim(); // Vehiculos en índice 28
                 const localidad = String(r[16] || '').trim();
                 const turno = String(r[20] || '').trim();
+                const segundaVuelta = String(r[21] || '').trim(); // 2da Vuelta en índice 21
                 const direccion = String(r[19] || '').trim();
                 const nombreCliente = String(r[15] || '').trim();
 
-                const claveGrupo = `${idCliente}_${vehiculoVal}_${cpActual}_${localidad}_${turno}_${direccion}`;
+                const claveGrupo = `${idCliente}_${vehiculoVal}_${cpActual}_${localidad}_${turno}_${segundaVuelta}_${direccion}`;
 
                 if (!mapaGrupos[claveGrupo]) {
                     mapaGrupos[claveGrupo] = {
-                        key: claveGrupo, cp: cpActual, vehiculo: vehiculoVal, idCliente, nombreCliente, localidad, turno, direccion,
-                        bultos: 0, peso: 0, pallets: 0, novedad: String(r[29] || '').trim(), filasReales: [], pedidosEmbarques: []
+                        key: claveGrupo, cp: cpActual, vehiculo: vehiculoVal, idCliente, nombreCliente, localidad, turno, segundaVuelta, direccion,
+                        bultos: 0, peso: 0, pallets: 0, novedad: String(r[30] || '').trim(), filasReales: [], pedidosEmbarques: []
                     };
                 }
 
@@ -604,6 +616,7 @@
                         <td class="p-3 font-semibold">${g.nombreCliente}</td>
                         <td class="p-3">${g.localidad}</td>
                         <td class="p-3">${g.turno}</td>
+                        <td class="p-3 font-semibold text-amber-700">${g.segundaVuelta}</td>
                         <td class="p-3">${g.direccion}</td>
                         <td class="p-3 text-center font-bold">${g.bultos}</td>
                         <td class="p-3 text-center">${g.peso.toFixed(2)}</td>
@@ -613,9 +626,83 @@
                 `;
             }).join('');
 
-            tfoot.innerHTML = `<tr><td colspan="8" class="p-3 text-right uppercase">TOTALES:</td><td class="p-3 text-center">${totBultos}</td><td class="p-3 text-center">${totPeso.toFixed(2)}</td><td class="p-3 text-center">${totPallets.toFixed(2)}</td><td></td></tr>`;
+            tfoot.innerHTML = `<tr><td colspan="9" class="p-3 text-right uppercase">TOTALES:</td><td class="p-3 text-center">${totBultos}</td><td class="p-3 text-center">${totPeso.toFixed(2)}</td><td class="p-3 text-center">${totPallets.toFixed(2)}</td><td></td></tr>`;
             
             calcularResumenSeleccionCP();
+        }
+
+        // --- FUNCIÓN DE COPIADO PARA LA TABLA DE ASIGNAR CP ---
+        function copiarTablaAsignarCP() {
+            if (gruposAgrupados.length === 0) {
+                alert("No hay datos para copiar.");
+                return;
+            }
+
+            let htmlContent = `
+                <table border="1" cellspacing="0" cellpadding="5" style="border-collapse: collapse; font-family: Calibri, Arial, sans-serif; font-size: 11pt; color: #333333;">
+                    <thead>
+                        <tr style="background-color: #1e3a5f; color: #ffffff; text-align: left; font-weight: bold;">
+                            <th style="padding: 8px; border: 1px solid #b0c4de;">Carta de Porte (CP)</th>
+                            <th style="padding: 8px; border: 1px solid #b0c4de;">Vehículo</th>
+                            <th style="padding: 8px; border: 1px solid #b0c4de;">ID Cliente</th>
+                            <th style="padding: 8px; border: 1px solid #b0c4de;">Nombre Cliente</th>
+                            <th style="padding: 8px; border: 1px solid #b0c4de;">Localidad</th>
+                            <th style="padding: 8px; border: 1px solid #b0c4de;">Turno (Hora)</th>
+                            <th style="padding: 8px; border: 1px solid #b0c4de;">2da Vuelta</th>
+                            <th style="padding: 8px; border: 1px solid #b0c4de;">Dirección</th>
+                            <th style="padding: 8px; border: 1px solid #b0c4de; text-align: center;">Bultos</th>
+                            <th style="padding: 8px; border: 1px solid #b0c4de; text-align: center;">Peso [kg]</th>
+                            <th style="padding: 8px; border: 1px solid #b0c4de; text-align: center;">Pallets</th>
+                            <th style="padding: 8px; border: 1px solid #b0c4de;">Novedades / Motivo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            gruposAgrupados.forEach((g, index) => {
+                let bgColor = index % 2 === 0 ? '#ffffff' : '#f9fbfd';
+                htmlContent += `
+                    <tr style="background-color: ${bgColor};">
+                        <td style="padding: 6px; border: 1px solid #dcdcdc; font-weight: bold; color: #1e3a5f;">${g.cp}</td>
+                        <td style="padding: 6px; border: 1px solid #dcdcdc;">${g.vehiculo}</td>
+                        <td style="padding: 6px; border: 1px solid #dcdcdc;">${g.idCliente}</td>
+                        <td style="padding: 6px; border: 1px solid #dcdcdc;">${g.nombreCliente}</td>
+                        <td style="padding: 6px; border: 1px solid #dcdcdc;">${g.localidad}</td>
+                        <td style="padding: 6px; border: 1px solid #dcdcdc;">${g.turno}</td>
+                        <td style="padding: 6px; border: 1px solid #dcdcdc; color: #b45309; font-weight: bold;">${g.segundaVuelta}</td>
+                        <td style="padding: 6px; border: 1px solid #dcdcdc;">${g.direccion}</td>
+                        <td style="padding: 6px; border: 1px solid #dcdcdc; text-align: center;">${g.bultos}</td>
+                        <td style="padding: 6px; border: 1px solid #dcdcdc; text-align: center;">${g.peso.toFixed(2)}</td>
+                        <td style="padding: 6px; border: 1px solid #dcdcdc; text-align: center;">${g.pallets.toFixed(2)}</td>
+                        <td style="padding: 6px; border: 1px solid #dcdcdc;">${g.novedad}</td>
+                    </tr>
+                `;
+            });
+
+            htmlContent += `
+                    </tbody>
+                </table>
+            `;
+
+            if (navigator.clipboard && window.ClipboardItem) {
+                const blobHtml = new Blob([htmlContent], { type: 'text/html' });
+                const textPlain = gruposAgrupados.map(g => `${g.cp}\t${g.vehiculo}\t${g.idCliente}\t${g.nombreCliente}\t${g.localidad}\t${g.turno}\t${g.segundaVuelta}\t${g.direccion}\t${g.bultos}\t${g.peso.toFixed(2)}\t${g.pallets.toFixed(2)}\t${g.novedad}`).join('\n');
+                const blobText = new Blob([textPlain], { type: 'text/plain' });
+
+                navigator.clipboard.write([
+                    new ClipboardItem({
+                        'text/html': blobHtml,
+                        'text/plain': blobText
+                    })
+                ]).then(() => {
+                    alert("✓ ¡Tabla de Asignación copiada al portapapeles!");
+                }).catch(err => {
+                    console.error("Error al copiar:", err);
+                    fallbackCopyHTML(htmlContent);
+                });
+            } else {
+                fallbackCopyHTML(htmlContent);
+            }
         }
 
         function calcularResumenSeleccionCP() {
@@ -921,33 +1008,38 @@
             return new Date(str);
         }
 
-        // --- CARTAS DE PORTE PENDIENTES EN FLUJO CONTINUO HORIZONTAL ---
+        // --- CARTAS DE PORTE PENDIENTES EN FLUJO CONTINUO HORIZONTAL CON 2DA VUELTA ---
         function renderizarFranjasCP() {
             const contenedor = document.getElementById('contenedorFranjasCP');
             let cpAgrupados = {};
 
             cpsPendientesGrilla.forEach(item => {
                 const r = item.data;
-                const cp = String(r[23] || '').trim();
+                const cp = String(r[24] || '').trim(); // CP en índice 24
                 if (!cp) return;
 
                 const fechaOrig = item.fechaPedido || "Sin_Fecha";
-                const vehiculoNombre = String(r[25] || 'Sin Vehículo').trim(); 
+                const vehiculoNombre = String(r[28] || 'Sin Vehículo').trim(); // Vehiculos en índice 28
+                const segundaVueltaVal = String(r[21] || '').trim(); // 2da Vuelta en índice 21
 
                 if (!cpAgrupados[cp]) {
                     cpAgrupados[cp] = { 
                         cp, 
                         fechaPedido: fechaOrig, 
-                        canal: r[21] || 'Sin Canal', 
+                        canal: r[22] || 'Sin Canal', // Canal en índice 22
                         cliente: r[15] || '', 
                         zona: r[16] || '', 
                         vehiculo: vehiculoNombre,
+                        segundaVuelta: segundaVueltaVal,
                         bultos: 0, 
                         peso: 0, 
                         pallets: 0, 
                         clientesSet: new Set() 
                     };
+                } else if (segundaVueltaVal && !cpAgrupados[cp].segundaVuelta) {
+                    cpAgrupados[cp].segundaVuelta = segundaVueltaVal;
                 }
+
                 cpAgrupados[cp].bultos += Number(r[4]) || 0;
                 cpAgrupados[cp].peso += Number(r[12]) || 0;
                 cpAgrupados[cp].pallets += Number(r[3]) || 0;
@@ -982,6 +1074,10 @@
                     let selectRing = isSelected ? "ring-4 ring-blue-600 bg-blue-50/90 shadow-lg" : "";
                     let estilo = obtenerEstiloCanal(c.canal);
 
+                    let badge2daVueltaHtml = c.segundaVuelta 
+                        ? `<span class="bg-amber-100 text-amber-900 text-[10px] font-black px-2 py-0.5 rounded-md border border-amber-300 truncate">2da Vuelta: ${c.segundaVuelta}</span>` 
+                        : '';
+
                     return `
                         <div onclick="seleccionarCPParaGrilla('${c.cp}', '${c.fechaPedido}', '${c.canal}', '${c.cliente}', '${c.zona}', ${c.peso}, ${c.bultos}, ${c.pallets}, ${c.clientesSet.size})" class="p-3 rounded-2xl border ${estilo.border} ${estilo.bg} ${selectRing} shadow-sm hover:shadow-md cursor-pointer transition-all flex flex-col justify-between space-y-2">
                             <div>
@@ -991,8 +1087,9 @@
                                         🚛 ${c.vehiculo}
                                     </span>
                                 </div>
-                                <div class="flex justify-between items-center mb-1">
+                                <div class="flex justify-between items-center mb-1 gap-2">
                                     <span class="text-[9px] bg-white/90 ${estilo.text} font-black px-2 py-0.5 rounded-full border ${estilo.border} uppercase truncate">${c.canal}</span>
+                                    ${badge2daVueltaHtml}
                                 </div>
                                 <p class="text-xs font-bold text-slate-800 truncate">${c.cliente}</p>
                                 <p class="text-[10px] text-slate-500 truncate">Zona: ${c.zona}</p>
@@ -1115,7 +1212,7 @@
             });
 
             let usadas = [viajeActual.cpPrincipal, ...viajeActual.complementos];
-            cpsPendientesGrilla = cpsPendientesGrilla.filter(item => !usadas.includes(String(item.data[23] || '').trim()));
+            cpsPendientesGrilla = cpsPendientesGrilla.filter(item => !usadas.includes(String(item.data[24] || '').trim()));
 
             viajeActual = { cpPrincipal: null, complementos: [], vehiculoSeleccionado: null, vuelta: vueltaSeleccionada, datos: {} };
             actualizarTablaViaje();
@@ -1222,7 +1319,6 @@
             renderizarPanelVehiculos();
         }
 
-        // --- FUNCIÓN PARA COPIAR LA GRILLA SINCRONIZADA (EXCLUYENDO ACCIONES) ---
         function copiarGrillaRegistrada() {
             const fechaFiltroGrilla = document.getElementById('filtroFechaGrilla').value;
             const filtrados = grillaRegistrada.filter(g => String(g.fechaGrilla).trim() === String(fechaFiltroGrilla).trim());
@@ -1299,27 +1395,6 @@
             }
         }
 
-        function fallbackCopyHTML(html) {
-            const container = document.createElement('div');
-            container.innerHTML = html;
-            container.style.position = 'fixed';
-            container.style.pointerEvents = 'none';
-            container.style.opacity = '0';
-            document.body.appendChild(container);
-            window.getSelection().removeAllRanges();
-            const range = document.createRange();
-            range.selectNode(container);
-            window.getSelection().addRange(range);
-            try {
-                document.execCommand('copy');
-                alert("✓ ¡Grilla copiada al portapapeles!");
-            } catch (e) {
-                alert("No se pudo copiar automáticamente.");
-            }
-            window.getSelection().removeAllRanges();
-            document.body.removeChild(container);
-        }
-
         function renderizarDashboardVehiculosProgramados(viajesFecha) {
             const dashboard = document.getElementById('dashboardVehiculosProgramados');
             
@@ -1376,7 +1451,7 @@
             } catch (err) { alert("Error al quitar de la grilla."); }
         }
 
-        // --- SECCIÓN 3: HOJA DE RUTA Y VISTA PREVIA PDF (DESGLOSE INDIVIDUAL POR CARTA DE PORTE) ---
+        // --- SECCIÓN 3: HOJA DE RUTA Y VISTA PREVIA PDF ---
         let listaCPsHojaRutaIndividual = [];
 
         async function cargarHojasDeRutaProgramadas() {
