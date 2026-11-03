@@ -561,20 +561,20 @@
 
             rawPedidos.forEach(item => {
                 const r = item.data;
-                const canal = String(r[22] || '').trim(); // Canal en índice 22
+                const canal = String(r[22] || '').trim(); 
                 if (canalSel !== 'TODOS' && canal !== canalSel) return;
 
                 const filaNum = item.filaReal;
-                const cpActual = cambiosCP[filaNum]?.cpNuevo !== undefined ? cambiosCP[filaNum].cpNuevo : String(r[24] || '').trim(); // CP en índice 24
+                const cpActual = cambiosCP[filaNum]?.cpNuevo !== undefined ? cambiosCP[filaNum].cpNuevo : String(r[24] || '').trim(); 
 
                 if (estadoCP === 'SIN_CP' && cpActual !== "") return;
                 if (estadoCP === 'CON_CP' && cpActual === "") return;
 
                 const idCliente = String(r[0] || '').trim();
-                const vehiculoVal = String(r[26] || '').trim(); // Transporte2 en columna AA (índice 26)
+                const vehiculoVal = String(r[26] || '').trim(); 
                 const localidad = String(r[16] || '').trim();
                 const turno = String(r[20] || '').trim();
-                const segundaVuelta = String(r[21] || '').trim(); // 2da Vuelta en índice 21
+                const segundaVuelta = String(r[21] || '').trim(); 
                 const direccion = String(r[19] || '').trim();
                 const nombreCliente = String(r[15] || '').trim();
 
@@ -631,7 +631,6 @@
             calcularResumenSeleccionCP();
         }
 
-        // --- FUNCIÓN DE COPIADO PARA LA TABLA DE ASIGNAR CP ---
         function copiarTablaAsignarCP() {
             if (gruposAgrupados.length === 0) {
                 alert("No hay datos para copiar.");
@@ -679,10 +678,7 @@
                 `;
             });
 
-            htmlContent += `
-                    </tbody>
-                </table>
-            `;
+            htmlContent += `</tbody></table>`;
 
             if (navigator.clipboard && window.ClipboardItem) {
                 const blobHtml = new Blob([htmlContent], { type: 'text/html' });
@@ -690,14 +686,10 @@
                 const blobText = new Blob([textPlain], { type: 'text/plain' });
 
                 navigator.clipboard.write([
-                    new ClipboardItem({
-                        'text/html': blobHtml,
-                        'text/plain': blobText
-                    })
+                    new ClipboardItem({ 'text/html': blobHtml, 'text/plain': blobText })
                 ]).then(() => {
                     alert("✓ ¡Tabla de Asignación copiada al portapapeles!");
                 }).catch(err => {
-                    console.error("Error al copiar:", err);
                     fallbackCopyHTML(htmlContent);
                 });
             } else {
@@ -821,14 +813,10 @@
                 const blobText = new Blob([textPlain], { type: 'text/plain' });
 
                 navigator.clipboard.write([
-                    new ClipboardItem({
-                        'text/html': blobHtml,
-                        'text/plain': blobText
-                    })
+                    new ClipboardItem({ 'text/html': blobHtml, 'text/plain': blobText })
                 ]).then(() => {
                     alert("✓ Datos copiados al portapapeles. Pégalos directamente en Excel.");
                 }).catch(err => {
-                    console.error("Error al copiar:", err);
                     fallbackCopyHTML(htmlContent);
                 });
             } else {
@@ -898,17 +886,21 @@
             btn.disabled = false;
         }
 
-        // --- GRILLA & FLOTA ---
+        // --- GRILLA & FLOTA (OPTIMIZADO CON PROMISE.ALL) ---
         async function cargarGrillaYCPs() {
             try {
-                const respPend = await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'obtenerTodasCPsPendientes' }) });
+                // Ejecución concurrente en paralelo (Optimización de rendimiento)
+                const [respPend, respGrilla] = await Promise.all([
+                    fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'obtenerTodasCPsPendientes' }) }),
+                    fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'obtenerGrillaRegistrada' }) })
+                ]);
+
                 const resPend = await respPend.json();
                 if (resPend.status === "success") {
                     cpsPendientesGrilla = resPend.pendientes;
                     renderizarFranjasCP();
                 }
 
-                const respGrilla = await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'obtenerGrillaRegistrada' }) });
                 const resGrilla = await respGrilla.json();
                 if (resGrilla.status === "success") {
                     grillaRegistrada = resGrilla.grilla;
@@ -1008,25 +1000,24 @@
             return new Date(str);
         }
 
-        // --- CARTAS DE PORTE PENDIENTES EN FLUJO CONTINUO HORIZONTAL CON 2DA VUELTA ---
         function renderizarFranjasCP() {
             const contenedor = document.getElementById('contenedorFranjasCP');
             let cpAgrupados = {};
 
             cpsPendientesGrilla.forEach(item => {
                 const r = item.data;
-                const cp = String(r[24] || '').trim(); // CP en índice 24
+                const cp = String(r[24] || '').trim(); 
                 if (!cp) return;
 
                 const fechaOrig = item.fechaPedido || "Sin_Fecha";
-                const vehiculoNombre = String(r[26] || 'Sin Vehículo').trim(); // Transporte2 en columna AA (índice 26)
-                const segundaVueltaVal = String(r[21] || '').trim(); // 2da Vuelta en índice 21
+                const vehiculoNombre = String(r[26] || 'Sin Vehículo').trim(); 
+                const segundaVueltaVal = String(r[21] || '').trim(); 
 
                 if (!cpAgrupados[cp]) {
                     cpAgrupados[cp] = { 
                         cp, 
                         fechaPedido: fechaOrig, 
-                        canal: r[22] || 'Sin Canal', // Canal en índice 22
+                        canal: r[22] || 'Sin Canal', 
                         cliente: r[15] || '', 
                         zona: r[16] || '', 
                         vehiculo: vehiculoNombre,
@@ -1369,10 +1360,7 @@
                 `;
             });
 
-            htmlContent += `
-                    </tbody>
-                </table>
-            `;
+            htmlContent += `</tbody></table>`;
 
             if (navigator.clipboard && window.ClipboardItem) {
                 const blobHtml = new Blob([htmlContent], { type: 'text/html' });
@@ -1380,14 +1368,10 @@
                 const blobText = new Blob([textPlain], { type: 'text/plain' });
 
                 navigator.clipboard.write([
-                    new ClipboardItem({
-                        'text/html': blobHtml,
-                        'text/plain': blobText
-                    })
+                    new ClipboardItem({ 'text/html': blobHtml, 'text/plain': blobText })
                 ]).then(() => {
                     alert("✓ ¡Grilla copiada al portapapeles!");
                 }).catch(err => {
-                    console.error("Error al copiar:", err);
                     fallbackCopyHTML(htmlContent);
                 });
             } else {
@@ -1451,7 +1435,7 @@
             } catch (err) { alert("Error al quitar de la grilla."); }
         }
 
-        // --- SECCIÓN 3: HOJA DE RUTA Y VISTA PREVIA PDF ---
+        // --- SECCIÓN 3: HOJA DE RUTA Y VISTA PREVIA PDF (OPTIMIZADO CON PROMISE.ALL) ---
         let listaCPsHojaRutaIndividual = [];
 
         async function cargarHojasDeRutaProgramadas() {
@@ -1533,24 +1517,34 @@
             if (chks.length === 0) return alert("Seleccioná al menos una carta de porte para generar la Hoja de Ruta.");
 
             const contenedorHojas = document.getElementById('contenidoHojasPDF');
-            contenedorHojas.innerHTML = '<p style="padding:20px; font-family:Arial; text-align:center;">Consultando datos de Ruteo a través del servidor...</p>';
+            contenedorHojas.innerHTML = '<p style="padding:20px; font-family:Arial; text-align:center;">Consultando datos de Ruteo en paralelo a través del servidor...</p>';
             document.getElementById('modalVistaPreviaPDF').classList.remove('hidden');
 
             let itemsSeleccionados = [];
             chks.forEach(chk => itemsSeleccionados.push(listaCPsHojaRutaIndividual[Number(chk.value)]));
 
             try {
+                // Consulta en paralelo con Promise.all para máxima velocidad
+                const promesasDatos = itemsSeleccionados.map(async (item) => {
+                    try {
+                        let respServer = await fetch(WEB_APP_URL, {
+                            method: 'POST',
+                            body: JSON.stringify({ action: 'obtenerDatosRuteoCP', cp: item.cp })
+                        });
+                        let resJson = await respServer.json();
+                        return { item, datosCP: resJson.status === "success" ? resJson.data : null };
+                    } catch (err) {
+                        return { item, datosCP: null };
+                    }
+                });
+
+                const resultadosCPs = await Promise.all(promesasDatos);
                 let htmlHojas = '';
 
-                for (let item of itemsSeleccionados) {
+                for (let resultado of resultadosCPs) {
+                    let item = resultado.item;
+                    let datosCP = resultado.datosCP;
                     let cpItem = item.cp;
-
-                    let respServer = await fetch(WEB_APP_URL, {
-                        method: 'POST',
-                        body: JSON.stringify({ action: 'obtenerDatosRuteoCP', cp: cpItem })
-                    });
-                    let resJson = await respServer.json();
-                    let datosCP = resJson.status === "success" ? resJson.data : null;
 
                     let docsList = [];
                     if (datosCP && datosCP.listaClientes) {
