@@ -112,6 +112,7 @@
                     <thead class="bg-slate-800 text-white font-bold sticky top-0">
                         <tr>
                             <th class="p-3">Fecha</th>
+                            <th class="p-3">Vuelta</th>
                             <th class="p-3">Canal</th>
                             <th class="p-3">Tipo Viaje</th>
                             <th class="p-3">Cliente Principal</th>
@@ -128,7 +129,7 @@
                         </tr>
                     </thead>
                     <tbody id="tbodyLogistica" class="divide-y divide-slate-100 text-slate-800">
-                        <tr><td colspan="14" class="p-6 text-center text-slate-400 italic">Seleccioná fecha(s) y hacé click en Consultar.</td></tr>
+                        <tr><td colspan="15" class="p-6 text-center text-slate-400 italic">Seleccioná fecha(s) y hacé click en Consultar.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -403,7 +404,7 @@ async function ejecutarConsultaLogistica() {
     
     btnConsultar.disabled = true;
     btnConsultar.innerText = "⏳ Consultando...";
-    tbody.innerHTML = `<tr><td colspan="14" class="p-8 text-center text-blue-900 font-bold italic animate-pulse">🔄 Consultando datos y descargando novedades del servidor, por favor espere...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="15" class="p-8 text-center text-blue-900 font-bold italic animate-pulse">🔄 Consultando datos y descargando novedades del servidor, por favor espere...</td></tr>`;
 
     try {
         const respGrilla = await fetch(WEB_APP_URL, {
@@ -450,7 +451,7 @@ async function ejecutarConsultaLogistica() {
                             let keyDoc = `${cp}_${nroDoc}_${tipoDoc}`;
 
                             if (!mapaDocumentosUnicos.has(keyDoc)) {
-                                mapAUnico = {
+                                mapaDocumentosUnicos.set(keyDoc, {
                                     cp: cp,
                                     fechaGrilla: fechaFila,
                                     cliente: cli.nombre || 'N/A',
@@ -465,8 +466,7 @@ async function ejecutarConsultaLogistica() {
                                     bultosRechazados: doc.bultosRechazados !== undefined ? doc.bultosRechazados : '',
                                     fotoLink: doc.fotoLink || '',
                                     audioLink: doc.audioLink || ''
-                                };
-                                mapaDocumentosUnicos.set(keyDoc, mapAUnico);
+                                });
                             }
                         });
                     });
@@ -485,7 +485,7 @@ async function ejecutarConsultaLogistica() {
 
     } catch (err) {
         console.error("Error al consultar datos:", err);
-        tbody.innerHTML = `<tr><td colspan="14" class="p-6 text-center text-red-600 font-bold">❌ Error al conectar con el servidor. Intente nuevamente.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="15" class="p-6 text-center text-red-600 font-bold">❌ Error al conectar con el servidor. Intente nuevamente.</td></tr>`;
     } finally {
         btnConsultar.disabled = false;
         btnConsultar.innerText = "🔍 Consultar";
@@ -524,7 +524,7 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
     }
 
     if (filtrados.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="14" class="p-6 text-center text-slate-400 italic">No hay registros para la fecha o filtros seleccionados.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="15" class="p-6 text-center text-slate-400 italic">No hay registros para la fecha o filtros seleccionados.</td></tr>`;
         document.getElementById('logTotalProg').innerText = '0';
         document.getElementById('logTotalFact').innerText = '0';
         document.getElementById('logTotalEntregados').innerText = '0';
@@ -595,12 +595,18 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
         let cpCompRaw = String(g.cpComplementos || '').trim();
         let cpCompVal = (cpCompRaw === '' || cpCompRaw.toLowerCase() === 'ninguna') ? '' : cpCompRaw;
 
+        let vueltaVal = String(g.vuelta || '1RA VUELTA').trim().toUpperCase();
+        let badgeVuelta = vueltaVal.includes('2') 
+            ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">${vueltaVal}</span>` 
+            : `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-800">${vueltaVal}</span>`;
+
         let badgeSalida = g.salidaEstado ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold ${g.salidaEstado === 'SALIO' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}">${g.salidaEstado}</span>` : 'S/D';
         let badgeLlegada = g.llegadaEstado ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold ${g.llegadaEstado.includes('sin novedad') ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">${g.llegadaEstado}</span>` : 'Pendiente';
 
         return `
             <tr class="hover:bg-slate-50 border-b">
                 <td class="p-3 font-bold text-slate-700">${g.fechaGrilla || ''}</td>
+                <td class="p-3">${badgeVuelta}</td>
                 <td class="p-3 uppercase font-bold text-slate-700">${g.canal || ''}</td>
                 <td class="p-3">${g.tipoViaje || ''}</td>
                 <td class="p-3 font-semibold">${g.cliente || ''}</td>
@@ -749,7 +755,7 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla) {
     }
 
     let filasHtml = '';
-    let tPendientes = 0, tGrilla = 0, tDemanda = 0, tFact = 0, tRech = 0, tExt = 0, tSegundasVueltas = 0;
+    let tPendientes = 0, tGrilla = 0, tDemanda = 0, tFact = 0, tRech = 0, tExt = 0, totalViajesSegundaVuelta = 0;
     
     let chartLabels = [];
     let chartDemandaData = [];
@@ -820,8 +826,8 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla) {
             badgeUmbral = `<span class="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full font-bold text-[11px]">🟢 En rango (&lt;9k) sin 2ªv</span>`;
         }
 
-        let badgeSegundaVuelta = tieneSegundaVuelta 
-            ? `<span class="bg-amber-100 text-amber-900 px-2.5 py-1 rounded-full font-bold text-[11px]">1</span>` 
+        let badgeSegundaVuelta = cuentaSegundaVuelta > 0 
+            ? `<span class="bg-amber-100 text-amber-900 px-2.5 py-1 rounded-full font-bold text-[11px]">${cuentaSegundaVuelta}</span>` 
             : `<span class="text-slate-400 font-bold">0</span>`;
 
         tPendientes += bultosPendientesFecha;
@@ -830,7 +836,7 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla) {
         tFact += factFecha;
         tRech += rechFecha;
         tExt += extracostoBultos;
-        if (tieneSegundaVuelta) tSegundasVueltas++;
+        totalViajesSegundaVuelta += cuentaSegundaVuelta;
 
         chartLabels.push(fecha);
         chartDemandaData.push(demandaTotalFecha);
@@ -852,8 +858,8 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla) {
     });
 
     let efTotal = tFact > 0 ? (((tFact - tRech) / tFact) * 100).toFixed(1) : 100;
-    let badgeTotalUmbral = tExt > 0 || tSegundasVueltas > 0 
-        ? `<span class="text-red-400 font-black">Extracostos detectados (${tSegundasVueltas} días con 2ªv)</span>` 
+    let badgeTotalUmbral = tExt > 0 || totalViajesSegundaVuelta > 0 
+        ? `<span class="text-red-400 font-black">Extracostos detectados (${totalViajesSegundaVuelta} viajes con 2ªv)</span>` 
         : `<span class="text-emerald-400 font-bold">Sin extracostos acumulados</span>`;
 
     filasHtml += `
@@ -865,7 +871,7 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla) {
             <td class="p-3 text-center text-indigo-300">${Math.round(tFact).toLocaleString('es-ES')}</td>
             <td class="p-3 text-center text-red-400">${Math.round(tRech).toLocaleString('es-ES')}</td>
             <td class="p-3 text-center text-emerald-400">${efTotal}%</td>
-            <td class="p-3 text-center text-amber-300">${tSegundasVueltas} días</td>
+            <td class="p-3 text-center text-amber-300">${totalViajesSegundaVuelta} viajes</td>
             <td class="p-3 text-center">${badgeTotalUmbral}</td>
         </tr>
     `;
