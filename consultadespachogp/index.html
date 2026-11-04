@@ -99,7 +99,8 @@
                 </button>
             </div>
 
-            <div class="flex justify-end">
+            <div class="flex justify-between items-center flex-wrap gap-2 px-1">
+                <span id="contadorLogistica" class="text-xs font-bold text-blue-900 uppercase"></span>
                 <label class="flex items-center gap-2 cursor-pointer bg-amber-50 border border-amber-300 px-4 py-2 rounded-xl">
                     <input type="checkbox" id="chkSoloNovedades" onchange="renderizarLogistica()" class="rounded text-amber-600">
                     <span class="text-xs font-bold text-amber-900">⚠️ Filtrar solo cargas con novedades</span>
@@ -242,6 +243,11 @@
 
                     <button id="btnConsultarComercial" onclick="ejecutarConsultaComercial()" class="bg-blue-800 hover:bg-blue-900 text-white font-black text-xs px-4 py-2.5 rounded-xl shadow mt-5 transition-all">🔍 Consultar</button>
                 </div>
+            </div>
+
+            <!-- CONTADOR COMERCIAL -->
+            <div class="flex items-center justify-between px-1">
+                <span id="contadorComercial" class="text-xs font-bold text-blue-900 uppercase"></span>
             </div>
 
             <!-- TABLA COMERCIAL -->
@@ -539,6 +545,12 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
             let salidaConNov = g.salidaEstado && g.salidaEstado !== 'SALIO';
             return tieneRechazos || llegadaConNov || salidaConNov;
         });
+    }
+
+    // Actualizar contador en Vista Logística
+    const contadorLog = document.getElementById('contadorLogistica');
+    if (contadorLog) {
+        contadorLog.innerText = `${filtrados.length} registro${filtrados.length === 1 ? '' : 's'} cargado${filtrados.length === 1 ? '' : 's'}`;
     }
 
     if (filtrados.length === 0) {
@@ -1083,6 +1095,12 @@ function renderizarComercial() {
         docsFiltrados = docsFiltrados.filter(d => (d.motivo && d.motivo.trim() !== '') || (d.observacion && d.observacion.trim() !== ''));
     } else if (filtroInc === 'SIN_INCIDENCIA') {
         docsFiltrados = docsFiltrados.filter(d => (!d.motivo || d.motivo.trim() === '') && (!d.observacion || d.observacion.trim() === ''));
+    }
+
+    // Actualizar contador en Vista Comercial
+    const contadorCom = document.getElementById('contadorComercial');
+    if (contadorCom) {
+        contadorCom.innerText = `${docsFiltrados.length} registro${docsFiltrados.length === 1 ? '' : 's'} cargado${docsFiltrados.length === 1 ? '' : 's'}`;
     }
 
     if (docsFiltrados.length === 0) {
