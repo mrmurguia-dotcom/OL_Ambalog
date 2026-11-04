@@ -462,6 +462,7 @@
         let cpsPendientesGrilla = [];
         let grillaRegistrada = [];
         let viajesBorrador = [];
+        let mapaCPsPendientesGlobal = {}; // Mapa seguro para evitar errores con comillas en nombres de clientes
 
         let vueltaSeleccionada = "1RA VUELTA";
 
@@ -1014,6 +1015,7 @@
         function renderizarFranjasCP() {
             const contenedor = document.getElementById('contenedorFranjasCP');
             let cpAgrupados = {};
+            mapaCPsPendientesGlobal = {}; // Limpiar mapa en cada renderizado
 
             cpsPendientesGrilla.forEach(item => {
                 const r = item.data;
@@ -1080,6 +1082,7 @@
                 }
 
                 let cardsHtml = itemsDeFecha.map(c => {
+                    mapaCPsPendientesGlobal[c.cp] = c; // Guardar referencia de forma segura en el mapa global
                     let isSelected = (viajeActual.cpPrincipal === c.cp || viajeActual.complementos.includes(c.cp));
                     let selectRing = isSelected ? "ring-4 ring-blue-600 bg-blue-50/90 shadow-lg" : "";
                     let estilo = obtenerEstiloCanal(c.canal);
@@ -1089,7 +1092,7 @@
                         : '';
 
                     return `
-                        <div onclick="seleccionarCPParaGrilla('${c.cp}', '${c.fechaPedido}', '${c.canal}', '${c.cliente}', '${c.zona}', ${c.peso}, ${c.bultos}, ${c.pallets}, ${c.clientesSet.size})" class="p-3 rounded-2xl border ${estilo.border} ${estilo.bg} ${selectRing} shadow-sm hover:shadow-md cursor-pointer transition-all flex flex-col justify-between space-y-2">
+                        <div onclick="seleccionarCPParaGrilla('${c.cp}')" class="p-3 rounded-2xl border ${estilo.border} ${estilo.bg} ${selectRing} shadow-sm hover:shadow-md cursor-pointer transition-all flex flex-col justify-between space-y-2">
                             <div>
                                 <div class="flex justify-between items-center mb-1 gap-2">
                                     <span class="font-black text-xs text-blue-900 truncate">CP: ${c.cp} ${isSelected ? '✓' : ''}</span>
@@ -1127,13 +1130,25 @@
             }).join('');
         }
 
-        function seleccionarCPParaGrilla(cp, fechaPedido, canal, cliente, zona, peso, bultos, pallets, numClientes) {
+        function seleccionarCPParaGrilla(cp) {
+            const c = mapaCPsPendientesGlobal[cp];
+            if (!c) return;
+
+            const fechaPedido = c.fechaPedido;
+            const canal = c.canal;
+            const cliente = c.cliente;
+            const zona = c.zona;
+            const peso = c.peso;
+            const bultos = c.bultos;
+            const pallets = c.pallets;
+            const numClientes = c.clientesSet.size;
+
             if (viajeActual.cpPrincipal === cp) {
                 viajeActual.cpPrincipal = null;
                 viajeActual.complementos = [];
                 viajeActual.datos = {};
             } else if (viajeActual.complementos.includes(cp)) {
-                viajeActual.complementos = viajeActual.complementos.filter(c => c !== cp);
+                viajeActual.complementos = viajeActual.complementos.filter(item => item !== cp);
                 viajeActual.datos.peso -= peso;
                 viajeActual.datos.bultos -= bultos;
                 viajeActual.datos.pallets -= pallets;
@@ -1338,7 +1353,7 @@
                             <td class="p-3">${g.cpComplementos || ''}</td>
                             <td class="p-3 text-center">${Math.round(Number(g.peso) || 0)}</td>
                             <td class="p-3 text-center">${Math.round(Number(g.bultos) || 0)}</td>
-                            <td class="p-3 text-center">${Math.round(Number(g.pallets || 0))}</td>
+                            <td class="p-3 text-center">${Math.round(Number(g.pallets) || 0)}</td>
                             <td class="p-3 text-center">
                                 <button onclick="preguntarQuitarDeGrilla('${g.cpPrincipal}', '${g.cpComplementos}', '${g.fechaPedido}')" class="bg-red-100 hover:bg-red-200 text-red-700 font-bold px-3 py-1 rounded-lg text-xs transition-all">
                                     🗑️ Quitar
@@ -1398,7 +1413,7 @@
                         <td style="padding: 6px; border: 1px solid #dcdcdc;">${g.cpComplementos || ''}</td>
                         <td style="padding: 6px; border: 1px solid #dcdcdc; text-align: center;">${Math.round(Number(g.peso) || 0)}</td>
                         <td style="padding: 6px; border: 1px solid #dcdcdc; text-align: center;">${Math.round(Number(g.bultos) || 0)}</td>
-                        <td style="padding: 6px; border: 1px solid #dcdcdc; text-align: center;">${Math.round(Number(g.pallets || 0))}</td>
+                        <td style="padding: 6px; border: 1px solid #dcdcdc; text-align: center;">${Math.round(Number(g.pallets) || 0)}</td>
                     </tr>
                 `;
             });
@@ -1407,7 +1422,7 @@
 
             if (navigator.clipboard && window.ClipboardItem) {
                 const blobHtml = new Blob([htmlContent], { type: 'text/html' });
-                const textPlain = filtrados.map(g => `${g.fechaGrilla}\t${g.vuelta || '1RA VUELTA'}\t${g.tipoVehiculo}\t${g.canal}\t${g.tipoViaje}\t${g.cliente}\t${g.zona}\t${g.cpPrincipal}\t${g.cpComplementos || ''}\t${Math.round(Number(g.peso) || 0)}\t${Math.round(Number(g.bultos) || 0)}\t${Math.round(Number(g.pallets || 0))}`).join('\n');
+                const textPlain = filtrados.map(g => `${g.fechaGrilla}\t${g.vuelta || '1RA VUELTA'}\t${g.tipoVehiculo}\t${g.canal}\t${g.tipoViaje}\t${g.cliente}\t${g.zona}\t${g.cpPrincipal}\t${g.cpComplementos || ''}\t${Math.round(Number(g.peso) || 0)}\t${Math.round(Number(g.bultos) || 0)}\t${Math.round(Number(g.pallets) || 0)}`).join('\n');
                 const blobText = new Blob([textPlain], { type: 'text/plain' });
 
                 navigator.clipboard.write([
