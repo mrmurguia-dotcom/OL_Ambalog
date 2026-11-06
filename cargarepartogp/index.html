@@ -156,6 +156,22 @@
                 </div>
             </div>
 
+            <!-- PANEL DE FILTRO AVANZADO MASIVO (PEGAR DESDE EXCEL) -->
+            <div class="bg-indigo-50 p-4 rounded-2xl border border-indigo-200 space-y-3">
+                <div class="flex justify-between items-center flex-wrap gap-2">
+                    <h3 class="text-xs font-bold text-indigo-900 uppercase">⚡ Filtro Avanzado Masivo (Pegar IDs de Clientes desde Excel):</h3>
+                    <div class="flex items-center gap-2">
+                        <button onclick="tildarClientesMasivos()" class="bg-indigo-900 hover:bg-black text-white font-black text-xs px-4 py-2 rounded-xl shadow transition-all">
+                            ✓ Tildar Coincidentes
+                        </button>
+                        <button onclick="limpiarFiltroMasivo()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs px-3 py-2 rounded-xl">
+                            Limpiar
+                        </button>
+                    </div>
+                </div>
+                <textarea id="inputFiltroMasivoClientes" rows="2" placeholder="Pegá aquí la columna de ID de clientes copiada de Excel (uno debajo de otro o separados por espacios)..." class="w-full p-2.5 rounded-xl border border-indigo-200 text-xs font-sans bg-white text-blue-900 outline-none"></textarea>
+            </div>
+
             <div class="overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-sm max-h-[460px]">
                 <table class="w-full text-left border-collapse text-xs">
                     <thead class="bg-slate-100 text-slate-700 font-bold sticky top-0 border-b border-slate-200">
@@ -643,6 +659,47 @@
             calcularResumenSeleccionCP();
         }
 
+        // --- FILTRO AVANZADO MASIVO POR PORTAPAPELES ---
+        function tildarClientesMasivos() {
+            const textoPegado = document.getElementById('inputFiltroMasivoClientes').value.trim();
+            if (!textoPegado) {
+                alert("Por favor, pegá primero la lista de IDs de clientes en el cuadro superior.");
+                return;
+            }
+
+            const idsBuscados = new Set(
+                textoPegado.split(/[\r\n\t,\s]+/)
+                           .map(id => id.trim())
+                           .filter(id => id.length > 0)
+            );
+
+            if (idsBuscados.size === 0) {
+                alert("No se detectaron IDs válidos en el texto ingresado.");
+                return;
+            }
+
+            const chks = document.querySelectorAll('.chkGrupo');
+            let tildadosCount = 0;
+
+            chks.forEach(chk => {
+                const idx = Number(chk.value);
+                const g = gruposAgrupados[idx];
+                if (g && idsBuscados.has(String(g.idCliente).trim())) {
+                    chk.checked = true;
+                    tildadosCount++;
+                }
+            });
+
+            calcularResumenSeleccionCP();
+            alert(`✓ ¡Filtro masivo aplicado con éxito!\nSe tildaron ${tildadosCount} grupo(s) coincidente(s) con los IDs pegados.`);
+        }
+
+        function limpiarFiltroMasivo() {
+            document.getElementById('inputFiltroMasivoClientes').value = '';
+            document.querySelectorAll('.chkGrupo').forEach(chk => chk.checked = false);
+            calcularResumenSeleccionCP();
+        }
+
         function copiarTablaAsignarCP() {
             if (gruposAgrupados.length === 0) {
                 alert("No hay datos para copiar.");
@@ -901,7 +958,6 @@
         // --- GRILLA & FLOTA (OPTIMIZADO CON PROMISE.ALL) ---
         async function cargarGrillaYCPs() {
             try {
-                // Ejecución concurrente en paralelo (Optimización de rendimiento)
                 const [respPend, respGrilla] = await Promise.all([
                     fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'obtenerTodasCPsPendientes' }) }),
                     fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'obtenerGrillaRegistrada' }) })
@@ -1015,7 +1071,7 @@
         function renderizarFranjasCP() {
             const contenedor = document.getElementById('contenedorFranjasCP');
             let cpAgrupados = {};
-            mapaCPsPendientesGlobal = {}; // Limpiar mapa en cada renderizado
+            mapaCPsPendientesGlobal = {};
 
             cpsPendientesGrilla.forEach(item => {
                 const r = item.data;
@@ -1067,7 +1123,6 @@
             contenedor.innerHTML = fechasOrdenadas.map(fecha => {
                 let itemsDeFecha = porFecha[fecha];
                 
-                // ORDENAMIENTO DE MENOR A MAYOR POR NÚMERO DE CARTA DE PORTE (SIN TOCAR LA FECHA)
                 itemsDeFecha.sort((a, b) => {
                     let numA = parseInt(String(a.cp).replace(/\D/g, "")) || 0;
                     let numB = parseInt(String(b.cp).replace(/\D/g, "")) || 0;
@@ -1082,7 +1137,7 @@
                 }
 
                 let cardsHtml = itemsDeFecha.map(c => {
-                    mapaCPsPendientesGlobal[c.cp] = c; // Guardar referencia de forma segura en el mapa global
+                    mapaCPsPendientesGlobal[c.cp] = c;
                     let isSelected = (viajeActual.cpPrincipal === c.cp || viajeActual.complementos.includes(c.cp));
                     let selectRing = isSelected ? "ring-4 ring-blue-600 bg-blue-50/90 shadow-lg" : "";
                     let estilo = obtenerEstiloCanal(c.canal);
@@ -1248,8 +1303,6 @@
 
         function renderizarBorradorGrilla() {
             const tbody = document.getElementById('tbodyBorradorGrilla');
-            
-            // Actualizar contador de registros en borrador
             const contadorBorrador = document.getElementById('contadorBorradorGrilla');
             if (contadorBorrador) {
                 contadorBorrador.innerText = `(${viajesBorrador.length} registro${viajesBorrador.length === 1 ? '' : 's'} cargado${viajesBorrador.length === 1 ? '' : 's'})`;
@@ -1329,7 +1382,6 @@
             const fechaFiltroGrilla = document.getElementById('filtroFechaGrilla').value;
             const filtrados = grillaRegistrada.filter(g => String(g.fechaGrilla).trim() === String(fechaFiltroGrilla).trim());
 
-            // Actualizar contador de registros en grilla registrada
             const contadorGrilla = document.getElementById('contadorGrillaRegistrada');
             if (contadorGrilla) {
                 contadorGrilla.innerText = `(${filtrados.length} registro${filtrados.length === 1 ? '' : 's'} cargado${filtrados.length === 1 ? '' : 's'})`;
@@ -1493,7 +1545,7 @@
             } catch (err) { alert("Error al quitar de la grilla."); }
         }
 
-        // --- SECCIÓN 3: HOJA DE RUTA Y VISTA PREVIA PDF (OPTIMIZADO CON PROMISE.ALL) ---
+        // --- SECCIÓN 3: HOJA DE RUTA Y VISTA PREVIA PDF ---
         let listaCPsHojaRutaIndividual = [];
 
         async function cargarHojasDeRutaProgramadas() {
@@ -1542,8 +1594,6 @@
 
         function renderizarTablaHojaRuta() {
             const tbody = document.getElementById('tbodyHojaRuta');
-            
-            // Actualizar contador de registros en hoja de ruta
             const contadorHR = document.getElementById('contadorHojaRuta');
             if (contadorHR) {
                 contadorHR.innerText = `${listaCPsHojaRutaIndividual.length} registro${listaCPsHojaRutaIndividual.length === 1 ? '' : 's'} cargado${listaCPsHojaRutaIndividual.length === 1 ? '' : 's'}`;
@@ -1588,7 +1638,6 @@
             chks.forEach(chk => itemsSeleccionados.push(listaCPsHojaRutaIndividual[Number(chk.value)]));
 
             try {
-                // Consulta en paralelo con Promise.all para máxima velocidad
                 const promesasDatos = itemsSeleccionados.map(async (item) => {
                     try {
                         let respServer = await fetch(WEB_APP_URL, {
@@ -1728,6 +1777,8 @@
             }, 1000);
         }
 
+        document.getElementById('filtroFechaGrilla').valueAsDate = hoy;
+        document.getElementById('filtroFechaHojaRuta').valueAsDate = hoy;
         document.getElementById('filtroFechaGrilla').addEventListener('change', () => { renderizarTablaGrillaRegistrada(); });
         document.getElementById('filtroFechaHojaRuta').addEventListener('change', () => { cargarHojasDeRutaProgramadas(); });
     </script>
