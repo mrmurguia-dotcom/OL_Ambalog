@@ -1192,14 +1192,17 @@ function abrirModalDiferencias() {
 function cerrarModalDiferencias() { document.getElementById('modalDiferenciasFacturacion').classList.add('hidden'); }
 
 function abrirDetalleNovedadesModal(cpPrincipal) {
-    document.getElementById('subtituloModalCP').innerText = `Carta de Porte Principal: ${cpPrincipal}`;
+    let viaje = grillaGlobal.find(g => String(g.cpPrincipal).trim() === String(cpPrincipal).trim());
+    let cpgLista = viaje ? obtenerTodasLasCPsDeFila(viaje) : [cpPrincipal];
+
+    document.getElementById('subtituloModalCP').innerText = `Carta de Porte Principal: ${cpPrincipal} ${viaje && viaje.cpComplementos ? '| Complementos: ' + viaje.cpComplementos : ''}`;
     const tbody = document.getElementById('tbodyDocumentosModalConsulta');
     tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-500 italic">Cargando detalles...</td></tr>`;
     document.getElementById('modalDetalleNovedades').classList.remove('hidden');
 
-    let docs = documentosGlobal.filter(d => d.cp === cpPrincipal);
+    let docs = documentosGlobal.filter(d => cpgLista.includes(d.cp));
     if (docs.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400 italic">No hay documentos registrados para esta Carta de Porte.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400 italic">No hay documentos registrados para esta Carta de Porte o sus complementos.</td></tr>`;
         return;
     }
 
@@ -1210,7 +1213,11 @@ function abrirDetalleNovedadesModal(cpPrincipal) {
 
         return `
             <tr class="hover:bg-slate-50 border-b">
-                <td class="p-3"><span class="text-sm font-black text-blue-900">${d.numero}</span><span class="block text-[10px] text-slate-500 uppercase font-bold">${d.tipo}</span></td>
+                <td class="p-3">
+                    <span class="text-sm font-black text-blue-900">${d.numero}</span>
+                    <span class="block text-[10px] text-slate-500 uppercase font-bold">${d.tipo}</span>
+                    <span class="block text-[9px] text-indigo-700 font-bold">CP: ${d.cp}</span>
+                </td>
                 <td class="p-3 font-semibold text-slate-800">${d.cliente}<span class="block text-[11px] font-normal text-slate-500">${d.direccion}</span></td>
                 <td class="p-3 font-bold text-slate-700">${d.motivo || '-'}</td>
                 <td class="p-3 font-bold text-slate-700">${d.observacion || '-'}</td>
