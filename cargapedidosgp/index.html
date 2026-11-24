@@ -3,966 +3,714 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Carga Pedidos - GP</title>
-    <link rel="manifest" href="manifest.json">
-    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
-    <meta name="theme-color" content="#1e3a5f">
-    
+    <title>Validador Pedidos vs JDE (P4915) - GP</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
-<body class="bg-slate-100 p-4 md:p-10">
-    <div class="max-w-7xl mx-auto bg-white rounded-3xl shadow-2xl p-8 border border-slate-200">
+<body class="bg-slate-100 p-4 md:p-8">
+    <div class="max-w-7xl mx-auto bg-white rounded-3xl shadow-2xl p-6 md:p-8 border border-slate-200">
         
-        <!-- ENCABEZADO CON BOTONES DE ACCIONES -->
-        <div class="flex flex-wrap justify-between items-center mb-8 border-b pb-4 gap-4">
+        <!-- ENCABEZADO -->
+        <div class="flex flex-wrap justify-between items-center mb-6 border-b pb-4 gap-4">
             <div>
-                <h1 class="text-3xl font-black text-blue-900 italic">CARGA PEDIDOS - GP</h1>
-                <p class="text-slate-500 text-sm mt-1">Panel Gestion de pedidos para AMBALOG - M2</p>
+                <h1 class="text-2xl md:text-3xl font-black text-blue-900 italic">VALIDADOR PEDIDOS vs JDE (P4915)</h1>
+                <p class="text-slate-500 text-sm mt-1">Control de Embarques sin CP (Depósito base 101) vs Bajada P4915 — AMBALOG</p>
             </div>
             <div class="flex flex-wrap items-center gap-3">
-                <a href="https://mrmurguia-dotcom.github.io/OL_Ambalog/checkpedidovsjde.html" target="_blank" rel="noopener noreferrer" class="bg-sky-700 hover:bg-sky-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-2">
-                    🔎 PEDIDOS vs JDE
-                </a>
-                <a href="https://mrmurguia-dotcom.github.io/OL_Ambalog/cargarepartogp/index.html" target="_blank" rel="noopener noreferrer" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-2">
-                    🚚 ASIGNAR CP
-                </a>
-                <button onclick="abrirModalCP()" class="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-2">
-                    ✏️ MODIFICA CP
+                <button onclick="ejecutarCruce()" id="btnValidar" class="bg-orange-500 hover:bg-orange-600 text-white font-black text-xs px-6 py-3 rounded-xl shadow-lg transition-all flex items-center gap-2">
+                    ⚡ EJECUTAR VALIDACIÓN
                 </button>
-                <button onclick="abrirModalReprogramar()" class="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-2">
-                    🚨 REPROGRAMAR PEDIDOS
+                <button onclick="copiarTablaVisible()" id="btnCopiarTabla" class="hidden bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-5 py-3 rounded-xl shadow-md transition-all flex items-center gap-2">
+                    📋 COPIAR TABLA
                 </button>
-                <button onclick="sincronizarPedidos()" id="btnSync" class="bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-2">
-                    🔄 SINCRONIZAR DATOS
+                <button onclick="exportarResultadosExcel()" id="btnExportar" class="hidden bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-5 py-3 rounded-xl shadow-md transition-all flex items-center gap-2">
+                    📥 EXPORTAR RESULTADO (.XLSX)
                 </button>
-                <a href="https://docs.google.com/spreadsheets/d/1RBnsNmmuosV45yb5gh_ODPYbAdIW7cDGocNQkXXVvRc/edit?usp=sharing" target="_blank" rel="noopener noreferrer" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-2">
-                    📊 VER PLANILLA SHEETS
-                </a>
             </div>
         </div>
 
-        <!-- SELECCIÓN DE FECHA DE ENTREGA -->
-        <div class="mb-6 bg-blue-50 p-4 rounded-xl border border-blue-200 flex flex-wrap justify-between items-center gap-4">
-            <div>
-                <label class="block text-blue-900 font-bold mb-1 text-sm">FECHA DE ENTREGA (Sincronización):</label>
-                <input type="date" id="fechaEntrega" class="p-2 rounded-lg border-2 border-blue-300 focus:border-orange-500 outline-none bg-white font-bold text-blue-900">
-            </div>
-            <div class="text-right">
-                <span class="text-xs bg-blue-200 text-blue-800 px-3 py-1 rounded-full font-bold">Pestaña Destino & Acumulación Activa</span>
-            </div>
-        </div>
-
-        <!-- DROPZONE EXCEL DE CARGA DE PEDIDOS -->
-        <div id="dropZone" class="border-4 border-dashed border-blue-200 rounded-2xl p-6 text-center cursor-pointer hover:bg-blue-50 transition-all mb-6 group">
-            <div class="text-blue-400 text-3xl mb-1 group-hover:scale-110 transition-transform">📊</div>
-            <p class="text-slate-700 font-bold uppercase tracking-tight text-xs">Arrastrá el archivo Excel de Pedidos (.xlsx) o hacé click aquí</p>
-            <p class="text-slate-400 text-xs mt-0.5">Se leerá únicamente la pestaña "Base pedidos". Las cargas adicionales se sumarán sin duplicar.</p>
-            <input type="file" id="fileInput" accept=".xlsx, .xls, .xlsm" class="hidden">
-        </div>
-
-        <!-- CONSULTAR PEDIDOS GUARDADOS EN NUBE -->
-        <div class="mb-6 bg-slate-100 p-4 rounded-xl border border-slate-300 flex flex-wrap justify-between items-center gap-4 shadow-sm">
-            <div class="flex items-center gap-3">
-                <span class="text-xl">🔍</span>
+        <!-- PANEL DE CARGA DE AMBAS FUENTES -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            
+            <!-- 1. FUENTE PLANILLA DE PEDIDOS -->
+            <div class="bg-blue-50/70 p-5 rounded-2xl border border-blue-200 flex flex-col justify-between">
                 <div>
-                    <label class="block text-slate-800 font-bold text-xs uppercase">CONSULTAR PEDIDOS GUARDADOS EN NUBE:</label>
-                    <input type="date" id="fechaConsultaRemota" class="p-2 rounded-lg border border-slate-400 font-bold text-xs bg-white text-blue-900 outline-none mt-1">
+                    <div class="flex justify-between items-center mb-3">
+                        <span class="bg-blue-900 text-white text-xs font-black px-3 py-1 rounded-full">1. PLANILLA DE PEDIDOS (Base)</span>
+                        <span id="badgeEstadoPedidos" class="text-xs font-bold text-slate-500">Sin cargar</span>
+                    </div>
+
+                    <!-- Dropzone Excel Pedidos -->
+                    <div id="dropPedidos" class="border-2 border-dashed border-blue-300 bg-white rounded-xl p-4 text-center cursor-pointer hover:bg-blue-50 transition-all mb-3">
+                        <p class="text-blue-900 font-bold text-xs uppercase">📂 Subir Excel de Pedidos (.xlsx / .xlsm)</p>
+                        <p class="text-slate-400 text-[11px] mt-0.5">Lee pestaña "Base pedidos" • Solo evalúa líneas <b>SIN CP</b> (asume Dep. 101)</p>
+                        <input type="file" id="inputPedidos" accept=".xlsx, .xls, .xlsm" class="hidden">
+                    </div>
+
+                    <!-- O Consultar Nube -->
+                    <div class="flex items-center gap-2 bg-white p-2.5 rounded-xl border border-blue-200">
+                        <span class="text-xs font-bold text-slate-600 whitespace-nowrap">☁️ O desde Sheets:</span>
+                        <input type="date" id="fechaConsultaNube" class="p-1.5 rounded-lg border border-slate-300 font-bold text-xs text-blue-900 outline-none flex-1">
+                        <button onclick="cargarPedidosDesdeNube()" id="btnNube" class="bg-blue-800 hover:bg-blue-900 text-white font-bold text-xs px-3 py-2 rounded-lg transition-all">
+                            Traer
+                        </button>
+                    </div>
                 </div>
             </div>
-            <button onclick="consultarPedidosRemotos()" id="btnConsultarRemoto" class="bg-blue-800 hover:bg-blue-900 text-white font-black px-6 py-2.5 rounded-xl shadow text-xs transition-all">
-                CONSULTAR PEDIDOS
-            </button>
+
+            <!-- 2. FUENTE BAJADA JDE P4915 -->
+            <div class="bg-amber-50/70 p-5 rounded-2xl border border-amber-200 flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-center mb-3">
+                        <span class="bg-amber-700 text-white text-xs font-black px-3 py-1 rounded-full">2. EXPORTACIÓN JDE (P4915)</span>
+                        <span id="badgeEstadoJDE" class="text-xs font-bold text-slate-500">Sin cargar</span>
+                    </div>
+
+                    <!-- Dropzone Excel JDE -->
+                    <div id="dropJDE" class="border-2 border-dashed border-amber-300 bg-white rounded-xl p-7 text-center cursor-pointer hover:bg-amber-50 transition-all">
+                        <p class="text-amber-900 font-bold text-xs uppercase">📊 Arrastrá o seleccioná el Excel de JDE P4915 (.xlsx / .xls)</p>
+                        <p class="text-slate-500 text-[11px] mt-1">Detecta columnas por nombre automáticamente sin importar el orden.<br>Los embarques extra en JDE serán ignorados.</p>
+                        <input type="file" id="inputJDE" accept=".xlsx, .xls, .csv" class="hidden">
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <!-- VISTA PREVIA Y PESTAÑAS DINÁMICAS -->
-        <div id="results" class="hidden animate-in fade-in duration-500">
+        <!-- BANNER INFORMATIVO DE FILTRADO DE CP -->
+        <div id="bannerInfoFiltro" class="hidden mb-5 bg-slate-800 text-slate-200 px-4 py-2.5 rounded-xl text-xs flex flex-wrap justify-between items-center gap-2">
+            <span id="textoBannerFiltro"></span>
+            <span class="text-amber-300 font-bold">Depósito asumido para pedidos sin CP: 101</span>
+        </div>
+
+        <!-- PANEL DE RESULTADOS -->
+        <div id="panelResultados" class="hidden space-y-5">
             
-            <div class="bg-blue-900 text-white p-4 rounded-xl flex flex-wrap justify-between items-center mb-4 shadow-lg gap-4">
-                <span class="font-bold uppercase text-xs tracking-widest" id="resumenTexto">Resumen de Registro</span>
-                
-                <div class="flex flex-wrap gap-2">
-                    <button onclick="cambiarVistaDinamica('general')" id="tab-general" class="px-6 py-2 rounded-lg text-xs font-black bg-orange-500 text-white shadow transition-all">General (Dinámica)</button>
-                    <button onclick="cambiarVistaDinamica('cliente')" id="tab-cliente" class="px-6 py-2 rounded-lg text-xs font-black bg-blue-800 hover:bg-blue-700 text-white shadow transition-all">Cliente</button>
+            <!-- TARJETAS KPI -->
+            <div id="gridKpis" class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div onclick="filtrarPorEstado('TODOS')" class="cursor-pointer bg-slate-800 text-white p-4 rounded-2xl shadow hover:opacity-95 transition-all">
+                    <p class="text-[11px] font-bold uppercase text-slate-300">Embarques a Controlar</p>
+                    <p id="kpiTotal" class="text-2xl font-black mt-1">0</p>
+                </div>
+                <div onclick="filtrarPorEstado('OK')" class="cursor-pointer bg-emerald-600 text-white p-4 rounded-2xl shadow hover:opacity-95 transition-all">
+                    <p class="text-[11px] font-bold uppercase text-emerald-100">✅ Validados OK</p>
+                    <p id="kpiOk" class="text-2xl font-black mt-1">0</p>
+                </div>
+                <div onclick="filtrarPorEstado('DIF_BULTOS')" class="cursor-pointer bg-amber-500 text-white p-4 rounded-2xl shadow hover:opacity-95 transition-all">
+                    <p class="text-[11px] font-bold uppercase text-amber-100">⚠️ Dif. Bultos</p>
+                    <p id="kpiDifBultos" class="text-2xl font-black mt-1">0</p>
+                </div>
+                <!-- ESTA TARJETA SOLO APARECE SI HAY ALGÚN DEPÓSITO DISTINTO DE 101 -->
+                <div id="cardKpiDifDeposito" onclick="filtrarPorEstado('DIF_DEPOSITO')" class="hidden cursor-pointer bg-purple-600 text-white p-4 rounded-2xl shadow hover:opacity-95 transition-all">
+                    <p class="text-[11px] font-bold uppercase text-purple-100">🏢 Dif. Depósito (≠101)</p>
+                    <p id="kpiDifDeposito" class="text-2xl font-black mt-1">0</p>
+                </div>
+                <div onclick="filtrarPorEstado('NO_EN_JDE')" class="cursor-pointer bg-red-600 text-white p-4 rounded-2xl shadow hover:opacity-95 transition-all">
+                    <p class="text-[11px] font-bold uppercase text-red-100">❌ Faltan en JDE</p>
+                    <p id="kpiNoJde" class="text-2xl font-black mt-1">0</p>
                 </div>
             </div>
 
-            <!-- FILTRO CUSTOMER Y TOTAL DE BULTOS -->
-            <div class="flex flex-wrap justify-between items-center bg-slate-200/70 p-4 rounded-xl mb-4 border border-slate-300 gap-4">
-                <div class="flex flex-wrap items-center gap-4">
-                    <div id="contenedorFiltroCustomer" class="flex items-center gap-2">
-                        <label for="filtroCustomer" class="text-xs font-bold text-slate-700 uppercase">Filtrar Customer:</label>
-                        <select id="filtroCustomer" onchange="dibujarTablaDinamica()" class="p-2 rounded-lg border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none">
-                            <option value="TODOS">-- Todos los Customers --</option>
+            <!-- BARRA DE FILTROS Y BUSCADOR -->
+            <div class="bg-slate-100 p-4 rounded-2xl border border-slate-300 flex flex-wrap justify-between items-center gap-4">
+                <div class="flex flex-wrap items-center gap-3">
+                    <div>
+                        <label class="text-[11px] font-bold text-slate-600 uppercase block">Estado:</label>
+                        <select id="filtroEstado" onchange="renderizarTabla()" class="p-2 rounded-lg border border-slate-300 text-xs font-bold bg-white text-blue-900 outline-none">
+                            <option value="TODOS">Todos los estados</option>
+                            <option value="SOLO_ERRORES">🚨 Solo con diferencias / errores</option>
+                            <option value="OK">✅ OK</option>
+                            <option value="DIF_BULTOS">⚠️ Diferencia de Bultos</option>
+                            <option value="DIF_DEPOSITO" id="optDifDeposito" class="hidden">🏢 Diferencia de Depósito</option>
+                            <option value="NO_EN_JDE">❌ No encontrado en JDE</option>
                         </select>
                     </div>
-                    <div id="contenedorFiltroCP" class="flex flex-wrap items-center gap-2">
-                        <label for="filtroCP" class="text-xs font-bold text-slate-700 uppercase">Filtrar CP:</label>
-                        <select id="filtroCP" onchange="cambiarFiltroCP()" class="p-2 rounded-lg border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none">
-                            <option value="TODOS">Todos</option>
-                            <option value="CON_CP">Solamente con CP</option>
-                            <option value="SIN_CP">Solamente sin CP</option>
-                            <option value="ESPECIFICO">Número de CP</option>
-                        </select>
-                        <input type="text" id="numeroFiltroCP" oninput="dibujarTablaDinamica()" placeholder="N° de CP" class="hidden w-32 p-2 rounded-lg border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none">
+                    <div>
+                        <label class="text-[11px] font-bold text-slate-600 uppercase block">Buscar Embarque / Cliente / Customer:</label>
+                        <input type="text" id="buscadorTexto" onkeyup="renderizarTabla()" placeholder="Ej: 375145, MAXICONSUMO o Customer..." class="p-2 rounded-lg border border-slate-300 text-xs bg-white outline-none w-64">
                     </div>
                 </div>
-                
-                <div class="bg-white px-5 py-2 rounded-xl shadow-sm border border-slate-300 flex items-center gap-3">
-                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">Total Bultos:</span>
-                    <span id="badgeBultosTotal" class="text-2xl font-black text-emerald-600">0</span>
+
+                <div class="text-right text-xs text-slate-600">
+                    <p>Total Bultos Pedidos (sin CP): <strong id="sumBultosPed" class="text-blue-900 text-sm">0</strong></p>
+                    <p>Total Piezas JDE (cruzadas): <strong id="sumPiezasJde" class="text-emerald-700 text-sm">0</strong></p>
                 </div>
             </div>
-            
-            <div id="tablaContenedor" class="overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-sm max-h-[480px]">
-                <table class="w-full text-left border-collapse text-sm">
-                    <thead class="bg-slate-100 text-slate-700 font-bold sticky top-0 border-b border-slate-200 text-xs">
-                        <tr id="tableHeaders"></tr>
+
+            <!-- TABLA DE AUDITORÍA -->
+            <div class="overflow-x-auto border border-slate-200 rounded-2xl shadow-sm max-h-[540px]">
+                <table id="tablaAuditoria" class="w-full text-left border-collapse text-xs">
+                    <thead class="bg-blue-900 text-white font-bold sticky top-0 z-10">
+                        <tr>
+                            <th class="p-3">Estado</th>
+                            <th class="p-3">Embarque</th>
+                            <th class="p-3">Cliente (ID - Nombre)</th>
+                            <th class="p-3">Customer</th>
+                            <th class="p-3 text-center">Dep. Base<br><span class="text-[10px] font-normal text-blue-200">(Asumido)</span></th>
+                            <th class="p-3 text-center">Suc. Planta<br><span class="text-[10px] font-normal text-blue-200">(JDE)</span></th>
+                            <th class="p-3 text-right">Bultos<br>Pedidos</th>
+                            <th class="p-3 text-right">Piezas<br>JDE</th>
+                            <th class="p-3 text-right">Dif.<br>Bultos</th>
+                            <th class="p-3 text-right">Peso Ped.<br>[kg]</th>
+                            <th class="p-3 text-right">Peso JDE<br>[kg]</th>
+                            <th class="p-3">Nº Carga JDE</th>
+                            <th class="p-3">Est. JDE</th>
+                            <th class="p-3">Observación</th>
+                        </tr>
                     </thead>
-                    <tbody id="tableBody" class="divide-y divide-slate-100 text-slate-800"></tbody>
-                    <tfoot id="tableFooter" class="bg-slate-50 font-bold text-slate-900 sticky bottom-0 border-t-2 border-slate-300"></tfoot>
+                    <tbody id="tbodyResultados" class="divide-y divide-slate-200 bg-white"></tbody>
                 </table>
             </div>
         </div>
     </div>
 
-    <!-- MODAL REPROGRAMAR PEDIDOS -->
-    <div id="modalReprogramar" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-3xl shadow-2xl max-w-xl w-full p-6 border border-slate-200">
-            <div class="flex justify-between items-center border-b pb-3 mb-4">
-                <h2 class="text-xl font-black text-red-600 flex items-center gap-2">🚨 Reprogramar Pedido</h2>
-                <button onclick="cerrarModalReprogramar()" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
-            </div>
-            <form id="formReprogramar" onsubmit="guardarReprogramacion(event)" class="space-y-4">
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">FECHA ORIGINAL (A buscar):</label>
-                        <input type="date" id="repoFechaOrig" required class="w-full p-2.5 rounded-xl border border-slate-300 focus:border-red-500 outline-none text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">TIPO DE REPROGRAMACIÓN:</label>
-                        <select id="repoTipoCambio" onchange="evaluarTipoCambioRepo()" class="w-full p-2.5 rounded-xl border border-slate-300 focus:border-red-500 outline-none text-sm font-bold">
-                            <option value="TOTAL">Reprogramación Total (Todo el cliente)</option>
-                            <option value="PARCIAL">Reprogramación Parcial (Seleccionar líneas)</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">ID DEL CLIENTE:</label>
-                        <input type="text" id="repoCliente" required placeholder="Ej: 41002005" class="w-full p-2.5 rounded-xl border border-slate-300 focus:border-red-500 outline-none text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">FECHA REPROGRAMADA:</label>
-                        <input type="date" id="repoFechaNueva" required class="w-full p-2.5 rounded-xl border border-slate-300 focus:border-red-500 outline-none text-sm">
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">MOTIVO DE REPROGRAMACIÓN:</label>
-                    <textarea id="repoMotivo" required rows="2" placeholder="Describa el motivo..." class="w-full p-2.5 rounded-xl border border-slate-300 focus:border-red-500 outline-none text-sm"></textarea>
-                </div>
-
-                <!-- SECCIÓN PARCIAL DENTRO DEL MODAL REPROGRAMAR -->
-                <div id="seccionParcialRepo" class="hidden border p-3 rounded-xl bg-red-50">
-                    <p class="text-xs font-bold text-red-900 mb-2">Seleccioná las líneas específicas que querés reprogramar:</p>
-                    <div id="listaLineasRepo" class="max-h-36 overflow-y-auto space-y-1 text-xs"></div>
-                </div>
-
-                <div class="flex justify-end gap-3 pt-3 border-t">
-                    <button type="button" onclick="cerrarModalReprogramar()" class="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold text-xs">Cancelar</button>
-                    <button type="submit" id="btnGuardarRepo" class="px-6 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-md">REGISTRAR CAMBIO</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- MODAL MODIFICAR CP (CARTA DE PORTE) -->
-    <div id="modalCP" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-3xl shadow-2xl max-w-xl w-full p-6 border border-slate-200">
-            <div class="flex justify-between items-center border-b pb-3 mb-4">
-                <h2 class="text-xl font-black text-amber-600 flex items-center gap-2">✏️ Modificar Carta de Porte (CP)</h2>
-                <button onclick="cerrarModalCP()" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
-            </div>
-            <form id="formCP" onsubmit="procesarModificacionCP(event)" class="space-y-4">
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">FECHA ACTUAL (A buscar):</label>
-                        <input type="date" id="cpFecha" required class="w-full p-2.5 rounded-xl border border-slate-300 focus:border-amber-500 outline-none text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">TIPO DE CAMBIO:</label>
-                        <select id="cpTipoCambio" onchange="evaluarTipoCambioCP()" class="w-full p-2.5 rounded-xl border border-slate-300 focus:border-amber-500 outline-none text-sm font-bold">
-                            <option value="TOTAL">Cambio Total (Todo el CP)</option>
-                            <option value="PARCIAL">Cambio Parcial (Seleccionar líneas)</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">CP ACTUAL (A buscar):</label>
-                        <input type="text" id="cpActual" required placeholder="Ej: 357041" class="w-full p-2.5 rounded-xl border border-slate-300 focus:border-amber-500 outline-none text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">CP NUEVO:</label>
-                        <input type="text" id="cpNuevo" required placeholder="Ej: 357099" class="w-full p-2.5 rounded-xl border border-slate-300 focus:border-amber-500 outline-none text-sm">
-                    </div>
-                </div>
-
-                <div class="bg-blue-50 p-3 rounded-xl border border-blue-200">
-                    <label class="block text-xs font-bold text-blue-900 mb-1">📅 NUEVA FECHA DE ENTREGA (Opcional - Si reprograma salida):</label>
-                    <input type="date" id="cpFechaNueva" class="w-full p-2.5 rounded-xl border border-blue-300 focus:border-amber-500 outline-none text-sm bg-white font-bold text-blue-900">
-                </div>
-
-                <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">MOTIVO DE MODIFICACIÓN DE CP:</label>
-                    <textarea id="cpMotivo" required rows="2" placeholder="Describa el motivo del cambio..." class="w-full p-2.5 rounded-xl border border-slate-300 focus:border-amber-500 outline-none text-sm"></textarea>
-                </div>
-
-                <!-- SECCIÓN PARCIAL DENTRO DEL MODAL CP -->
-                <div id="seccionParcialCP" class="hidden border p-3 rounded-xl bg-amber-50">
-                    <p class="text-xs font-bold text-amber-900 mb-2">Seleccioná las líneas específicas a las que querés aplicar el cambio:</p>
-                    <div id="listaLineasCP" class="max-h-36 overflow-y-auto space-y-1 text-xs"></div>
-                </div>
-
-                <div class="flex justify-end gap-3 pt-3 border-t">
-                    <button type="button" onclick="cerrarModalCP()" class="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold text-xs">Cancelar</button>
-                    <button type="submit" id="btnGuardarCP" class="px-6 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-md">APLICAR CAMBIO DE CP</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- MODAL INFORMACIÓN PEDIDO / EMBARQUE (AL HACER CLICK EN CLIENTE) -->
-    <div id="modalInfoCliente" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 border border-slate-200">
-            <div class="flex justify-between items-center border-b pb-3 mb-4">
-                <h2 class="text-lg font-black text-blue-900 flex items-center gap-2">📦 Detalle de Pedidos Únicos</h2>
-                <button onclick="cerrarModalInfoCliente()" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
-            </div>
-            <div id="contenidoInfoCliente" class="space-y-3 text-sm text-slate-700">
-                <!-- Se rellena dinámicamente -->
-            </div>
-            <div id="footerModalInfoCliente" class="flex justify-between items-center pt-4 border-t mt-4">
-                <!-- Se rellena dinámicamente con botón copiar y cerrar -->
-            </div>
-        </div>
-    </div>
-
     <script>
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyF9e6gme3wHTVO_RooY_xqbK9VFciCZ0jejU2Vmh9o1OUEKwzmn1WxERq7hFBo0Oo2/exec"; 
-        
-        let filasProcesadas = [];
-        let headersOriginales = [];
-        let vistaActual = 'general';
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyF9e6gme3wHTVO_RooY_xqbK9VFciCZ0jejU2Vmh9o1OUEKwzmn1WxERq7hFBo0Oo2/exec";
+        document.getElementById('fechaConsultaNube').valueAsDate = new Date();
 
-        const hoy = new Date();
-        document.getElementById('fechaEntrega').valueAsDate = hoy;
-        document.getElementById('fechaConsultaRemota').valueAsDate = hoy;
+        let datosPedidosRaw = [];
+        let datosJDERaw = [];
+        let resultadosCruce = [];
+        let filasFiltradasActuales = [];
 
-        const dropZone = document.getElementById('dropZone');
-        const fileInput = document.getElementById('fileInput');
+        // --- CONFIGURACIÓN DRAG & DROP ---
+        function configurarDropzone(dropId, inputId, callback) {
+            const drop = document.getElementById(dropId);
+            const input = document.getElementById(inputId);
+            drop.onclick = () => input.click();
+            input.onchange = (e) => { if (e.target.files[0]) callback(e.target.files[0]); };
+            drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('ring-2', 'ring-blue-500'); });
+            drop.addEventListener('dragleave', () => drop.classList.remove('ring-2', 'ring-blue-500'));
+            drop.addEventListener('drop', (e) => {
+                e.preventDefault();
+                drop.classList.remove('ring-2', 'ring-blue-500');
+                if (e.dataTransfer.files[0]) callback(e.dataTransfer.files[0]);
+            });
+        }
 
-        dropZone.onclick = () => fileInput.click();
-        fileInput.onchange = (e) => procesarExcel(e.target.files[0]);
+        configurarDropzone('dropPedidos', 'inputPedidos', leerExcelPedidos);
+        configurarDropzone('dropJDE', 'inputJDE', leerExcelJDE);
 
-        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('bg-blue-100'); });
-        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('bg-blue-100'));
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('bg-blue-100');
-            if (e.dataTransfer.files.length > 0) procesarExcel(e.dataTransfer.files[0]);
-        });
+        // --- UTILIDADES DE NORMALIZACIÓN ---
+        function normalizarTexto(str) {
+            return String(str || '')
+                .toLowerCase()
+                .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                .replace(/[°º]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
 
-        function procesarExcel(file) {
-            if (!file) return;
+        function normalizarCodigo(val) {
+            let s = String(val ?? '').trim();
+            if (s.endsWith('.0')) s = s.slice(0, -2);
+            if (/^\d+$/.test(s)) {
+                return String(parseInt(s, 10));
+            }
+            return s.toUpperCase();
+        }
+
+        function parsearNumero(val) {
+            if (typeof val === 'number') return isNaN(val) ? 0 : val;
+            let s = String(val ?? '').trim();
+            if (!s) return 0;
+            if (s.includes(',') && s.includes('.')) {
+                s = s.replace(/\./g, '').replace(',', '.');
+            } else if (s.includes(',')) {
+                s = s.replace(',', '.');
+            }
+            const n = parseFloat(s);
+            return isNaN(n) ? 0 : n;
+        }
+
+        // --- 1A. LEER EXCEL DE PEDIDOS ---
+        function leerExcelPedidos(file) {
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
                     const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-                    const sheetName = workbook.SheetNames.find(n => n.trim().toLowerCase() === "base pedidos");
+                    const wb = XLSX.read(data, { type: 'array', cellDates: true });
+                    const sheetName = wb.SheetNames.find(n => n.trim().toLowerCase() === "base pedidos");
                     if (!sheetName) {
-                        alert('No se encontró la pestaña "Base pedidos".');
+                        alert('No se encontró la pestaña "Base pedidos" en el Excel.');
                         return;
                     }
-
-                    const worksheet = workbook.Sheets[sheetName];
-                    const rango = XLSX.utils.decode_range(worksheet['!ref'] || 'A1:AF1');
-                    rango.s.r = 0;
-                    rango.s.c = 0;
-
-                    const json = XLSX.utils.sheet_to_json(worksheet, {
-                        header: 1,
-                        defval: "",
-                        blankrows: true,
-                        range: rango
-                    });
-
-                    if (json.length < 5) {
-                        alert('El archivo no contiene suficientes filas.');
-                        return;
-                    }
-
-                    headersOriginales = (json[3] || []).slice(0, 32);
-                    filasProcesadas = [];
-
+                    const ws = wb.Sheets[sheetName];
+                    const json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+                    
+                    datosPedidosRaw = [];
                     for (let i = 4; i < json.length; i++) {
                         const r = json[i] || [];
-                        const tieneDatos = r.some(cell => cell !== null && cell !== undefined && String(cell).trim() !== "");
-                        if (!tieneDatos) continue;
-
-                        const fila = [];
-                        for (let c = 0; c < 32; c++) {
-                            fila.push(r[c] !== undefined && r[c] !== null ? r[c] : "");
+                        if (r.some(c => String(c).trim() !== "")) {
+                            datosPedidosRaw.push(r);
                         }
-                        filasProcesadas.push(fila);
                     }
 
-                    poblarFiltroCustomer();
-                    cambiarVistaDinamica('general');
-                    document.getElementById('results').classList.remove('hidden');
+                    const sinCP = datosPedidosRaw.filter(r => String(r[24] ?? '').trim() === "").length;
+                    const conCP = datosPedidosRaw.length - sinCP;
+
+                    const badge = document.getElementById('badgeEstadoPedidos');
+                    badge.innerText = `✓ ${sinCP} líneas sin CP (${conCP} con CP omitidas)`;
+                    badge.className = "text-xs font-bold text-emerald-700";
                 } catch (err) {
                     console.error(err);
-                    alert('No se pudo leer el Excel.');
+                    alert("Error al leer el Excel de Pedidos.");
                 }
             };
             reader.readAsArrayBuffer(file);
         }
 
-        async function consultarPedidosRemotos() {
-            const fechaInput = document.getElementById('fechaConsultaRemota').value;
-            if (!fechaInput) return alert("Selecciona una fecha para consultar");
-
+        // --- 1B. LEER PEDIDOS DESDE GOOGLE SHEETS ---
+        async function cargarPedidosDesdeNube() {
+            const fechaInput = document.getElementById('fechaConsultaNube').value;
+            if (!fechaInput) return alert("Seleccioná una fecha.");
             const [y, m, d] = fechaInput.split('-');
             const fechaFormateada = `${d}-${m}-${y}`;
 
-            const btn = document.getElementById('btnConsultarRemoto');
-            btn.innerText = "CONSULTANDO...";
+            const btn = document.getElementById('btnNube');
+            btn.innerText = "...";
             btn.disabled = true;
 
             try {
-                const response = await fetch(WEB_APP_URL, {
+                const resp = await fetch(WEB_APP_URL, {
                     method: 'POST',
-                    body: JSON.stringify({
-                        action: 'consultarPedidos',
-                        fecha: fechaFormateada
-                    })
+                    body: JSON.stringify({ action: 'consultarPedidos', fecha: fechaFormateada })
                 });
-                const resJson = await response.json();
+                const resJson = await resp.json();
                 if (resJson.status === "success" && resJson.filas && resJson.filas.length > 0) {
-                    filasProcesadas = resJson.filas;
-                    headersOriginales = resJson.headers || [];
-                    poblarFiltroCustomer();
-                    cambiarVistaDinamica('general');
-                    document.getElementById('results').classList.remove('hidden');
-                    alert(`✓ Se consultaron ${filasProcesadas.length} registros para la fecha ${fechaFormateada}.`);
+                    datosPedidosRaw = resJson.filas;
+                    const sinCP = datosPedidosRaw.filter(r => String(r[24] ?? '').trim() === "").length;
+                    const conCP = datosPedidosRaw.length - sinCP;
+
+                    const badge = document.getElementById('badgeEstadoPedidos');
+                    badge.innerText = `✓ ${sinCP} líneas sin CP (${conCP} con CP omitidas)`;
+                    badge.className = "text-xs font-bold text-emerald-700";
                 } else {
-                    alert(`No se encontraron registros guardados para la fecha ${fechaFormateada}.`);
+                    alert(`No hay pedidos guardados para ${fechaFormateada}.`);
                 }
             } catch (err) {
                 console.error(err);
-                alert("Error al consultar la nube.");
+                alert("Error al conectar con Google Sheets.");
             }
-            btn.innerText = "CONSULTAR PEDIDOS";
+            btn.innerText = "Traer";
             btn.disabled = false;
         }
 
-        function poblarFiltroCustomer() {
-            const select = document.getElementById('filtroCustomer');
-            const customers = new Set();
-            filasProcesadas.forEach(r => {
-                let cust = String(r[23] || '').trim();
-                if (cust) customers.add(cust);
-            });
+        // --- 2. LEER EXCEL JDE P4915 (ORDEN DE COLUMNAS DINÁMICO) ---
+        function leerExcelJDE(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const wb = XLSX.read(data, { type: 'array', cellDates: true });
+                    const ws = wb.Sheets[wb.SheetNames[0]];
+                    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
 
-            select.innerHTML = '<option value="TODOS">-- Todos los Customers --</option>';
-            Array.from(customers).sort().forEach(c => {
-                select.innerHTML += `<option value="${c}">${c}</option>`;
-            });
-        }
+                    let headerRowIdx = -1;
+                    let colMap = {};
 
-        function cambiarFiltroCP() {
-            const modo = document.getElementById('filtroCP').value;
-            const input = document.getElementById('numeroFiltroCP');
-            input.classList.toggle('hidden', modo !== 'ESPECIFICO');
-            if (modo !== 'ESPECIFICO') input.value = '';
-            dibujarTablaDinamica();
-        }
+                    for (let r = 0; r < Math.min(15, rows.length); r++) {
+                        const fila = rows[r] || [];
+                        let tempMap = {};
+                        fila.forEach((celda, idx) => {
+                            const norm = normalizarTexto(celda);
+                            if (norm === 'n de embarque' || norm === 'no de embarque' || norm === 'numero de embarque') tempMap.embarque = idx;
+                            else if (norm === 'sucursal planta' || norm === 'sucursal/planta') tempMap.sucursal = idx;
+                            else if (norm === 'n piezas' || norm === 'no piezas' || norm === 'numero piezas' || norm === 'cantidad piezas') tempMap.piezas = idx;
+                            else if (norm === 'peso del embarque' || norm === 'peso embarque') tempMap.peso = idx;
+                            else if (norm === 'numero carga' || norm === 'n carga' || norm === 'no carga') tempMap.carga = idx;
+                            else if (norm === 'estado') tempMap.estado = idx;
+                            else if (norm === 'est') tempMap.est = idx;
+                        });
 
-        function cambiarVistaDinamica(tipo) {
-            vistaActual = tipo;
-            ['general', 'cliente'].forEach(t => {
-                const btn = document.getElementById(`tab-${t}`);
-                if (t === tipo) {
-                    btn.className = "px-6 py-2 rounded-lg text-xs font-black bg-orange-500 text-white shadow transition-all";
-                } else {
-                    btn.className = "px-6 py-2 rounded-lg text-xs font-black bg-blue-800 hover:bg-blue-700 text-white shadow transition-all";
+                        if (tempMap.embarque !== undefined && tempMap.sucursal !== undefined && tempMap.piezas !== undefined) {
+                            headerRowIdx = r;
+                            colMap = tempMap;
+                            break;
+                        }
+                    }
+
+                    if (headerRowIdx === -1) {
+                        alert('No se pudieron detectar las columnas requeridas en el archivo JDE ("Nº de embarque", "Sucursal Planta", "Nº piezas").');
+                        return;
+                    }
+
+                    datosJDERaw = [];
+                    for (let i = headerRowIdx + 1; i < rows.length; i++) {
+                        const r = rows[i] || [];
+                        const embRaw = r[colMap.embarque];
+                        if (embRaw === undefined || embRaw === null || String(embRaw).trim() === "") continue;
+
+                        const embNorm = normalizarCodigo(embRaw);
+                        if (!embNorm || embNorm === "TOTAL" || embNorm === "TOTALES") continue;
+
+                        datosJDERaw.push({
+                            embarqueOrig: String(embRaw).trim(),
+                            embarqueNorm: embNorm,
+                            sucursalOrig: String(r[colMap.sucursal] ?? '').trim(),
+                            sucursalNorm: normalizarCodigo(r[colMap.sucursal]),
+                            piezas: parsearNumero(r[colMap.piezas]),
+                            peso: colMap.peso !== undefined ? parsearNumero(r[colMap.peso]) : 0,
+                            carga: colMap.carga !== undefined ? String(r[colMap.carga] ?? '').trim() : '',
+                            est: colMap.est !== undefined ? String(r[colMap.est] ?? '').trim() : '',
+                            estado: colMap.estado !== undefined ? String(r[colMap.estado] ?? '').trim() : ''
+                        });
+                    }
+
+                    const badge = document.getElementById('badgeEstadoJDE');
+                    badge.innerText = `✓ ${datosJDERaw.length} embarques leídos (${file.name})`;
+                    badge.className = "text-xs font-bold text-emerald-700";
+                } catch (err) {
+                    console.error(err);
+                    alert("Error al leer el archivo Excel de JDE.");
                 }
-            });
-
-            document.getElementById('contenedorFiltroCustomer').style.display = (tipo === 'general') ? 'flex' : 'none';
-            document.getElementById('contenedorFiltroCP').style.display = (tipo === 'general') ? 'flex' : 'none';
-            dibujarTablaDinamica();
-        }
-
-        function actualizarTotalBultos(totalBultos) {
-            const badge = document.getElementById('badgeBultosTotal');
-            badge.innerText = totalBultos.toLocaleString('es-ES', { maximumFractionDigits: 2 });
-            
-            if (totalBultos < 9000) {
-                badge.className = "text-2xl font-black text-emerald-600";
-            } else {
-                badge.className = "text-2xl font-black text-red-600";
-            }
-        }
-
-        function dibujarTablaDinamica() {
-            const thead = document.getElementById('tableHeaders');
-            const tbody = document.getElementById('tableBody');
-            const tfoot = document.getElementById('tableFooter');
-            
-            let acumuladoBultos = 0;
-            let acumuladoPeso = 0;
-            let acumuladoPallets = 0;
-
-            if (vistaActual === 'general') {
-                const customerFiltro = document.getElementById('filtroCustomer').value;
-                const modoFiltroCP = document.getElementById('filtroCP').value;
-                const numeroCPFiltro = String(document.getElementById('numeroFiltroCP').value || '').trim();
-                
-                let agruparGeneral = {};
-                filasProcesadas.forEach(r => {
-                    let customer = String(r[23] || '').trim();
-                    if (customerFiltro && customerFiltro !== 'TODOS' && customer !== customerFiltro) return;
-
-                    let cp = String(r[24] || '').trim();
-                    if (modoFiltroCP === 'CON_CP' && !cp) return;
-                    if (modoFiltroCP === 'SIN_CP' && cp) return;
-                    if (modoFiltroCP === 'ESPECIFICO' && (!numeroCPFiltro || cp !== numeroCPFiltro)) return;
-                    let transporte = String(r[26] || '').trim();
-                    let idCliente = String(r[0] || '').trim();
-                    let nombreCliente = String(r[15] || '').trim();
-                    let prioridad = String(r[14] || '').trim();
-                    let canal = String(r[22] || '').trim();
-                    let segundaVuelta = String(r[21] || '').trim(); // Columna 22 (2da Vuelta)
-                    let customerVal = String(r[23] || '').trim();
-                    let localidad = String(r[16] || '').trim();
-                    let direccion = String(r[19] || '').trim();
-                    let turno = String(r[20] || '').trim();
-
-                    let key = `${cp}_${transporte}_${idCliente}_${nombreCliente}_${prioridad}_${segundaVuelta}_${canal}_${customerVal}_${localidad}_${direccion}_${turno}`;
-
-                    if (!agruparGeneral[key]) {
-                        agruparGeneral[key] = { cp, transporte, idCliente, nombreCliente, prioridad, segundaVuelta, canal, customer: customerVal, localidad, direccion, turno, bultos: 0, peso: 0, pallets: 0 };
-                    }
-                    agruparGeneral[key].bultos += Number(r[4]) || 0;
-                    agruparGeneral[key].peso += Number(r[12]) || 0;
-                    agruparGeneral[key].pallets += Number(r[3]) || 0;
-                });
-
-                const cols = ["CP", "Transporte 2", "ID del Cliente", "Nombre Cliente", "Prioridad", "2da Vuelta", "Canal", "Customer", "Localidad", "Dirección", "Turno (Hora)", "Bultos", "Peso [kg]", "Pallets"];
-                thead.innerHTML = cols.map(c => `<th class="p-3">${c}</th>`).join('');
-
-                const itemsGeneral = Object.values(agruparGeneral);
-                tbody.innerHTML = itemsGeneral.map(item => {
-                    acumuladoBultos += item.bultos;
-                    acumuladoPeso += item.peso;
-                    acumuladoPallets += item.pallets;
-
-                    return `
-                        <tr class="hover:bg-slate-50">
-                            <td class="p-3">${item.cp}</td>
-                            <td class="p-3">${item.transporte}</td>
-                            <td class="p-3 font-bold text-blue-900 cursor-pointer hover:underline" onclick="verInfoCliente('${item.idCliente}')">${item.idCliente}</td>
-                            <td class="p-3">${item.nombreCliente}</td>
-                            <td class="p-3">${item.prioridad}</td>
-                            <td class="p-3 font-semibold text-amber-700">${item.segundaVuelta}</td>
-                            <td class="p-3">${item.canal}</td>
-                            <td class="p-3">${item.customer}</td>
-                            <td class="p-3">${item.localidad}</td>
-                            <td class="p-3">${item.direccion}</td>
-                            <td class="p-3">${item.turno}</td>
-                            <td class="p-3">${item.bultos.toFixed(2)}</td>
-                            <td class="p-3">${item.peso.toFixed(2)}</td>
-                            <td class="p-3">${item.pallets.toFixed(2)}</td>
-                        </tr>
-                    `;
-                }).join('');
-
-                tfoot.innerHTML = `
-                    <tr>
-                        <td colspan="11" class="p-3 text-right uppercase">TOTALES:</td>
-                        <td class="p-3">${acumuladoBultos.toFixed(2)}</td>
-                        <td class="p-3">${acumuladoPeso.toFixed(2)}</td>
-                        <td class="p-3">${acumuladoPallets.toFixed(2)}</td>
-                    </tr>
-                `;
-
-                document.getElementById('resumenTexto').innerText = `Vista General Dinámica (${itemsGeneral.length} grupos agrupados)`;
-
-            } else if (vistaActual === 'cliente') {
-                let agrupar = {};
-                filasProcesadas.forEach(r => {
-                    let cp = String(r[24] || '').trim();
-                    let transporte = String(r[26] || '').trim();
-                    let reparto = String(r[10] || '').trim();
-                    let idCliente = String(r[0] || '').trim();
-                    let key = `${cp}___${transporte}___${reparto}`;
-
-                    if (!agrupar[key]) {
-                        agrupar[key] = { cp, transporte, reparto, clientesSet: new Set(), bultos: 0, peso: 0, pallets: 0 };
-                    }
-                    if (idCliente) agrupar[key].clientesSet.add(idCliente);
-                    
-                    let b = Number(r[4]) || 0;
-                    let p = Number(r[12]) || 0;
-                    let pal = Number(r[3]) || 0;
-
-                    agrupar[key].bultos += b;
-                    agrupar[key].peso += p;
-                    agrupar[key].pallets += pal;
-
-                    acumuladoBultos += b;
-                    acumuladoPeso += p;
-                    acumuladoPallets += pal;
-                });
-
-                const cols = ["CP", "Transporte 2", "Nombre del Reparto", "Cantidad de Clientes", "Bultos", "Peso [kg]", "Pallets"];
-                thead.innerHTML = cols.map(c => `<th class="p-3">${c}</th>`).join('');
-
-                let totalClientesUnicos = new Set();
-                filasProcesadas.forEach(r => { if(r[0]) totalClientesUnicos.add(r[0]); });
-
-                tbody.innerHTML = Object.values(agrupar).map(item => `
-                    <tr class="hover:bg-slate-50">
-                        <td class="p-3">${item.cp}</td>
-                        <td class="p-3">${item.transporte}</td>
-                        <td class="p-3 font-bold text-blue-900">${item.reparto}</td>
-                        <td class="p-3">${item.clientesSet.size}</td>
-                        <td class="p-3">${item.bultos.toFixed(2)}</td>
-                        <td class="p-3">${item.peso.toFixed(2)}</td>
-                        <td class="p-3">${item.pallets.toFixed(2)}</td>
-                    </tr>
-                `).join('');
-
-                tfoot.innerHTML = `
-                    <tr>
-                        <td colspan="3" class="p-3 text-right uppercase">TOTALES (${totalClientesUnicos.size} Clientes Únicos):</td>
-                        <td class="p-3">${totalClientesUnicos.size}</td>
-                        <td class="p-3">${acumuladoBultos.toFixed(2)}</td>
-                        <td class="p-3">${acumuladoPeso.toFixed(2)}</td>
-                        <td class="p-3">${acumuladoPallets.toFixed(2)}</td>
-                    </tr>
-                `;
-
-                document.getElementById('resumenTexto').innerText = `Dinámica por Cliente / Reparto (${Object.keys(agrupar).length} grupos)`;
-            }
-
-            actualizarTotalBultos(acumuladoBultos);
-        }
-
-        // --- VENTANA EMERGENTE PARA MOSTRAR PEDIDO Y EMBARQUE AGRUPADO ---
-        let clienteDetalleCache = null;
-
-        function verInfoCliente(idCliente) {
-            let unicosMap = new Map();
-            let nombreCli = "";
-            let bultosTotal = 0;
-            let pesoTotal = 0;
-
-            filasProcesadas.forEach(r => {
-                let id = String(r[0] || '').trim();
-                if (id === String(idCliente).trim()) {
-                    if (r[15]) nombreCli = r[15];
-                    
-                    let numPedido = String(r[13] || 'N/A').trim();
-                    let embarque = String(r[1] || 'N/A').trim();
-                    let key = `${numPedido}_${embarque}`;
-
-                    if (!unicosMap.has(key)) {
-                        unicosMap.set(key, { pedido: numPedido, embarque: embarque });
-                    }
-
-                    bultosTotal += Number(r[4]) || 0;
-                    pesoTotal += Number(r[12]) || 0;
-                }
-            });
-
-            let unicos = Array.from(unicosMap.values());
-            clienteDetalleCache = {
-                idCliente: idCliente,
-                nombreCliente: nombreCli,
-                bultos: bultosTotal,
-                peso: pesoTotal,
-                unicos: unicos
             };
-
-            const contenedor = document.getElementById('contenidoInfoCliente');
-            contenedor.innerHTML = `
-                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1 mb-3 text-xs">
-                    <p><strong>ID Cliente:</strong> <span class="text-blue-900 font-bold">${idCliente}</span></p>
-                    <p><strong>Nombre:</strong> <span>${nombreCli || 'N/D'}</span></p>
-                    <div class="flex gap-4 pt-1 text-slate-700 font-bold border-t border-slate-200 mt-2">
-                        <span>📦 Total Bultos: <strong class="text-emerald-700">${bultosTotal}</strong></span>
-                        <span>⚖️ Total Peso: <strong class="text-blue-900">${pesoTotal.toFixed(2)} kg</strong></span>
-                    </div>
-                </div>
-
-                <p class="font-bold text-slate-700 mb-1 text-xs">Pedidos y Embarques Únicos (${unicos.length}):</p>
-                <div class="space-y-1 max-h-48 overflow-y-auto pr-1">
-                    ${unicos.map(p => `
-                        <div class="bg-blue-50 p-2 rounded-lg border border-blue-200 flex justify-between items-center text-xs">
-                            <span><strong>Pedido:</strong> ${p.pedido}</span>
-                            <span><strong>Embarque:</strong> ${p.embarque}</span>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-
-            const footer = document.getElementById('footerModalInfoCliente');
-            footer.innerHTML = `
-                <button onclick="copiarDetalleClienteExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-xl shadow transition-all flex items-center gap-1.5">
-                    📋 Copiar para Excel
-                </button>
-                <button type="button" onclick="cerrarModalInfoCliente()" class="px-5 py-2 rounded-xl bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs">Cerrar</button>
-            `;
-
-            document.getElementById('modalInfoCliente').classList.remove('hidden');
+            reader.readAsArrayBuffer(file);
         }
 
-        function copiarDetalleClienteExcel() {
-            if (!clienteDetalleCache) return;
+        // --- 3. EJECUTAR VALIDACIÓN (SOLO LÍNEAS SIN CP -> DEPÓSITO 101) ---
+        function ejecutarCruce() {
+            if (datosPedidosRaw.length === 0) return alert("Cargá primero la Planilla de Pedidos (Excel o Nube).");
+            if (datosJDERaw.length === 0) return alert("Cargá primero el Excel de exportación de JDE (P4915).");
 
-            const c = clienteDetalleCache;
-            const clienteTexto = `${c.idCliente} - ${c.nombreCliente}`;
-            const pesoFormateado = c.peso.toFixed(2).replace('.', ',');
+            const DEPOSITO_DEFAULT = "101";
+            let lineasDescartadasConCP = 0;
+            let lineasEvaluadasSinCP = 0;
 
-            let htmlContent = `
-                <table border="0" cellpadding="0" cellspacing="0" style="font-family: Calibri, Arial, sans-serif; font-size: 11pt;">
-                    <tr>
-                        <td style="font-weight: bold;">cliente</td>
-                        <td colspan="3" style="font-weight: bold;">${clienteTexto}</td>
-                    </tr>
-                    <tr>
-                        <td style="font-weight: bold;">pedido (orden)</td>
-                        <td style="font-weight: bold;">embarque</td>
-                        <td style="font-weight: bold;">bultos</td>
-                        <td style="font-weight: bold;">peso</td>
-                    </tr>
-            `;
+            // Índices en "Base pedidos":
+            // 0: ID Cliente | 1: Embarque | 4: Cantidad 2 - Bultos | 12: Peso [kg] | 15: Nombre Cliente | 23: Customer (Col X) | 24: CP (Col Y)
+            const mapaPedidos = new Map();
 
-            c.unicos.forEach(u => {
-                htmlContent += `
-                    <tr>
-                        <td style="text-align: right;">${u.pedido}</td>
-                        <td style="text-align: right;">${u.embarque}</td>
-                        <td style="text-align: right;">${c.bultos}</td>
-                        <td style="text-align: right;">${pesoFormateado}</td>
+            datosPedidosRaw.forEach(r => {
+                const cpVal = String(r[24] ?? '').trim();
+                
+                // Si tiene CP (Carta de Porte), desestimar la línea
+                if (cpVal !== "") {
+                    lineasDescartadasConCP++;
+                    return;
+                }
+
+                const embOrig = String(r[1] ?? '').trim();
+                if (!embOrig) return;
+
+                lineasEvaluadasSinCP++;
+                const embNorm = normalizarCodigo(embOrig);
+                const customerVal = String(r[23] ?? '').trim();
+
+                if (!mapaPedidos.has(embNorm)) {
+                    mapaPedidos.set(embNorm, {
+                        embarqueOrig: embOrig,
+                        embarqueNorm: embNorm,
+                        depEsperado: DEPOSITO_DEFAULT,
+                        idCliente: String(r[0] ?? '').trim(),
+                        nombreCliente: String(r[15] ?? '').trim(),
+                        customersSet: new Set(),
+                        bultos: 0,
+                        peso: 0,
+                        lineas: 0
+                    });
+                }
+
+                const item = mapaPedidos.get(embNorm);
+                if (customerVal) item.customersSet.add(customerVal);
+                item.bultos += parsearNumero(r[4]);
+                item.peso += parsearNumero(r[12]);
+                item.lineas += 1;
+            });
+
+            const banner = document.getElementById('bannerInfoFiltro');
+            banner.classList.remove('hidden');
+            document.getElementById('textoBannerFiltro').innerHTML = 
+                `📋 Se analizaron <b>${lineasEvaluadasSinCP}</b> líneas sin CP (${mapaPedidos.size} embarques únicos) y se desestimaron <b>${lineasDescartadasConCP}</b> líneas que ya tenían CP asignado.`;
+
+            const mapaJdePorEmbarque = new Map();
+            datosJDERaw.forEach(j => {
+                if (!mapaJdePorEmbarque.has(j.embarqueNorm)) {
+                    mapaJdePorEmbarque.set(j.embarqueNorm, []);
+                }
+                mapaJdePorEmbarque.get(j.embarqueNorm).push(j);
+            });
+
+            resultadosCruce = [];
+
+            mapaPedidos.forEach((ped, embNorm) => {
+                const registrosJde = mapaJdePorEmbarque.get(embNorm);
+
+                let estadoCodigo = '';
+                let estadoLabel = '';
+                let sucJde = '-';
+                let piezasJde = 0;
+                let pesoJde = 0;
+                let cargaJde = '-';
+                let estJde = '-';
+                let difBultos = 0;
+                let observacion = '';
+
+                const customerStr = Array.from(ped.customersSet).join(', ') || '-';
+
+                if (registrosJde && registrosJde.length > 0) {
+                    const sucursalesUnicas = [...new Set(registrosJde.map(x => x.sucursalOrig).filter(Boolean))];
+                    const sucursalesNormUnicas = [...new Set(registrosJde.map(x => x.sucursalNorm).filter(Boolean))];
+                    
+                    sucJde = sucursalesUnicas.join(', ') || '-';
+                    piezasJde = registrosJde.reduce((acc, x) => acc + x.piezas, 0);
+                    pesoJde = registrosJde.reduce((acc, x) => acc + x.peso, 0);
+                    cargaJde = [...new Set(registrosJde.map(x => x.carga).filter(Boolean))].join(', ') || '-';
+                    estJde = [...new Set(registrosJde.map(x => [x.est, x.estado].filter(Boolean).join(' - ')).filter(Boolean))].join(' / ') || '-';
+                    
+                    difBultos = Number((ped.bultos - piezasJde).toFixed(2));
+
+                    const tieneSucursalDistinta101 = sucursalesNormUnicas.some(s => s !== DEPOSITO_DEFAULT);
+
+                    if (tieneSucursalDistinta101) {
+                        estadoCodigo = 'DIF_DEPOSITO';
+                        estadoLabel = '🏢 DIF. DEPÓSITO';
+                        observacion = 'El deposito no es 101';
+                    } else if (Math.abs(difBultos) < 0.01) {
+                        estadoCodigo = 'OK';
+                        estadoLabel = '✅ OK';
+                        observacion = 'Todo coincide';
+                    } else {
+                        estadoCodigo = 'DIF_BULTOS';
+                        estadoLabel = '⚠️ DIF. BULTOS';
+                        observacion = 'Diferencia de cantidades';
+                    }
+                } else {
+                    estadoCodigo = 'NO_EN_JDE';
+                    estadoLabel = '❌ NO EN JDE';
+                    difBultos = ped.bultos;
+                    observacion = 'No aparece el embarque';
+                }
+
+                resultadosCruce.push({
+                    estadoCodigo,
+                    estadoLabel,
+                    embarque: ped.embarqueOrig,
+                    cliente: `${ped.idCliente} - ${ped.nombreCliente}`,
+                    customer: customerStr,
+                    depPedido: ped.depEsperado,
+                    sucJde,
+                    bultosPedido: ped.bultos,
+                    piezasJde,
+                    difBultos,
+                    pesoPedido: ped.peso,
+                    pesoJde,
+                    cargaJde,
+                    estJde,
+                    observacion
+                });
+            });
+
+            const prioridadOrden = { 'NO_EN_JDE': 1, 'DIF_DEPOSITO': 2, 'DIF_BULTOS': 3, 'OK': 4 };
+            resultadosCruce.sort((a, b) => prioridadOrden[a.estadoCodigo] - prioridadOrden[b.estadoCodigo]);
+
+            actualizarKPIs();
+            renderizarTabla();
+
+            document.getElementById('panelResultados').classList.remove('hidden');
+            document.getElementById('btnCopiarTabla').classList.remove('hidden');
+            document.getElementById('btnExportar').classList.remove('hidden');
+        }
+
+        function actualizarKPIs() {
+            const countDifDep = resultadosCruce.filter(r => r.estadoCodigo === 'DIF_DEPOSITO').length;
+
+            document.getElementById('kpiTotal').innerText = resultadosCruce.length;
+            document.getElementById('kpiOk').innerText = resultadosCruce.filter(r => r.estadoCodigo === 'OK').length;
+            document.getElementById('kpiDifBultos').innerText = resultadosCruce.filter(r => r.estadoCodigo === 'DIF_BULTOS').length;
+            document.getElementById('kpiDifDeposito').innerText = countDifDep;
+            document.getElementById('kpiNoJde').innerText = resultadosCruce.filter(r => r.estadoCodigo === 'NO_EN_JDE').length;
+
+            const cardDep = document.getElementById('cardKpiDifDeposito');
+            const optDep = document.getElementById('optDifDeposito');
+            const gridKpis = document.getElementById('gridKpis');
+
+            if (countDifDep > 0) {
+                cardDep.classList.remove('hidden');
+                optDep.classList.remove('hidden');
+                gridKpis.className = "grid grid-cols-2 md:grid-cols-5 gap-3";
+            } else {
+                cardDep.classList.add('hidden');
+                optDep.classList.add('hidden');
+                gridKpis.className = "grid grid-cols-2 md:grid-cols-4 gap-3";
+                if (document.getElementById('filtroEstado').value === 'DIF_DEPOSITO') {
+                    document.getElementById('filtroEstado').value = 'TODOS';
+                }
+            }
+        }
+
+        function filtrarPorEstado(estado) {
+            document.getElementById('filtroEstado').value = estado;
+            renderizarTabla();
+        }
+
+        function renderizarTabla() {
+            const estFiltro = document.getElementById('filtroEstado').value;
+            const texto = normalizarTexto(document.getElementById('buscadorTexto').value);
+
+            filasFiltradasActuales = resultadosCruce.filter(r => {
+                if (estFiltro === 'SOLO_ERRORES' && r.estadoCodigo === 'OK') return false;
+                if (estFiltro !== 'TODOS' && estFiltro !== 'SOLO_ERRORES' && r.estadoCodigo !== estFiltro) return false;
+                if (texto) {
+                    const blob = normalizarTexto(`${r.embarque} ${r.cliente} ${r.customer} ${r.cargaJde}`);
+                    if (!blob.includes(texto)) return false;
+                }
+                return true;
+            });
+
+            let sumPed = 0;
+            let sumJde = 0;
+
+            const tbody = document.getElementById('tbodyResultados');
+            tbody.innerHTML = filasFiltradasActuales.map(r => {
+                sumPed += r.bultosPedido;
+                sumJde += r.piezasJde;
+
+                let badgeClass = "bg-emerald-100 text-emerald-800 border-emerald-300";
+                let rowBg = "hover:bg-slate-50";
+
+                if (r.estadoCodigo === 'DIF_BULTOS') {
+                    badgeClass = "bg-amber-100 text-amber-900 border-amber-300";
+                    rowBg = "bg-amber-50/40 hover:bg-amber-50";
+                } else if (r.estadoCodigo === 'DIF_DEPOSITO') {
+                    badgeClass = "bg-purple-100 text-purple-900 border-purple-300";
+                    rowBg = "bg-purple-50/40 hover:bg-purple-50";
+                } else if (r.estadoCodigo === 'NO_EN_JDE') {
+                    badgeClass = "bg-red-100 text-red-900 border-red-300";
+                    rowBg = "bg-red-50/40 hover:bg-red-50";
+                }
+
+                const difColor = Math.abs(r.difBultos) >= 0.01 ? "text-red-600 font-black" : "text-slate-400";
+
+                return `
+                    <tr class="${rowBg}">
+                        <td class="p-3 whitespace-nowrap">
+                            <span class="px-2.5 py-1 rounded-full font-black text-[11px] border ${badgeClass}">${r.estadoLabel}</span>
+                        </td>
+                        <td class="p-3 font-black text-blue-900">${r.embarque}</td>
+                        <td class="p-3">${r.cliente}</td>
+                        <td class="p-3 font-semibold text-slate-700">${r.customer}</td>
+                        <td class="p-3 text-center font-bold text-slate-600">${r.depPedido}</td>
+                        <td class="p-3 text-center font-bold">${r.sucJde}</td>
+                        <td class="p-3 text-right font-bold text-blue-900">${r.bultosPedido.toLocaleString('es-AR')}</td>
+                        <td class="p-3 text-right font-bold text-emerald-700">${r.piezasJde.toLocaleString('es-AR')}</td>
+                        <td class="p-3 text-right ${difColor}">${r.difBultos !== 0 ? r.difBultos.toLocaleString('es-AR') : '0'}</td>
+                        <td class="p-3 text-right text-slate-600">${r.pesoPedido.toFixed(2)}</td>
+                        <td class="p-3 text-right text-slate-600">${r.pesoJde.toFixed(2)}</td>
+                        <td class="p-3 font-mono">${r.cargaJde}</td>
+                        <td class="p-3">${r.estJde}</td>
+                        <td class="p-3 text-slate-700 whitespace-nowrap">${r.observacion}</td>
                     </tr>
                 `;
+            }).join('');
+
+            document.getElementById('sumBultosPed').innerText = sumPed.toLocaleString('es-AR');
+            document.getElementById('sumPiezasJde').innerText = sumJde.toLocaleString('es-AR');
+        }
+
+        // --- COPIAR TABLA VISIBLE (MAIL / EXCEL) ---
+        function copiarTablaVisible() {
+            if (!filasFiltradasActuales || filasFiltradasActuales.length === 0) {
+                return alert("No hay filas visibles para copiar.");
+            }
+
+            const headers = [
+                "Estado", "Embarque", "Cliente (ID - Nombre)", "Customer",
+                "Dep. Base", "Suc. Planta JDE", "Bultos Pedidos", "Piezas JDE",
+                "Dif. Bultos", "Peso Ped. [kg]", "Peso JDE [kg]", "Nº Carga JDE",
+                "Est. JDE", "Observación"
+            ];
+
+            let html = `<table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:10pt;"><thead><tr style="background:#1e3a8a;color:#ffffff;font-weight:bold;">`;
+            headers.forEach(h => { html += `<th>${h}</th>`; });
+            html += `</tr></thead><tbody>`;
+
+            let plain = headers.join("\t") + "\n";
+
+            filasFiltradasActuales.forEach(r => {
+                const estadoLimpio = r.estadoLabel.replace(/[^\w\s.ÁÉÍÓÚáéíóúÑñ]/g, '').trim();
+                const vals = [
+                    estadoLimpio,
+                    r.embarque,
+                    r.cliente,
+                    r.customer,
+                    r.depPedido,
+                    r.sucJde,
+                    r.bultosPedido,
+                    r.piezasJde,
+                    r.difBultos,
+                    r.pesoPedido.toFixed(2).replace('.', ','),
+                    r.pesoJde.toFixed(2).replace('.', ','),
+                    r.cargaJde,
+                    r.estJde,
+                    r.observacion
+                ];
+                html += `<tr>` + vals.map(v => `<td>${v}</td>`).join('') + `</tr>`;
+                plain += vals.join("\t") + "\n";
             });
 
-            htmlContent += `</table>`;
-
-            let textPlain = `cliente\t${clienteTexto}\t\t\n`;
-            textPlain += `pedido (orden)\tembarque\tbultos\tpeso\n`;
-            c.unicos.forEach(u => {
-                textPlain += `${u.pedido}\t${u.embarque}\t${c.bultos}\t${pesoFormateado}\n`;
-            });
+            html += `</tbody></table>`;
 
             if (navigator.clipboard && window.ClipboardItem) {
-                const blobHtml = new Blob([htmlContent], { type: 'text/html' });
-                const blobText = new Blob([textPlain], { type: 'text/plain' });
-
+                const blobHtml = new Blob([html], { type: 'text/html' });
+                const blobText = new Blob([plain], { type: 'text/plain' });
                 navigator.clipboard.write([
-                    new ClipboardItem({
-                        'text/html': blobHtml,
-                        'text/plain': blobText
-                    })
+                    new ClipboardItem({ 'text/html': blobHtml, 'text/plain': blobText })
                 ]).then(() => {
-                    alert("✓ Datos copiados al portapapeles. Pégalos directamente en Excel.");
-                }).catch(err => {
-                    console.error("Error al copiar:", err);
-                    fallbackCopyHTML(htmlContent);
-                });
+                    alert(`✓ Se copiaron ${filasFiltradasActuales.length} filas. Ya podés pegar en Excel o en el correo.`);
+                }).catch(() => fallbackCopy(html));
             } else {
-                fallbackCopyHTML(htmlContent);
+                fallbackCopy(html);
             }
         }
 
-        function fallbackCopyHTML(html) {
-            const container = document.createElement('div');
-            container.innerHTML = html;
-            container.style.position = 'fixed';
-            container.style.pointerEvents = 'none';
-            container.style.opacity = '0';
-            document.body.appendChild(container);
-            window.getSelection().removeAllRanges();
+        function fallbackCopy(html) {
+            const div = document.createElement('div');
+            div.innerHTML = html;
+            div.style.position = 'fixed';
+            div.style.opacity = '0';
+            document.body.appendChild(div);
             const range = document.createRange();
-            range.selectNode(container);
-            window.getSelection().addRange(range);
+            range.selectNode(div);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
             try {
                 document.execCommand('copy');
-                alert("✓ Datos copiados al portapapeles. Pégalos directamente en Excel.");
+                alert(`✓ Se copiaron ${filasFiltradasActuales.length} filas. Ya podés pegar en Excel o en el correo.`);
             } catch (e) {
                 alert("No se pudo copiar automáticamente.");
             }
-            window.getSelection().removeAllRanges();
-            document.body.removeChild(container);
+            sel.removeAllRanges();
+            document.body.removeChild(div);
         }
 
-        function cerrarModalInfoCliente() {
-            document.getElementById('modalInfoCliente').classList.add('hidden');
-        }
+        // --- 4. EXPORTAR RESULTADOS A EXCEL ---
+        function exportarResultadosExcel() {
+            if (resultadosCruce.length === 0) return;
 
-        async function sincronizarPedidos() {
-            const fechaInput = document.getElementById('fechaEntrega').value;
-            if (!fechaInput) return alert("Selecciona la fecha de entrega");
+            const dataExport = resultadosCruce.map(r => ({
+                "Estado Validación": r.estadoLabel.replace(/[^\w\s.ÁÉÍÓÚáéíóúÑñ]/g, '').trim(),
+                "Nº Embarque": r.embarque,
+                "Cliente": r.cliente,
+                "Customer": r.customer,
+                "Depósito Base": r.depPedido,
+                "Sucursal Planta JDE": r.sucJde,
+                "Bultos Pedidos": r.bultosPedido,
+                "Piezas JDE": r.piezasJde,
+                "Diferencia Bultos": r.difBultos,
+                "Peso Pedidos [kg]": Number(r.pesoPedido.toFixed(2)),
+                "Peso JDE [kg]": Number(r.pesoJde.toFixed(2)),
+                "Nº Carga JDE": r.cargaJde,
+                "Estado JDE": r.estJde,
+                "Observación": r.observacion
+            }));
 
-            const [y, m, d] = fechaInput.split('-');
-            const fechaFormateada = `${d}-${m}-${y}`;
+            const ws = XLSX.utils.json_to_sheet(dataExport);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Validacion_JDE");
 
-            if (filasProcesadas.length === 0) return alert("No hay pedidos para cargar");
-
-            const btn = document.getElementById('btnSync');
-            btn.innerText = "PROCESANDO...";
-            btn.disabled = true;
-
-            try {
-                await fetch(WEB_APP_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    body: JSON.stringify({
-                        action: 'cargarPedidos',
-                        filas: filasProcesadas,
-                        headers: headersOriginales,
-                        fechaEntrega: fechaFormateada
-                    })
-                });
-                alert("✓ Pedidos sincronizados con éxito.");
-                filasProcesadas = [];
-                document.getElementById('results').classList.add('hidden');
-            } catch (e) {
-                alert("Error al sincronizar los pedidos.");
-            }
-            btn.innerText = "🔄 SINCRONIZAR DATOS";
-            btn.disabled = false;
-        }
-
-        // --- MANEJO DE MODALES ---
-        function abrirModalReprogramar() { 
-            document.getElementById('formReprogramar').reset();
-            document.getElementById('repoFechaOrig').valueAsDate = new Date();
-            document.getElementById('repoTipoCambio').value = 'TOTAL';
-            document.getElementById('seccionParcialRepo').classList.add('hidden');
-            document.getElementById('modalReprogramar').classList.remove('hidden'); 
-        }
-        function cerrarModalReprogramar() { document.getElementById('modalReprogramar').classList.add('hidden'); }
-
-        async function evaluarTipoCambioRepo() {
-            const tipo = document.getElementById('repoTipoCambio').value;
-            const contenedor = document.getElementById('seccionParcialRepo');
-            
-            if (tipo === 'PARCIAL') {
-                const clienteId = document.getElementById('repoCliente').value.trim();
-                const fVal = document.getElementById('repoFechaOrig').value;
-                if (!clienteId || !fVal) {
-                    alert("Ingresá primero el ID del Cliente y la Fecha Original para buscar las líneas.");
-                    document.getElementById('repoTipoCambio').value = 'TOTAL';
-                    return;
-                }
-                const [y, m, d] = fVal.split('-');
-                contenedor.classList.remove('hidden');
-
-                const resp = await fetch(WEB_APP_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        action: 'buscarLineasParaReprogramar',
-                        info: { idCliente: clienteId, fecha: `${d}-${m}-${y}` }
-                    })
-                });
-                const resJson = await resp.json();
-                
-                const lista = document.getElementById('listaLineasRepo');
-                if (resJson.status === "success" && resJson.lineas.length > 0) {
-                    lista.innerHTML = resJson.lineas.map(l => `
-                        <label class="flex items-center gap-2 p-1.5 bg-white rounded border cursor-pointer hover:bg-slate-50">
-                            <input type="checkbox" name="chkRepo" value="${l.filaReal}" class="rounded">
-                            <span>Prod: <b>${l.prodId}</b> | Bultos: <b>${l.bultos}</b> | CP: <b>${l.cpActual}</b> | Dir: ${l.direccion}</span>
-                        </label>
-                    `).join('');
-                } else {
-                    lista.innerHTML = '<p class="text-red-600 font-bold">No se encontraron líneas para ese cliente en esa fecha.</p>';
-                }
-            } else {
-                contenedor.classList.add('hidden');
-            }
-        }
-
-        async function guardarReprogramacion(e) {
-            e.preventDefault();
-            const btn = document.getElementById('btnGuardarRepo');
-            btn.innerText = "REGISTRANDO...";
-            btn.disabled = true;
-
-            const tipo = document.getElementById('repoTipoCambio').value;
-            const [y1, m1, d1] = document.getElementById('repoFechaOrig').value.split('-');
-            const [y2, m2, d2] = document.getElementById('repoFechaNueva').value.split('-');
-
-            let seleccionados = [];
-            if (tipo === 'PARCIAL') {
-                document.querySelectorAll('input[name="chkRepo"]:checked').forEach(c => {
-                    seleccionados.push(Number(c.value));
-                });
-                if (seleccionados.length === 0) {
-                    alert("Seleccioná al menos una línea para reprogramar.");
-                    btn.innerText = "REGISTRAR CAMBIO";
-                    btn.disabled = false;
-                    return;
-                }
-            }
-
-            const payload = {
-                action: 'reprogramarPedido',
-                limpiarGrilla: true,
-                columnaGrilla: 'AF',
-                info: {
-                    idCliente: document.getElementById('repoCliente').value.trim(),
-                    fechaOrig: `${d1}-${m1}-${y1}`,
-                    fechaNueva: `${d2}-${m2}-${y2}`,
-                    motivo: document.getElementById('repoMotivo').value,
-                    esTotal: (tipo === 'TOTAL'),
-                    filasSeleccionadas: seleccionados
-                }
-            };
-
-            try {
-                const res = await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(payload) });
-                const resJson = await res.json();
-                
-                if (resJson.status === "success") {
-                    alert(resJson.message);
-                    document.getElementById('formReprogramar').reset();
-                    cerrarModalReprogramar();
-                } else {
-                    alert(resJson.message || "Error al reprogramar el pedido.");
-                }
-            } catch(err) {
-                alert("Error al comunicarse con la base de datos.");
-            }
-            btn.innerText = "REGISTRAR CAMBIO";
-            btn.disabled = false;
-        }
-
-        function abrirModalCP() { 
-            document.getElementById('formCP').reset();
-            document.getElementById('cpFecha').valueAsDate = new Date();
-            document.getElementById('cpTipoCambio').value = 'TOTAL';
-            document.getElementById('seccionParcialCP').classList.add('hidden');
-            document.getElementById('modalCP').classList.remove('hidden'); 
-        }
-        function cerrarModalCP() { document.getElementById('modalCP').classList.add('hidden'); }
-
-        async function evaluarTipoCambioCP() {
-            const tipo = document.getElementById('cpTipoCambio').value;
-            const contenedor = document.getElementById('seccionParcialCP');
-            
-            if (tipo === 'PARCIAL') {
-                const cpAct = document.getElementById('cpActual').value;
-                const fVal = document.getElementById('cpFecha').value;
-                if (!cpAct || !fVal) {
-                    alert("Ingresá primero el CP Actual y la Fecha de Entrega para buscar las líneas.");
-                    document.getElementById('cpTipoCambio').value = 'TOTAL';
-                    return;
-                }
-                const [y, m, d] = fVal.split('-');
-                contenedor.classList.remove('hidden');
-
-                const resp = await fetch(WEB_APP_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        action: 'buscarLineasParaCP',
-                        info: { cpActual: cpAct, fecha: `${d}-${m}-${y}` }
-                    })
-                });
-                const resJson = await resp.json();
-                
-                const lista = document.getElementById('listaLineasCP');
-                if (resJson.status === "success" && resJson.lineas.length > 0) {
-                    lista.innerHTML = resJson.lineas.map(l => `
-                        <label class="flex items-center gap-2 p-1.5 bg-white rounded border cursor-pointer hover:bg-slate-50">
-                            <input type="checkbox" name="chkCP" value="${l.filaReal}" class="rounded">
-                            <span>Cliente: <b>${l.idCliente} - ${l.nombreCliente}</b> | Prod: <b>${l.prodId}</b> | Bultos: <b>${l.bultos}</b> | Dir: ${l.direccion} (CP: ${l.cpActual})</span>
-                        </label>
-                    `).join('');
-                } else {
-                    lista.innerHTML = '<p class="text-red-600 font-bold">No se encontraron líneas con ese CP Actual en esa fecha.</p>';
-                }
-            } else {
-                contenedor.classList.add('hidden');
-            }
-        }
-
-        async function procesarModificacionCP(e) {
-            e.preventDefault();
-            const btn = document.getElementById('btnGuardarCP');
-            btn.innerText = "GUARDANDO...";
-            btn.disabled = true;
-
-            const tipo = document.getElementById('cpTipoCambio').value;
-            const [y, m, d] = document.getElementById('cpFecha').value.split('-');
-            
-            let fechaNuevaFormateada = null;
-            const inputFechaNueva = document.getElementById('cpFechaNueva').value;
-            if (inputFechaNueva) {
-                const [yn, mn, dn] = inputFechaNueva.split('-');
-                fechaNuevaFormateada = `${dn}-${mn}-${yn}`;
-            }
-            
-            let seleccionados = [];
-            if (tipo === 'PARCIAL') {
-                document.querySelectorAll('input[name="chkCP"]:checked').forEach(c => {
-                    seleccionados.push(Number(c.value));
-                });
-                if (seleccionados.length === 0) {
-                    alert("Seleccioná al menos una línea para modificar.");
-                    btn.innerText = "APLICAR CAMBIO DE CP";
-                    btn.disabled = false;
-                    return;
-                }
-            }
-
-            const payload = {
-                action: 'modificarCP',
-                limpiarGrilla: true,
-                columnaGrilla: 'AF',
-                info: {
-                    cpActual: document.getElementById('cpActual').value,
-                    cpNuevo: document.getElementById('cpNuevo').value,
-                    fecha: `${d}-${m}-${y}`,
-                    fechaNueva: fechaNuevaFormateada,
-                    motivo: document.getElementById('cpMotivo').value,
-                    esTotal: (tipo === 'TOTAL'),
-                    filasSeleccionadas: seleccionados
-                }
-            };
-
-            try {
-                const res = await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(payload) });
-                const resJson = await res.json();
-                if (resJson.status === "success") {
-                    alert(resJson.message);
-                    document.getElementById('formCP').reset();
-                    document.getElementById('cpFecha').valueAsDate = new Date();
-                    cerrarModalCP();
-                } else {
-                    alert(resJson.message || "Error al actualizar CP.");
-                }
-            } catch(err) {
-                alert("Error al comunicarse con la base.");
-            }
-            btn.innerText = "APLICAR CAMBIO DE CP";
-            btn.disabled = false;
+            const hoyStr = new Date().toISOString().slice(0, 10);
+            XLSX.writeFile(wb, `Control_Pedidos_SinCP_vs_JDE_${hoyStr}.xlsx`);
         }
     </script>
 </body>
