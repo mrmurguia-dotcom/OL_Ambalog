@@ -422,6 +422,40 @@ function normalizarFechaAISO(str) {
     return str;
 }
 
+function extraerDatosPendiente(p) {
+    if (!p || typeof p !== 'object') return { fechaIso: '', bultos: 0, cp: '' };
+
+    const candidatosFecha = [
+        p.fechaPedido,
+        p.fecha,
+        p.fechaEntrega,
+        Array.isArray(p.data) ? p.data[0] : null,
+        Array.isArray(p.data) ? p.data[1] : null,
+        Array.isArray(p.data) ? p.data[2] : null
+    ];
+    let fechaIso = '';
+    for (const cand of candidatosFecha) {
+        const norm = normalizarFechaAISO(cand);
+        if (norm && /^\d{4}-\d{2}-\d{2}$/.test(norm)) {
+            fechaIso = norm;
+            break;
+        }
+    }
+
+    let bultosRaw = Array.isArray(p.data) ? p.data[4] : undefined;
+    if (bultosRaw === undefined || bultosRaw === null || bultosRaw === '') {
+        bultosRaw = p.bultos ?? p.cantidadBultos ?? p.totalBultos ?? 0;
+    }
+    const bultosNum = Number(String(bultosRaw).replace(',', '.'));
+    const cp = Array.isArray(p.data) ? String(p.data[24] || '').trim() : String(p.cp || '').trim();
+
+    return {
+        fechaIso,
+        bultos: Number.isFinite(bultosNum) ? bultosNum : 0,
+        cp
+    };
+}
+
 async function ejecutarConsultaLogistica() {
     const btnConsultar = document.getElementById('btnConsultarLogistica');
     const tbody = document.getElementById('tbodyLogistica');
@@ -723,7 +757,7 @@ async function ejecutarConsultaEjecutiva() {
             obtenerTodasLasCPsDeFila(g).forEach(cp => cpsSet.add(cp));
         });
         pendientesGlobal.forEach(p => {
-            let cp = String(p.data[24] || '').trim();
+            const { cp } = extraerDatosPendiente(p);
             if (cp) cpsSet.add(cp);
         });
 
@@ -801,12 +835,12 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla, pendientesGlobal
         }
     });
 
-    if (pendientesGlobal) {
+    if (Array.isArray(pendientesGlobal)) {
         pendientesGlobal.forEach(p => {
-            let fIso = normalizarFechaAISO(p.fechaPedido);
-            if (fIso) {
-                if (f2 ? (fIso >= f1 && fIso <= f2) : (fIso === f1)) {
-                    fechasSet.add(fIso);
+            const { fechaIso } = extraerDatosPendiente(p);
+            if (fechaIso) {
+                if (f2 ? (fechaIso >= f1 && fechaIso <= f2) : (fechaIso === f1)) {
+                    fechasSet.add(fechaIso);
                 }
             }
         });
@@ -860,12 +894,11 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla, pendientesGlobal
 
         // Suma TODOS los pedidos pendientes de la fecha, TENGAN O NO Carta de Porte
         let bultosPendientesFecha = 0;
-        if (pendientesGlobal) {
+        if (Array.isArray(pendientesGlobal)) {
             pendientesGlobal.forEach(p => {
-                let fIso = normalizarFechaAISO(p.fechaPedido);
-                if (fIso === fecha) {
-                    bultosPendientesFecha += Number(p.data[4]) || 0;
-                    let cp = String(p.data[24] || '').trim();
+                const { fechaIso, bultos, cp } = extraerDatosPendiente(p);
+                if (fechaIso === fecha) {
+                    bultosPendientesFecha += bultos;
                     if (cp) cpsDeFecha.push(cp);
                 }
             });
