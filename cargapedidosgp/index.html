@@ -21,6 +21,9 @@
                 <p class="text-slate-500 text-sm mt-1">Panel Gestion de pedidos para AMBALOG - M2</p>
             </div>
             <div class="flex flex-wrap items-center gap-3">
+                <a href="https://mrmurguia-dotcom.github.io/OL_Ambalog/checkpedidovsjde.html" target="_blank" rel="noopener noreferrer" class="bg-sky-700 hover:bg-sky-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-2">
+                    🔎 PEDIDOS vs JDE
+                </a>
                 <a href="https://mrmurguia-dotcom.github.io/OL_Ambalog/cargarepartogp/index.html" target="_blank" rel="noopener noreferrer" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-2">
                     🚚 ASIGNAR CP
                 </a>
@@ -92,6 +95,16 @@
                         <select id="filtroCustomer" onchange="dibujarTablaDinamica()" class="p-2 rounded-lg border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none">
                             <option value="TODOS">-- Todos los Customers --</option>
                         </select>
+                    </div>
+                    <div id="contenedorFiltroCP" class="flex flex-wrap items-center gap-2">
+                        <label for="filtroCP" class="text-xs font-bold text-slate-700 uppercase">Filtrar CP:</label>
+                        <select id="filtroCP" onchange="cambiarFiltroCP()" class="p-2 rounded-lg border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none">
+                            <option value="TODOS">Todos</option>
+                            <option value="CON_CP">Solamente con CP</option>
+                            <option value="SIN_CP">Solamente sin CP</option>
+                            <option value="ESPECIFICO">Número de CP</option>
+                        </select>
+                        <input type="text" id="numeroFiltroCP" oninput="dibujarTablaDinamica()" placeholder="N° de CP" class="hidden w-32 p-2 rounded-lg border border-slate-300 font-bold text-xs bg-white text-blue-900 outline-none">
                     </div>
                 </div>
                 
@@ -368,6 +381,14 @@
             });
         }
 
+        function cambiarFiltroCP() {
+            const modo = document.getElementById('filtroCP').value;
+            const input = document.getElementById('numeroFiltroCP');
+            input.classList.toggle('hidden', modo !== 'ESPECIFICO');
+            if (modo !== 'ESPECIFICO') input.value = '';
+            dibujarTablaDinamica();
+        }
+
         function cambiarVistaDinamica(tipo) {
             vistaActual = tipo;
             ['general', 'cliente'].forEach(t => {
@@ -380,6 +401,7 @@
             });
 
             document.getElementById('contenedorFiltroCustomer').style.display = (tipo === 'general') ? 'flex' : 'none';
+            document.getElementById('contenedorFiltroCP').style.display = (tipo === 'general') ? 'flex' : 'none';
             dibujarTablaDinamica();
         }
 
@@ -405,6 +427,8 @@
 
             if (vistaActual === 'general') {
                 const customerFiltro = document.getElementById('filtroCustomer').value;
+                const modoFiltroCP = document.getElementById('filtroCP').value;
+                const numeroCPFiltro = String(document.getElementById('numeroFiltroCP').value || '').trim();
                 
                 let agruparGeneral = {};
                 filasProcesadas.forEach(r => {
@@ -412,6 +436,9 @@
                     if (customerFiltro && customerFiltro !== 'TODOS' && customer !== customerFiltro) return;
 
                     let cp = String(r[24] || '').trim();
+                    if (modoFiltroCP === 'CON_CP' && !cp) return;
+                    if (modoFiltroCP === 'SIN_CP' && cp) return;
+                    if (modoFiltroCP === 'ESPECIFICO' && (!numeroCPFiltro || cp !== numeroCPFiltro)) return;
                     let transporte = String(r[26] || '').trim();
                     let idCliente = String(r[0] || '').trim();
                     let nombreCliente = String(r[15] || '').trim();
@@ -797,6 +824,8 @@
 
             const payload = {
                 action: 'reprogramarPedido',
+                limpiarGrilla: true,
+                columnaGrilla: 'AF',
                 info: {
                     idCliente: document.getElementById('repoCliente').value.trim(),
                     fechaOrig: `${d1}-${m1}-${y1}`,
@@ -905,6 +934,8 @@
 
             const payload = {
                 action: 'modificarCP',
+                limpiarGrilla: true,
+                columnaGrilla: 'AF',
                 info: {
                     cpActual: document.getElementById('cpActual').value,
                     cpNuevo: document.getElementById('cpNuevo').value,
