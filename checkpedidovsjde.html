@@ -14,7 +14,7 @@
         <div class="flex flex-wrap justify-between items-center mb-6 border-b pb-4 gap-4">
             <div>
                 <h1 class="text-2xl md:text-3xl font-black text-blue-900 italic">VALIDADOR PEDIDOS vs JDE (P4915)</h1>
-                <p class="text-slate-500 text-sm mt-1">Control de Embarques, Depósito (Sucursal Planta) y Bultos/Piezas — AMBALOG</p>
+                <p class="text-slate-500 text-sm mt-1">Control de Embarques sin CP (Depósito base 101) vs Bajada P4915 — AMBALOG</p>
             </div>
             <div class="flex flex-wrap items-center gap-3">
                 <button onclick="ejecutarCruce()" id="btnValidar" class="bg-orange-500 hover:bg-orange-600 text-white font-black text-xs px-6 py-3 rounded-xl shadow-lg transition-all flex items-center gap-2">
@@ -39,8 +39,8 @@
 
                     <!-- Dropzone Excel Pedidos -->
                     <div id="dropPedidos" class="border-2 border-dashed border-blue-300 bg-white rounded-xl p-4 text-center cursor-pointer hover:bg-blue-50 transition-all mb-3">
-                        <p class="text-blue-900 font-bold text-xs uppercase">📂 Subir Excel de Pedidos (.xlsx)</p>
-                        <p class="text-slate-400 text-[11px] mt-0.5">Lee pestaña "Base pedidos" (desde fila 5)</p>
+                        <p class="text-blue-900 font-bold text-xs uppercase">📂 Subir Excel de Pedidos (.xlsx / .xlsm)</p>
+                        <p class="text-slate-400 text-[11px] mt-0.5">Lee pestaña "Base pedidos" • Solo evalúa líneas <b>SIN CP</b> (asume Dep. 101)</p>
                         <input type="file" id="inputPedidos" accept=".xlsx, .xls, .xlsm" class="hidden">
                     </div>
 
@@ -73,13 +73,19 @@
             </div>
         </div>
 
+        <!-- BANNER INFORMATIVO DE FILTRADO DE CP -->
+        <div id="bannerInfoFiltro" class="hidden mb-5 bg-slate-800 text-slate-200 px-4 py-2.5 rounded-xl text-xs flex flex-wrap justify-between items-center gap-2">
+            <span id="textoBannerFiltro"></span>
+            <span class="text-amber-300 font-bold">Depósito asumido para pedidos sin CP: 101</span>
+        </div>
+
         <!-- PANEL DE RESULTADOS -->
         <div id="panelResultados" class="hidden space-y-5">
             
             <!-- TARJETAS KPI -->
-            <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div id="gridKpis" class="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div onclick="filtrarPorEstado('TODOS')" class="cursor-pointer bg-slate-800 text-white p-4 rounded-2xl shadow hover:opacity-95 transition-all">
-                    <p class="text-[11px] font-bold uppercase text-slate-300">Embarques Pedidos</p>
+                    <p class="text-[11px] font-bold uppercase text-slate-300">Embarques a Controlar</p>
                     <p id="kpiTotal" class="text-2xl font-black mt-1">0</p>
                 </div>
                 <div onclick="filtrarPorEstado('OK')" class="cursor-pointer bg-emerald-600 text-white p-4 rounded-2xl shadow hover:opacity-95 transition-all">
@@ -90,8 +96,9 @@
                     <p class="text-[11px] font-bold uppercase text-amber-100">⚠️ Dif. Bultos</p>
                     <p id="kpiDifBultos" class="text-2xl font-black mt-1">0</p>
                 </div>
-                <div onclick="filtrarPorEstado('DIF_DEPOSITO')" class="cursor-pointer bg-purple-600 text-white p-4 rounded-2xl shadow hover:opacity-95 transition-all">
-                    <p class="text-[11px] font-bold uppercase text-purple-100">🏢 Dif. Depósito</p>
+                <!-- ESTA TARJETA SOLO APARECE SI HAY ALGÚN DEPÓSITO DISTINTO DE 101 -->
+                <div id="cardKpiDifDeposito" onclick="filtrarPorEstado('DIF_DEPOSITO')" class="hidden cursor-pointer bg-purple-600 text-white p-4 rounded-2xl shadow hover:opacity-95 transition-all">
+                    <p class="text-[11px] font-bold uppercase text-purple-100">🏢 Dif. Depósito (≠101)</p>
                     <p id="kpiDifDeposito" class="text-2xl font-black mt-1">0</p>
                 </div>
                 <div onclick="filtrarPorEstado('NO_EN_JDE')" class="cursor-pointer bg-red-600 text-white p-4 rounded-2xl shadow hover:opacity-95 transition-all">
@@ -110,24 +117,18 @@
                             <option value="SOLO_ERRORES">🚨 Solo con diferencias / errores</option>
                             <option value="OK">✅ OK</option>
                             <option value="DIF_BULTOS">⚠️ Diferencia de Bultos</option>
-                            <option value="DIF_DEPOSITO">🏢 Diferencia de Depósito</option>
+                            <option value="DIF_DEPOSITO" id="optDifDeposito" class="hidden">🏢 Diferencia de Depósito</option>
                             <option value="NO_EN_JDE">❌ No encontrado en JDE</option>
                         </select>
                     </div>
                     <div>
-                        <label class="text-[11px] font-bold text-slate-600 uppercase block">Depósito (Pedidos):</label>
-                        <select id="filtroDeposito" onchange="renderizarTabla()" class="p-2 rounded-lg border border-slate-300 text-xs font-bold bg-white text-blue-900 outline-none">
-                            <option value="TODOS">Todos</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="text-[11px] font-bold text-slate-600 uppercase block">Buscar Embarque / Cliente / CP:</label>
-                        <input type="text" id="buscadorTexto" onkeyup="renderizarTabla()" placeholder="Ej: 123456 o COTO..." class="p-2 rounded-lg border border-slate-300 text-xs bg-white outline-none w-56">
+                        <label class="text-[11px] font-bold text-slate-600 uppercase block">Buscar Embarque / Cliente:</label>
+                        <input type="text" id="buscadorTexto" onkeyup="renderizarTabla()" placeholder="Ej: 375145 o MAXICONSUMO..." class="p-2 rounded-lg border border-slate-300 text-xs bg-white outline-none w-64">
                     </div>
                 </div>
 
                 <div class="text-right text-xs text-slate-600">
-                    <p>Total Bultos Pedidos: <strong id="sumBultosPed" class="text-blue-900 text-sm">0</strong></p>
+                    <p>Total Bultos Pedidos (sin CP): <strong id="sumBultosPed" class="text-blue-900 text-sm">0</strong></p>
                     <p>Total Piezas JDE (cruzadas): <strong id="sumPiezasJde" class="text-emerald-700 text-sm">0</strong></p>
                 </div>
             </div>
@@ -140,8 +141,7 @@
                             <th class="p-3">Estado</th>
                             <th class="p-3">Embarque</th>
                             <th class="p-3">Cliente (ID - Nombre)</th>
-                            <th class="p-3">CP Pedido</th>
-                            <th class="p-3 text-center">Dep. Pedido<br><span class="text-[10px] font-normal text-blue-200">(3 dig. CP)</span></th>
+                            <th class="p-3 text-center">Dep. Base<br><span class="text-[10px] font-normal text-blue-200">(Asumido)</span></th>
                             <th class="p-3 text-center">Suc. Planta<br><span class="text-[10px] font-normal text-blue-200">(JDE)</span></th>
                             <th class="p-3 text-right">Bultos<br>Pedidos</th>
                             <th class="p-3 text-right">Piezas<br>JDE</th>
@@ -163,8 +163,8 @@
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyF9e6gme3wHTVO_RooY_xqbK9VFciCZ0jejU2Vmh9o1OUEKwzmn1WxERq7hFBo0Oo2/exec";
         document.getElementById('fechaConsultaNube').valueAsDate = new Date();
 
-        let datosPedidosRaw = []; // Filas de "Base pedidos"
-        let datosJDERaw = [];     // Filas normalizadas de P4915
+        let datosPedidosRaw = [];
+        let datosJDERaw = [];
         let resultadosCruce = [];
 
         // --- CONFIGURACIÓN DRAG & DROP ---
@@ -189,7 +189,7 @@
         function normalizarTexto(str) {
             return String(str || '')
                 .toLowerCase()
-                .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // quitar tildes
+                .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
                 .replace(/[°º]/g, '')
                 .replace(/\s+/g, ' ')
                 .trim();
@@ -198,7 +198,6 @@
         function normalizarCodigo(val) {
             let s = String(val ?? '').trim();
             if (s.endsWith('.0')) s = s.slice(0, -2);
-            // Si es puramente numérico, quitar ceros a la izquierda para evitar "00123" vs "123"
             if (/^\d+$/.test(s)) {
                 return String(parseInt(s, 10));
             }
@@ -209,7 +208,6 @@
             if (typeof val === 'number') return isNaN(val) ? 0 : val;
             let s = String(val ?? '').trim();
             if (!s) return 0;
-            // Si tiene coma decimal y punto de miles (ej: 1.250,50)
             if (s.includes(',') && s.includes('.')) {
                 s = s.replace(/\./g, '').replace(',', '.');
             } else if (s.includes(',')) {
@@ -242,8 +240,11 @@
                         }
                     }
 
+                    const sinCP = datosPedidosRaw.filter(r => String(r[24] ?? '').trim() === "").length;
+                    const conCP = datosPedidosRaw.length - sinCP;
+
                     const badge = document.getElementById('badgeEstadoPedidos');
-                    badge.innerText = `✓ ${datosPedidosRaw.length} líneas cargadas (${file.name})`;
+                    badge.innerText = `✓ ${sinCP} líneas sin CP (${conCP} con CP omitidas)`;
                     badge.className = "text-xs font-bold text-emerald-700";
                 } catch (err) {
                     console.error(err);
@@ -272,8 +273,11 @@
                 const resJson = await resp.json();
                 if (resJson.status === "success" && resJson.filas && resJson.filas.length > 0) {
                     datosPedidosRaw = resJson.filas;
+                    const sinCP = datosPedidosRaw.filter(r => String(r[24] ?? '').trim() === "").length;
+                    const conCP = datosPedidosRaw.length - sinCP;
+
                     const badge = document.getElementById('badgeEstadoPedidos');
-                    badge.innerText = `✓ ${datosPedidosRaw.length} líneas desde Nube (${fechaFormateada})`;
+                    badge.innerText = `✓ ${sinCP} líneas sin CP (${conCP} con CP omitidas)`;
                     badge.className = "text-xs font-bold text-emerald-700";
                 } else {
                     alert(`No hay pedidos guardados para ${fechaFormateada}.`);
@@ -293,11 +297,9 @@
                 try {
                     const data = new Uint8Array(e.target.result);
                     const wb = XLSX.read(data, { type: 'array', cellDates: true });
-                    // Toma la primera pestaña del reporte JDE
                     const ws = wb.Sheets[wb.SheetNames[0]];
                     const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
 
-                    // Buscar dinámicamente la fila de encabezados en las primeras 15 filas
                     let headerRowIdx = -1;
                     let colMap = {};
 
@@ -313,10 +315,8 @@
                             else if (norm === 'numero carga' || norm === 'n carga' || norm === 'no carga') tempMap.carga = idx;
                             else if (norm === 'estado') tempMap.estado = idx;
                             else if (norm === 'est') tempMap.est = idx;
-                            else if (norm === 'direccion entrega' && tempMap.dirEntrega === undefined) tempMap.dirEntrega = idx;
                         });
 
-                        // Si encontró las 3 columnas críticas, ya ubicamos los encabezados
                         if (tempMap.embarque !== undefined && tempMap.sucursal !== undefined && tempMap.piezas !== undefined) {
                             headerRowIdx = r;
                             colMap = tempMap;
@@ -325,7 +325,7 @@
                     }
 
                     if (headerRowIdx === -1) {
-                        alert('No se pudieron detectar las columnas requeridas en el archivo JDE ("Nº de embarque", "Sucursal Planta", "Nº piezas"). Verificá que los nombres coincidan.');
+                        alert('No se pudieron detectar las columnas requeridas en el archivo JDE ("Nº de embarque", "Sucursal Planta", "Nº piezas").');
                         return;
                     }
 
@@ -347,8 +347,7 @@
                             peso: colMap.peso !== undefined ? parsearNumero(r[colMap.peso]) : 0,
                             carga: colMap.carga !== undefined ? String(r[colMap.carga] ?? '').trim() : '',
                             est: colMap.est !== undefined ? String(r[colMap.est] ?? '').trim() : '',
-                            estado: colMap.estado !== undefined ? String(r[colMap.estado] ?? '').trim() : '',
-                            dirEntrega: colMap.dirEntrega !== undefined ? String(r[colMap.dirEntrega] ?? '').trim() : ''
+                            estado: colMap.estado !== undefined ? String(r[colMap.estado] ?? '').trim() : ''
                         });
                     }
 
@@ -363,36 +362,38 @@
             reader.readAsArrayBuffer(file);
         }
 
-        // --- 3. EJECUTAR VALIDACIÓN (PEDIDOS -> JDE) ---
+        // --- 3. EJECUTAR VALIDACIÓN (SOLO LÍNEAS SIN CP -> DEPÓSITO 101) ---
         function ejecutarCruce() {
             if (datosPedidosRaw.length === 0) return alert("Cargá primero la Planilla de Pedidos (Excel o Nube).");
             if (datosJDERaw.length === 0) return alert("Cargá primero el Excel de exportación de JDE (P4915).");
 
-            // A. Agrupar Planilla de Pedidos por Embarque + Depósito (3 primeros caracteres de CP)
-            // Índices en "Base pedidos":
-            // 0: ID Cliente | 1: Embarque | 4: Cantidad 2 - Bultos | 12: Peso [kg] | 13: Pedido | 15: Nombre Cliente | 24: CP
+            const DEPOSITO_DEFAULT = "101";
+            let lineasDescartadasConCP = 0;
+            let lineasEvaluadasSinCP = 0;
+
+            // A. Agrupar Planilla de Pedidos SOLO para filas SIN CP
             const mapaPedidos = new Map();
 
             datosPedidosRaw.forEach(r => {
+                const cpVal = String(r[24] ?? '').trim();
+                
+                // REGLA 2: Si tiene CP (Carta de Porte), desestimar la línea
+                if (cpVal !== "") {
+                    lineasDescartadasConCP++;
+                    return;
+                }
+
                 const embOrig = String(r[1] ?? '').trim();
                 if (!embOrig) return;
 
+                lineasEvaluadasSinCP++;
                 const embNorm = normalizarCodigo(embOrig);
-                const cpFull = String(r[24] ?? '').trim();
-                const dep3 = cpFull.substring(0, 3).trim();
-                const depNorm = normalizarCodigo(dep3);
-                const cargaCP = cpFull.length >= 5 ? cpFull.substring(4).trim() : '';
 
-                const key = `${embNorm}___${depNorm}`;
-
-                if (!mapaPedidos.has(key)) {
-                    mapaPedidos.set(key, {
+                if (!mapaPedidos.has(embNorm)) {
+                    mapaPedidos.set(embNorm, {
                         embarqueOrig: embOrig,
                         embarqueNorm: embNorm,
-                        cpFull: cpFull,
-                        depOrig: dep3,
-                        depNorm: depNorm,
-                        cargaCP: cargaCP,
+                        depEsperado: DEPOSITO_DEFAULT,
                         idCliente: String(r[0] ?? '').trim(),
                         nombreCliente: String(r[15] ?? '').trim(),
                         bultos: 0,
@@ -401,46 +402,32 @@
                     });
                 }
 
-                const item = mapaPedidos.get(key);
+                const item = mapaPedidos.get(embNorm);
                 item.bultos += parsearNumero(r[4]);
                 item.peso += parsearNumero(r[12]);
                 item.lineas += 1;
             });
 
-            // B. Indexar JDE por Embarque+Sucursal y también solo por Embarque (para detectar cambio de depósito)
-            const mapaJdeExacto = new Map();
+            // Mostrar resumen de filtrado de CP
+            const banner = document.getElementById('bannerInfoFiltro');
+            banner.classList.remove('hidden');
+            document.getElementById('textoBannerFiltro').innerHTML = 
+                `📋 Se analizaron <b>${lineasEvaluadasSinCP}</b> líneas sin CP (${mapaPedidos.size} embarques únicos) y se desestimaron <b>${lineasDescartadasConCP}</b> líneas que ya tenían CP asignado.`;
+
+            // B. Indexar JDE por Embarque
             const mapaJdePorEmbarque = new Map();
-
             datosJDERaw.forEach(j => {
-                const keyExact = `${j.embarqueNorm}___${j.sucursalNorm}`;
-                if (!mapaJdeExacto.has(keyExact)) {
-                    mapaJdeExacto.set(keyExact, {
-                        ...j,
-                        piezas: 0,
-                        peso: 0,
-                        registros: 0
-                    });
-                }
-                const regExact = mapaJdeExacto.get(keyExact);
-                regExact.piezas += j.piezas;
-                regExact.peso += j.peso;
-                regExact.registros += 1;
-
                 if (!mapaJdePorEmbarque.has(j.embarqueNorm)) {
                     mapaJdePorEmbarque.set(j.embarqueNorm, []);
                 }
                 mapaJdePorEmbarque.get(j.embarqueNorm).push(j);
             });
 
-            // C. Evaluar cada grupo de la Planilla de Pedidos contra JDE
+            // C. Evaluar cada embarque sin CP contra JDE
             resultadosCruce = [];
-            const depositosUnicos = new Set();
 
-            mapaPedidos.forEach((ped, keyExact) => {
-                if (ped.depOrig) depositosUnicos.add(ped.depOrig);
-
-                const matchExacto = mapaJdeExacto.get(keyExact);
-                const matchSoloEmb = mapaJdePorEmbarque.get(ped.embarqueNorm);
+            mapaPedidos.forEach((ped, embNorm) => {
+                const registrosJde = mapaJdePorEmbarque.get(embNorm);
 
                 let estadoCodigo = '';
                 let estadoLabel = '';
@@ -452,18 +439,30 @@
                 let difBultos = 0;
                 let observacion = '';
 
-                if (matchExacto) {
-                    sucJde = matchExacto.sucursalOrig;
-                    piezasJde = matchExacto.piezas;
-                    pesoJde = matchExacto.peso;
-                    cargaJde = matchExacto.carga || '-';
-                    estJde = [matchExacto.est, matchExacto.estado].filter(Boolean).join(' - ') || '-';
+                if (registrosJde && registrosJde.length > 0) {
+                    const sucursalesUnicas = [...new Set(registrosJde.map(x => x.sucursalOrig).filter(Boolean))];
+                    const sucursalesNormUnicas = [...new Set(registrosJde.map(x => x.sucursalNorm).filter(Boolean))];
+                    
+                    sucJde = sucursalesUnicas.join(', ') || '-';
+                    piezasJde = registrosJde.reduce((acc, x) => acc + x.piezas, 0);
+                    pesoJde = registrosJde.reduce((acc, x) => acc + x.peso, 0);
+                    cargaJde = [...new Set(registrosJde.map(x => x.carga).filter(Boolean))].join(', ') || '-';
+                    estJde = [...new Set(registrosJde.map(x => [x.est, x.estado].filter(Boolean).join(' - ')).filter(Boolean))].join(' / ') || '-';
+                    
                     difBultos = Number((ped.bultos - piezasJde).toFixed(2));
 
-                    if (Math.abs(difBultos) < 0.01) {
+                    // REGLA 1: Validar que el depósito en JDE sea 101 (solo marcar Dif. Depósito si trae algo distinto a 101)
+                    const tieneSucursalDistinta101 = sucursalesNormUnicas.some(s => s !== DEPOSITO_DEFAULT);
+
+                    if (tieneSucursalDistinta101) {
+                        estadoCodigo = 'DIF_DEPOSITO';
+                        estadoLabel = '🏢 DIF. DEPÓSITO';
+                        observacion = `Sucursal Planta en JDE (${sucJde}) es distinta de 101.` +
+                            (Math.abs(difBultos) >= 0.01 ? ` Además difieren bultos (${difBultos}).` : '');
+                    } else if (Math.abs(difBultos) < 0.01) {
                         estadoCodigo = 'OK';
                         estadoLabel = '✅ OK';
-                        observacion = 'Coincide embarque, depósito y bultos.';
+                        observacion = 'Coincide embarque, depósito 101 y cantidad de bultos.';
                     } else {
                         estadoCodigo = 'DIF_BULTOS';
                         estadoLabel = '⚠️ DIF. BULTOS';
@@ -471,26 +470,11 @@
                             ? `Faltan ${difBultos} bultos en JDE respecto al pedido.`
                             : `JDE tiene ${Math.abs(difBultos)} piezas de más respecto al pedido.`;
                     }
-                } else if (matchSoloEmb && matchSoloEmb.length > 0) {
-                    // El embarque existe en JDE pero con otra Sucursal Planta
-                    const primero = matchSoloEmb[0];
-                    const sucursalesEnJde = [...new Set(matchSoloEmb.map(x => x.sucursalOrig))].join(', ');
-                    sucJde = sucursalesEnJde;
-                    piezasJde = matchSoloEmb.reduce((acc, x) => acc + x.piezas, 0);
-                    pesoJde = matchSoloEmb.reduce((acc, x) => acc + x.peso, 0);
-                    cargaJde = primero.carga || '-';
-                    estJde = [primero.est, primero.estado].filter(Boolean).join(' - ') || '-';
-                    difBultos = Number((ped.bultos - piezasJde).toFixed(2));
-
-                    estadoCodigo = 'DIF_DEPOSITO';
-                    estadoLabel = '🏢 DIF. DEPÓSITO';
-                    observacion = `Depósito pedido (${ped.depOrig || 'vacío'}) ≠ Sucursal Planta JDE (${sucursalesEnJde}).` +
-                        (Math.abs(difBultos) >= 0.01 ? ` Además difieren bultos (${difBultos}).` : '');
                 } else {
                     estadoCodigo = 'NO_EN_JDE';
                     estadoLabel = '❌ NO EN JDE';
                     difBultos = ped.bultos;
-                    observacion = 'El embarque de la planilla de pedidos no figura en la bajada P4915.';
+                    observacion = 'El embarque sin CP no figura en la bajada P4915.';
                 }
 
                 resultadosCruce.push({
@@ -498,8 +482,7 @@
                     estadoLabel,
                     embarque: ped.embarqueOrig,
                     cliente: `${ped.idCliente} - ${ped.nombreCliente}`,
-                    cpFull: ped.cpFull,
-                    depPedido: ped.depOrig,
+                    depPedido: ped.depEsperado,
                     sucJde,
                     bultosPedido: ped.bultos,
                     piezasJde,
@@ -512,16 +495,9 @@
                 });
             });
 
-            // Ordenar poniendo primero los errores/diferencias y luego los OK
+            // Ordenar priorizando diferencias/errores arriba y OK abajo
             const prioridadOrden = { 'NO_EN_JDE': 1, 'DIF_DEPOSITO': 2, 'DIF_BULTOS': 3, 'OK': 4 };
             resultadosCruce.sort((a, b) => prioridadOrden[a.estadoCodigo] - prioridadOrden[b.estadoCodigo]);
-
-            // Poblar filtro de depósitos
-            const selDep = document.getElementById('filtroDeposito');
-            selDep.innerHTML = '<option value="TODOS">Todos</option>';
-            Array.from(depositosUnicos).sort().forEach(d => {
-                selDep.innerHTML += `<option value="${d}">${d}</option>`;
-            });
 
             actualizarKPIs();
             renderizarTabla();
@@ -531,11 +507,31 @@
         }
 
         function actualizarKPIs() {
+            const countDifDep = resultadosCruce.filter(r => r.estadoCodigo === 'DIF_DEPOSITO').length;
+
             document.getElementById('kpiTotal').innerText = resultadosCruce.length;
             document.getElementById('kpiOk').innerText = resultadosCruce.filter(r => r.estadoCodigo === 'OK').length;
             document.getElementById('kpiDifBultos').innerText = resultadosCruce.filter(r => r.estadoCodigo === 'DIF_BULTOS').length;
-            document.getElementById('kpiDifDeposito').innerText = resultadosCruce.filter(r => r.estadoCodigo === 'DIF_DEPOSITO').length;
+            document.getElementById('kpiDifDeposito').innerText = countDifDep;
             document.getElementById('kpiNoJde').innerText = resultadosCruce.filter(r => r.estadoCodigo === 'NO_EN_JDE').length;
+
+            // Mostrar u ocultar la tarjeta y opción de filtro de Dif. Depósito según si existe algún caso != 101
+            const cardDep = document.getElementById('cardKpiDifDeposito');
+            const optDep = document.getElementById('optDifDeposito');
+            const gridKpis = document.getElementById('gridKpis');
+
+            if (countDifDep > 0) {
+                cardDep.classList.remove('hidden');
+                optDep.classList.remove('hidden');
+                gridKpis.className = "grid grid-cols-2 md:grid-cols-5 gap-3";
+            } else {
+                cardDep.classList.add('hidden');
+                optDep.classList.add('hidden');
+                gridKpis.className = "grid grid-cols-2 md:grid-cols-4 gap-3";
+                if (document.getElementById('filtroEstado').value === 'DIF_DEPOSITO') {
+                    document.getElementById('filtroEstado').value = 'TODOS';
+                }
+            }
         }
 
         function filtrarPorEstado(estado) {
@@ -545,15 +541,13 @@
 
         function renderizarTabla() {
             const estFiltro = document.getElementById('filtroEstado').value;
-            const depFiltro = document.getElementById('filtroDeposito').value;
             const texto = normalizarTexto(document.getElementById('buscadorTexto').value);
 
             const filtrados = resultadosCruce.filter(r => {
                 if (estFiltro === 'SOLO_ERRORES' && r.estadoCodigo === 'OK') return false;
                 if (estFiltro !== 'TODOS' && estFiltro !== 'SOLO_ERRORES' && r.estadoCodigo !== estFiltro) return false;
-                if (depFiltro !== 'TODOS' && r.depPedido !== depFiltro) return false;
                 if (texto) {
-                    const blob = normalizarTexto(`${r.embarque} ${r.cliente} ${r.cpFull} ${r.cargaJde}`);
+                    const blob = normalizarTexto(`${r.embarque} ${r.cliente} ${r.cargaJde}`);
                     if (!blob.includes(texto)) return false;
                 }
                 return true;
@@ -590,8 +584,7 @@
                         </td>
                         <td class="p-3 font-black text-blue-900">${r.embarque}</td>
                         <td class="p-3">${r.cliente}</td>
-                        <td class="p-3 font-mono">${r.cpFull || '-'}</td>
-                        <td class="p-3 text-center font-bold">${r.depPedido || '-'}</td>
+                        <td class="p-3 text-center font-bold text-slate-600">${r.depPedido}</td>
                         <td class="p-3 text-center font-bold">${r.sucJde}</td>
                         <td class="p-3 text-right font-bold text-blue-900">${r.bultosPedido.toLocaleString('es-AR')}</td>
                         <td class="p-3 text-right font-bold text-emerald-700">${r.piezasJde.toLocaleString('es-AR')}</td>
@@ -617,8 +610,7 @@
                 "Estado Validación": r.estadoLabel.replace(/[^\w\s.ÁÉÍÓÚáéíóúÑñ]/g, '').trim(),
                 "Nº Embarque": r.embarque,
                 "Cliente": r.cliente,
-                "CP Pedido": r.cpFull,
-                "Depósito Pedido (3 dig CP)": r.depPedido,
+                "Depósito Base": r.depPedido,
                 "Sucursal Planta JDE": r.sucJde,
                 "Bultos Pedidos": r.bultosPedido,
                 "Piezas JDE": r.piezasJde,
@@ -635,7 +627,7 @@
             XLSX.utils.book_append_sheet(wb, ws, "Validacion_JDE");
 
             const hoyStr = new Date().toISOString().slice(0, 10);
-            XLSX.writeFile(wb, `Control_Pedidos_vs_JDE_${hoyStr}.xlsx`);
+            XLSX.writeFile(wb, `Control_Pedidos_SinCP_vs_JDE_${hoyStr}.xlsx`);
         }
     </script>
 </body>
