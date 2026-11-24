@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validador Pedidos vs JDE (P4915) - GP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body class="bg-slate-100 p-4 md:p-8">
+    <div class="max-w-7xl mx-auto bg-white rounded-3xl shadow-2xl p-6 md:p-8 border border-slate-200">
+        
+        <!-- ENCABEZADO -->
+        <div class="flex flex-wrap justify-between items-center mb-6 border-b pb-4 gap-4">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-black text-blue-900 italic">VALIDADOR PEDIDOS vs JDE (P4915)</h1>
+                <p class="text-slate-500 text-sm mt-1">Control de Embarques, Depósito (Sucursal Planta) y Bultos/Piezas — AMBALOG</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+                <button onclick="ejecutarCruce()" id="btnValidar" class="bg-orange-500 hover:bg-orange-600 text-white font-black text-xs px-6 py-3 rounded-xl shadow-lg transition-all flex items-center gap-2">
+                    ⚡ EJECUTAR VALIDACIÓN
+                </button>
+                <button onclick="exportarResultadosExcel()" id="btnExportar" class="hidden bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-5 py-3 rounded-xl shadow-md transition-all flex items-center gap-2">
+                    📥 EXPORTAR RESULTADO (.XLSX)
+                </button>
+            </div>
+        </div>
+
+        <!-- PANEL DE CARGA DE AMBAS FUENTES -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            
+            <!-- 1. FUENTE PLANILLA DE PEDIDOS -->
+            <div class="bg-blue-50/70 p-5 rounded-2xl border border-blue-200 flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-center mb-3">
+                        <span class="bg-blue-900 text-white text-xs font-black px-3 py-1 rounded-full">1. PLANILLA DE PEDIDOS (Base)</span>
+                        <span id="badgeEstadoPedidos" class="text-xs font-bold text-slate-500">Sin cargar</span>
+                    </div>
+
+                    <!-- Dropzone Excel Pedidos -->
+                    <div id="dropPedidos" class="border-2 border-dashed border-blue-300 bg-white rounded-xl p-4 text-center cursor-pointer hover:bg-blue-50 transition-all mb-3">
+                        <p class="text-blue-900 font-bold text-xs uppercase">📂 Subir Excel de Pedidos (.xlsx)</p>
+                        <p class="text-slate-400 text-[11px] mt-0.5">Lee pestaña "Base pedidos" (desde fila 5)</p>
+                        <input type="file" id="inputPedidos" accept=".xlsx, .xls, .xlsm" class="hidden">
+                    </div>
+
+                    <!-- O Consultar Nube -->
+                    <div class="flex items-center gap-2 bg-white p-2.5 rounded-xl border border-blue-200">
+                        <span class="text-xs font-bold text-slate-600 whitespace-nowrap">☁️ O desde Sheets:</span>
+                        <input type="date" id="fechaConsultaNube" class="p-1.5 rounded-lg border border-slate-300 font-bold text-xs text-blue-900 outline-none flex-1">
+                        <button onclick="cargarPedidosDesdeNube()" id="btnNube" class="bg-blue-800 hover:bg-blue-900 text-white font-bold text-xs px-3 py-2 rounded-lg transition-all">
+                            Traer
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. FUENTE BAJADA JDE P4915 -->
+            <div class="bg-amber-50/70 p-5 rounded-2xl border border-amber-200 flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-center mb-3">
+                        <span class="bg-amber-700 text-white text-xs font-black px-3 py-1 rounded-full">2. EXPORTACIÓN JDE (P4915)</span>
+                        <span id="badgeEstadoJDE" class="text-xs font-bold text-slate-500">Sin cargar</span>
+                    </div>
+
+                    <!-- Dropzone Excel JDE -->
+                    <div id="dropJDE" class="border-2 border-dashed border-amber-300 bg-white rounded-xl p-7 text-center cursor-pointer hover:bg-amber-50 transition-all">
+                        <p class="text-amber-900 font-bold text-xs uppercase">📊 Arrastrá o seleccioná el Excel de JDE P4915 (.xlsx / .xls)</p>
+                        <p class="text-slate-500 text-[11px] mt-1">Detecta columnas por nombre automáticamente sin importar el orden.<br>Los embarques extra en JDE serán ignorados.</p>
+                        <input type="file" id="inputJDE" accept=".xlsx, .xls, .csv" class="hidden">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PANEL DE RESULTADOS -->
+        <div id="panelResultados" class="hidden space-y-5">
+            
+            <!-- TARJETAS KPI -->
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div onclick="filtrarPorEstado('TODOS')" class="cursor-pointer bg-slate-800 text-white p-4 rounded-2xl shadow hover:opacity-95 transition-all">
+                    <p class="text-[11px] font-bold uppercase text-slate-300">Embarques Pedidos</p>
+                    <p id="kpiTotal" class="text-2xl font-black mt-1">0</p>
+                </div>
+                <div onclick="filtrarPorEstado('OK')" class="cursor-pointer bg-emerald-600 text-white p-4 rounded-2xl shadow hover:opacity-95 transition-all">
+                    <p class="text-[11px] font-bold uppercase text-emerald-100">✅ Validados OK</p>
+                    <p id="kpiOk" class="text-2xl font-black mt-1">0</p>
+                </div>
+                <div onclick="filtrarPorEstado('DIF_BULTOS')" class="cursor-pointer bg-amber-500 text-white p-4 rounded-2xl shadow hover:opacity-95 transition-all">
+                    <p class="text-[11px] font-bold uppercase text-amber-100">⚠️ Dif. Bultos</p>
+                    <p id="kpiDifBultos" class="text-2xl font-black mt-1">0</p>
+                </div>
+                <div onclick="filtrarPorEstado('DIF_DEPOSITO')" class="cursor-pointer bg-purple-600 text-white p-4 rounded-2xl shadow hover:opacity-95 transition-all">
+                    <p class="text-[11px] font-bold uppercase text-purple-100">🏢 Dif. Depósito</p>
+                    <p id="kpiDifDeposito" class="text-2xl font-black mt-1">0</p>
+                </div>
+                <div onclick="filtrarPorEstado('NO_EN_JDE')" class="cursor-pointer bg-red-600 text-white p-4 rounded-2xl shadow hover:opacity-95 transition-all">
+                    <p class="text-[11px] font-bold uppercase text-red-100">❌ Faltan en JDE</p>
+                    <p id="kpiNoJde" class="text-2xl font-black mt-1">0</p>
+                </div>
+            </div>
+
+            <!-- BARRA DE FILTROS Y BUSCADOR -->
+            <div class="bg-slate-100 p-4 rounded-2xl border border-slate-300 flex flex-wrap justify-between items-center gap-4">
+                <div class="flex flex-wrap items-center gap-3">
+                    <div>
+                        <label class="text-[11px] font-bold text-slate-600 uppercase block">Estado:</label>
+                        <select id="filtroEstado" onchange="renderizarTabla()" class="p-2 rounded-lg border border-slate-300 text-xs font-bold bg-white text-blue-900 outline-none">
+                            <option value="TODOS">Todos los estados</option>
+                            <option value="SOLO_ERRORES">🚨 Solo con diferencias / errores</option>
+                            <option value="OK">✅ OK</option>
+                            <option value="DIF_BULTOS">⚠️ Diferencia de Bultos</option>
+                            <option value="DIF_DEPOSITO">🏢 Diferencia de Depósito</option>
+                            <option value="NO_EN_JDE">❌ No encontrado en JDE</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[11px] font-bold text-slate-600 uppercase block">Depósito (Pedidos):</label>
+                        <select id="filtroDeposito" onchange="renderizarTabla()" class="p-2 rounded-lg border border-slate-300 text-xs font-bold bg-white text-blue-900 outline-none">
+                            <option value="TODOS">Todos</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[11px] font-bold text-slate-600 uppercase block">Buscar Embarque / Cliente / CP:</label>
+                        <input type="text" id="buscadorTexto" onkeyup="renderizarTabla()" placeholder="Ej: 123456 o COTO..." class="p-2 rounded-lg border border-slate-300 text-xs bg-white outline-none w-56">
+                    </div>
+                </div>
+
+                <div class="text-right text-xs text-slate-600">
+                    <p>Total Bultos Pedidos: <strong id="sumBultosPed" class="text-blue-900 text-sm">0</strong></p>
+                    <p>Total Piezas JDE (cruzadas): <strong id="sumPiezasJde" class="text-emerald-700 text-sm">0</strong></p>
+                </div>
+            </div>
+
+            <!-- TABLA DE AUDITORÍA -->
+            <div class="overflow-x-auto border border-slate-200 rounded-2xl shadow-sm max-h-[540px]">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead class="bg-blue-900 text-white font-bold sticky top-0 z-10">
+                        <tr>
+                            <th class="p-3">Estado</th>
+                            <th class="p-3">Embarque</th>
+                            <th class="p-3">Cliente (ID - Nombre)</th>
+                            <th class="p-3">CP Pedido</th>
+                            <th class="p-3 text-center">Dep. Pedido<br><span class="text-[10px] font-normal text-blue-200">(3 dig. CP)</span></th>
+                            <th class="p-3 text-center">Suc. Planta<br><span class="text-[10px] font-normal text-blue-200">(JDE)</span></th>
+                            <th class="p-3 text-right">Bultos<br>Pedidos</th>
+                            <th class="p-3 text-right">Piezas<br>JDE</th>
+                            <th class="p-3 text-right">Dif.<br>Bultos</th>
+                            <th class="p-3 text-right">Peso Ped.<br>[kg]</th>
+                            <th class="p-3 text-right">Peso JDE<br>[kg]</th>
+                            <th class="p-3">Nº Carga JDE</th>
+                            <th class="p-3">Est. JDE</th>
+                            <th class="p-3">Observación</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyResultados" class="divide-y divide-slate-200 bg-white"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyF9e6gme3wHTVO_RooY_xqbK9VFciCZ0jejU2Vmh9o1OUEKwzmn1WxERq7hFBo0Oo2/exec";
+        document.getElementById('fechaConsultaNube').valueAsDate = new Date();
+
+        let datosPedidosRaw = []; // Filas de "Base pedidos"
+        let datosJDERaw = [];     // Filas normalizadas de P4915
+        let resultadosCruce = [];
+
+        // --- CONFIGURACIÓN DRAG & DROP ---
+        function configurarDropzone(dropId, inputId, callback) {
+            const drop = document.getElementById(dropId);
+            const input = document.getElementById(inputId);
+            drop.onclick = () => input.click();
+            input.onchange = (e) => { if (e.target.files[0]) callback(e.target.files[0]); };
+            drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('ring-2', 'ring-blue-500'); });
+            drop.addEventListener('dragleave', () => drop.classList.remove('ring-2', 'ring-blue-500'));
+            drop.addEventListener('drop', (e) => {
+                e.preventDefault();
+                drop.classList.remove('ring-2', 'ring-blue-500');
+                if (e.dataTransfer.files[0]) callback(e.dataTransfer.files[0]);
+            });
+        }
+
+        configurarDropzone('dropPedidos', 'inputPedidos', leerExcelPedidos);
+        configurarDropzone('dropJDE', 'inputJDE', leerExcelJDE);
+
+        // --- UTILIDADES DE NORMALIZACIÓN ---
+        function normalizarTexto(str) {
+            return String(str || '')
+                .toLowerCase()
+                .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // quitar tildes
+                .replace(/[°º]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        function normalizarCodigo(val) {
+            let s = String(val ?? '').trim();
+            if (s.endsWith('.0')) s = s.slice(0, -2);
+            // Si es puramente numérico, quitar ceros a la izquierda para evitar "00123" vs "123"
+            if (/^\d+$/.test(s)) {
+                return String(parseInt(s, 10));
+            }
+            return s.toUpperCase();
+        }
+
+        function parsearNumero(val) {
+            if (typeof val === 'number') return isNaN(val) ? 0 : val;
+            let s = String(val ?? '').trim();
+            if (!s) return 0;
+            // Si tiene coma decimal y punto de miles (ej: 1.250,50)
+            if (s.includes(',') && s.includes('.')) {
+                s = s.replace(/\./g, '').replace(',', '.');
+            } else if (s.includes(',')) {
+                s = s.replace(',', '.');
+            }
+            const n = parseFloat(s);
+            return isNaN(n) ? 0 : n;
+        }
+
+        // --- 1A. LEER EXCEL DE PEDIDOS ---
+        function leerExcelPedidos(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const wb = XLSX.read(data, { type: 'array', cellDates: true });
+                    const sheetName = wb.SheetNames.find(n => n.trim().toLowerCase() === "base pedidos");
+                    if (!sheetName) {
+                        alert('No se encontró la pestaña "Base pedidos" en el Excel.');
+                        return;
+                    }
+                    const ws = wb.Sheets[sheetName];
+                    const json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+                    
+                    datosPedidosRaw = [];
+                    for (let i = 4; i < json.length; i++) {
+                        const r = json[i] || [];
+                        if (r.some(c => String(c).trim() !== "")) {
+                            datosPedidosRaw.push(r);
+                        }
+                    }
+
+                    const badge = document.getElementById('badgeEstadoPedidos');
+                    badge.innerText = `✓ ${datosPedidosRaw.length} líneas cargadas (${file.name})`;
+                    badge.className = "text-xs font-bold text-emerald-700";
+                } catch (err) {
+                    console.error(err);
+                    alert("Error al leer el Excel de Pedidos.");
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // --- 1B. LEER PEDIDOS DESDE GOOGLE SHEETS ---
+        async function cargarPedidosDesdeNube() {
+            const fechaInput = document.getElementById('fechaConsultaNube').value;
+            if (!fechaInput) return alert("Seleccioná una fecha.");
+            const [y, m, d] = fechaInput.split('-');
+            const fechaFormateada = `${d}-${m}-${y}`;
+
+            const btn = document.getElementById('btnNube');
+            btn.innerText = "...";
+            btn.disabled = true;
+
+            try {
+                const resp = await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'consultarPedidos', fecha: fechaFormateada })
+                });
+                const resJson = await resp.json();
+                if (resJson.status === "success" && resJson.filas && resJson.filas.length > 0) {
+                    datosPedidosRaw = resJson.filas;
+                    const badge = document.getElementById('badgeEstadoPedidos');
+                    badge.innerText = `✓ ${datosPedidosRaw.length} líneas desde Nube (${fechaFormateada})`;
+                    badge.className = "text-xs font-bold text-emerald-700";
+                } else {
+                    alert(`No hay pedidos guardados para ${fechaFormateada}.`);
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Error al conectar con Google Sheets.");
+            }
+            btn.innerText = "Traer";
+            btn.disabled = false;
+        }
+
+        // --- 2. LEER EXCEL JDE P4915 (ORDEN DE COLUMNAS DINÁMICO) ---
+        function leerExcelJDE(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const wb = XLSX.read(data, { type: 'array', cellDates: true });
+                    // Toma la primera pestaña del reporte JDE
+                    const ws = wb.Sheets[wb.SheetNames[0]];
+                    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+
+                    // Buscar dinámicamente la fila de encabezados en las primeras 15 filas
+                    let headerRowIdx = -1;
+                    let colMap = {};
+
+                    for (let r = 0; r < Math.min(15, rows.length); r++) {
+                        const fila = rows[r] || [];
+                        let tempMap = {};
+                        fila.forEach((celda, idx) => {
+                            const norm = normalizarTexto(celda);
+                            if (norm === 'n de embarque' || norm === 'no de embarque' || norm === 'numero de embarque') tempMap.embarque = idx;
+                            else if (norm === 'sucursal planta' || norm === 'sucursal/planta') tempMap.sucursal = idx;
+                            else if (norm === 'n piezas' || norm === 'no piezas' || norm === 'numero piezas' || norm === 'cantidad piezas') tempMap.piezas = idx;
+                            else if (norm === 'peso del embarque' || norm === 'peso embarque') tempMap.peso = idx;
+                            else if (norm === 'numero carga' || norm === 'n carga' || norm === 'no carga') tempMap.carga = idx;
+                            else if (norm === 'estado') tempMap.estado = idx;
+                            else if (norm === 'est') tempMap.est = idx;
+                            else if (norm === 'direccion entrega' && tempMap.dirEntrega === undefined) tempMap.dirEntrega = idx;
+                        });
+
+                        // Si encontró las 3 columnas críticas, ya ubicamos los encabezados
+                        if (tempMap.embarque !== undefined && tempMap.sucursal !== undefined && tempMap.piezas !== undefined) {
+                            headerRowIdx = r;
+                            colMap = tempMap;
+                            break;
+                        }
+                    }
+
+                    if (headerRowIdx === -1) {
+                        alert('No se pudieron detectar las columnas requeridas en el archivo JDE ("Nº de embarque", "Sucursal Planta", "Nº piezas"). Verificá que los nombres coincidan.');
+                        return;
+                    }
+
+                    datosJDERaw = [];
+                    for (let i = headerRowIdx + 1; i < rows.length; i++) {
+                        const r = rows[i] || [];
+                        const embRaw = r[colMap.embarque];
+                        if (embRaw === undefined || embRaw === null || String(embRaw).trim() === "") continue;
+
+                        const embNorm = normalizarCodigo(embRaw);
+                        if (!embNorm || embNorm === "TOTAL" || embNorm === "TOTALES") continue;
+
+                        datosJDERaw.push({
+                            embarqueOrig: String(embRaw).trim(),
+                            embarqueNorm: embNorm,
+                            sucursalOrig: String(r[colMap.sucursal] ?? '').trim(),
+                            sucursalNorm: normalizarCodigo(r[colMap.sucursal]),
+                            piezas: parsearNumero(r[colMap.piezas]),
+                            peso: colMap.peso !== undefined ? parsearNumero(r[colMap.peso]) : 0,
+                            carga: colMap.carga !== undefined ? String(r[colMap.carga] ?? '').trim() : '',
+                            est: colMap.est !== undefined ? String(r[colMap.est] ?? '').trim() : '',
+                            estado: colMap.estado !== undefined ? String(r[colMap.estado] ?? '').trim() : '',
+                            dirEntrega: colMap.dirEntrega !== undefined ? String(r[colMap.dirEntrega] ?? '').trim() : ''
+                        });
+                    }
+
+                    const badge = document.getElementById('badgeEstadoJDE');
+                    badge.innerText = `✓ ${datosJDERaw.length} embarques leídos (${file.name})`;
+                    badge.className = "text-xs font-bold text-emerald-700";
+                } catch (err) {
+                    console.error(err);
+                    alert("Error al leer el archivo Excel de JDE.");
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // --- 3. EJECUTAR VALIDACIÓN (PEDIDOS -> JDE) ---
+        function ejecutarCruce() {
+            if (datosPedidosRaw.length === 0) return alert("Cargá primero la Planilla de Pedidos (Excel o Nube).");
+            if (datosJDERaw.length === 0) return alert("Cargá primero el Excel de exportación de JDE (P4915).");
+
+            // A. Agrupar Planilla de Pedidos por Embarque + Depósito (3 primeros caracteres de CP)
+            // Índices en "Base pedidos":
+            // 0: ID Cliente | 1: Embarque | 4: Cantidad 2 - Bultos | 12: Peso [kg] | 13: Pedido | 15: Nombre Cliente | 24: CP
+            const mapaPedidos = new Map();
+
+            datosPedidosRaw.forEach(r => {
+                const embOrig = String(r[1] ?? '').trim();
+                if (!embOrig) return;
+
+                const embNorm = normalizarCodigo(embOrig);
+                const cpFull = String(r[24] ?? '').trim();
+                const dep3 = cpFull.substring(0, 3).trim();
+                const depNorm = normalizarCodigo(dep3);
+                const cargaCP = cpFull.length >= 5 ? cpFull.substring(4).trim() : '';
+
+                const key = `${embNorm}___${depNorm}`;
+
+                if (!mapaPedidos.has(key)) {
+                    mapaPedidos.set(key, {
+                        embarqueOrig: embOrig,
+                        embarqueNorm: embNorm,
+                        cpFull: cpFull,
+                        depOrig: dep3,
+                        depNorm: depNorm,
+                        cargaCP: cargaCP,
+                        idCliente: String(r[0] ?? '').trim(),
+                        nombreCliente: String(r[15] ?? '').trim(),
+                        bultos: 0,
+                        peso: 0,
+                        lineas: 0
+                    });
+                }
+
+                const item = mapaPedidos.get(key);
+                item.bultos += parsearNumero(r[4]);
+                item.peso += parsearNumero(r[12]);
+                item.lineas += 1;
+            });
+
+            // B. Indexar JDE por Embarque+Sucursal y también solo por Embarque (para detectar cambio de depósito)
+            const mapaJdeExacto = new Map();
+            const mapaJdePorEmbarque = new Map();
+
+            datosJDERaw.forEach(j => {
+                const keyExact = `${j.embarqueNorm}___${j.sucursalNorm}`;
+                if (!mapaJdeExacto.has(keyExact)) {
+                    mapaJdeExacto.set(keyExact, {
+                        ...j,
+                        piezas: 0,
+                        peso: 0,
+                        registros: 0
+                    });
+                }
+                const regExact = mapaJdeExacto.get(keyExact);
+                regExact.piezas += j.piezas;
+                regExact.peso += j.peso;
+                regExact.registros += 1;
+
+                if (!mapaJdePorEmbarque.has(j.embarqueNorm)) {
+                    mapaJdePorEmbarque.set(j.embarqueNorm, []);
+                }
+                mapaJdePorEmbarque.get(j.embarqueNorm).push(j);
+            });
+
+            // C. Evaluar cada grupo de la Planilla de Pedidos contra JDE
+            resultadosCruce = [];
+            const depositosUnicos = new Set();
+
+            mapaPedidos.forEach((ped, keyExact) => {
+                if (ped.depOrig) depositosUnicos.add(ped.depOrig);
+
+                const matchExacto = mapaJdeExacto.get(keyExact);
+                const matchSoloEmb = mapaJdePorEmbarque.get(ped.embarqueNorm);
+
+                let estadoCodigo = '';
+                let estadoLabel = '';
+                let sucJde = '-';
+                let piezasJde = 0;
+                let pesoJde = 0;
+                let cargaJde = '-';
+                let estJde = '-';
+                let difBultos = 0;
+                let observacion = '';
+
+                if (matchExacto) {
+                    sucJde = matchExacto.sucursalOrig;
+                    piezasJde = matchExacto.piezas;
+                    pesoJde = matchExacto.peso;
+                    cargaJde = matchExacto.carga || '-';
+                    estJde = [matchExacto.est, matchExacto.estado].filter(Boolean).join(' - ') || '-';
+                    difBultos = Number((ped.bultos - piezasJde).toFixed(2));
+
+                    if (Math.abs(difBultos) < 0.01) {
+                        estadoCodigo = 'OK';
+                        estadoLabel = '✅ OK';
+                        observacion = 'Coincide embarque, depósito y bultos.';
+                    } else {
+                        estadoCodigo = 'DIF_BULTOS';
+                        estadoLabel = '⚠️ DIF. BULTOS';
+                        observacion = difBultos > 0
+                            ? `Faltan ${difBultos} bultos en JDE respecto al pedido.`
+                            : `JDE tiene ${Math.abs(difBultos)} piezas de más respecto al pedido.`;
+                    }
+                } else if (matchSoloEmb && matchSoloEmb.length > 0) {
+                    // El embarque existe en JDE pero con otra Sucursal Planta
+                    const primero = matchSoloEmb[0];
+                    const sucursalesEnJde = [...new Set(matchSoloEmb.map(x => x.sucursalOrig))].join(', ');
+                    sucJde = sucursalesEnJde;
+                    piezasJde = matchSoloEmb.reduce((acc, x) => acc + x.piezas, 0);
+                    pesoJde = matchSoloEmb.reduce((acc, x) => acc + x.peso, 0);
+                    cargaJde = primero.carga || '-';
+                    estJde = [primero.est, primero.estado].filter(Boolean).join(' - ') || '-';
+                    difBultos = Number((ped.bultos - piezasJde).toFixed(2));
+
+                    estadoCodigo = 'DIF_DEPOSITO';
+                    estadoLabel = '🏢 DIF. DEPÓSITO';
+                    observacion = `Depósito pedido (${ped.depOrig || 'vacío'}) ≠ Sucursal Planta JDE (${sucursalesEnJde}).` +
+                        (Math.abs(difBultos) >= 0.01 ? ` Además difieren bultos (${difBultos}).` : '');
+                } else {
+                    estadoCodigo = 'NO_EN_JDE';
+                    estadoLabel = '❌ NO EN JDE';
+                    difBultos = ped.bultos;
+                    observacion = 'El embarque de la planilla de pedidos no figura en la bajada P4915.';
+                }
+
+                resultadosCruce.push({
+                    estadoCodigo,
+                    estadoLabel,
+                    embarque: ped.embarqueOrig,
+                    cliente: `${ped.idCliente} - ${ped.nombreCliente}`,
+                    cpFull: ped.cpFull,
+                    depPedido: ped.depOrig,
+                    sucJde,
+                    bultosPedido: ped.bultos,
+                    piezasJde,
+                    difBultos,
+                    pesoPedido: ped.peso,
+                    pesoJde,
+                    cargaJde,
+                    estJde,
+                    observacion
+                });
+            });
+
+            // Ordenar poniendo primero los errores/diferencias y luego los OK
+            const prioridadOrden = { 'NO_EN_JDE': 1, 'DIF_DEPOSITO': 2, 'DIF_BULTOS': 3, 'OK': 4 };
+            resultadosCruce.sort((a, b) => prioridadOrden[a.estadoCodigo] - prioridadOrden[b.estadoCodigo]);
+
+            // Poblar filtro de depósitos
+            const selDep = document.getElementById('filtroDeposito');
+            selDep.innerHTML = '<option value="TODOS">Todos</option>';
+            Array.from(depositosUnicos).sort().forEach(d => {
+                selDep.innerHTML += `<option value="${d}">${d}</option>`;
+            });
+
+            actualizarKPIs();
+            renderizarTabla();
+
+            document.getElementById('panelResultados').classList.remove('hidden');
+            document.getElementById('btnExportar').classList.remove('hidden');
+        }
+
+        function actualizarKPIs() {
+            document.getElementById('kpiTotal').innerText = resultadosCruce.length;
+            document.getElementById('kpiOk').innerText = resultadosCruce.filter(r => r.estadoCodigo === 'OK').length;
+            document.getElementById('kpiDifBultos').innerText = resultadosCruce.filter(r => r.estadoCodigo === 'DIF_BULTOS').length;
+            document.getElementById('kpiDifDeposito').innerText = resultadosCruce.filter(r => r.estadoCodigo === 'DIF_DEPOSITO').length;
+            document.getElementById('kpiNoJde').innerText = resultadosCruce.filter(r => r.estadoCodigo === 'NO_EN_JDE').length;
+        }
+
+        function filtrarPorEstado(estado) {
+            document.getElementById('filtroEstado').value = estado;
+            renderizarTabla();
+        }
+
+        function renderizarTabla() {
+            const estFiltro = document.getElementById('filtroEstado').value;
+            const depFiltro = document.getElementById('filtroDeposito').value;
+            const texto = normalizarTexto(document.getElementById('buscadorTexto').value);
+
+            const filtrados = resultadosCruce.filter(r => {
+                if (estFiltro === 'SOLO_ERRORES' && r.estadoCodigo === 'OK') return false;
+                if (estFiltro !== 'TODOS' && estFiltro !== 'SOLO_ERRORES' && r.estadoCodigo !== estFiltro) return false;
+                if (depFiltro !== 'TODOS' && r.depPedido !== depFiltro) return false;
+                if (texto) {
+                    const blob = normalizarTexto(`${r.embarque} ${r.cliente} ${r.cpFull} ${r.cargaJde}`);
+                    if (!blob.includes(texto)) return false;
+                }
+                return true;
+            });
+
+            let sumPed = 0;
+            let sumJde = 0;
+
+            const tbody = document.getElementById('tbodyResultados');
+            tbody.innerHTML = filtrados.map(r => {
+                sumPed += r.bultosPedido;
+                sumJde += r.piezasJde;
+
+                let badgeClass = "bg-emerald-100 text-emerald-800 border-emerald-300";
+                let rowBg = "hover:bg-slate-50";
+
+                if (r.estadoCodigo === 'DIF_BULTOS') {
+                    badgeClass = "bg-amber-100 text-amber-900 border-amber-300";
+                    rowBg = "bg-amber-50/40 hover:bg-amber-50";
+                } else if (r.estadoCodigo === 'DIF_DEPOSITO') {
+                    badgeClass = "bg-purple-100 text-purple-900 border-purple-300";
+                    rowBg = "bg-purple-50/40 hover:bg-purple-50";
+                } else if (r.estadoCodigo === 'NO_EN_JDE') {
+                    badgeClass = "bg-red-100 text-red-900 border-red-300";
+                    rowBg = "bg-red-50/40 hover:bg-red-50";
+                }
+
+                const difColor = Math.abs(r.difBultos) >= 0.01 ? "text-red-600 font-black" : "text-slate-400";
+
+                return `
+                    <tr class="${rowBg}">
+                        <td class="p-3 whitespace-nowrap">
+                            <span class="px-2.5 py-1 rounded-full font-black text-[11px] border ${badgeClass}">${r.estadoLabel}</span>
+                        </td>
+                        <td class="p-3 font-black text-blue-900">${r.embarque}</td>
+                        <td class="p-3">${r.cliente}</td>
+                        <td class="p-3 font-mono">${r.cpFull || '-'}</td>
+                        <td class="p-3 text-center font-bold">${r.depPedido || '-'}</td>
+                        <td class="p-3 text-center font-bold">${r.sucJde}</td>
+                        <td class="p-3 text-right font-bold text-blue-900">${r.bultosPedido.toLocaleString('es-AR')}</td>
+                        <td class="p-3 text-right font-bold text-emerald-700">${r.piezasJde.toLocaleString('es-AR')}</td>
+                        <td class="p-3 text-right ${difColor}">${r.difBultos !== 0 ? r.difBultos.toLocaleString('es-AR') : '0'}</td>
+                        <td class="p-3 text-right text-slate-600">${r.pesoPedido.toFixed(2)}</td>
+                        <td class="p-3 text-right text-slate-600">${r.pesoJde.toFixed(2)}</td>
+                        <td class="p-3 font-mono">${r.cargaJde}</td>
+                        <td class="p-3">${r.estJde}</td>
+                        <td class="p-3 text-slate-700">${r.observacion}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            document.getElementById('sumBultosPed').innerText = sumPed.toLocaleString('es-AR');
+            document.getElementById('sumPiezasJde').innerText = sumJde.toLocaleString('es-AR');
+        }
+
+        // --- 4. EXPORTAR RESULTADOS A EXCEL ---
+        function exportarResultadosExcel() {
+            if (resultadosCruce.length === 0) return;
+
+            const dataExport = resultadosCruce.map(r => ({
+                "Estado Validación": r.estadoLabel.replace(/[^\w\s.ÁÉÍÓÚáéíóúÑñ]/g, '').trim(),
+                "Nº Embarque": r.embarque,
+                "Cliente": r.cliente,
+                "CP Pedido": r.cpFull,
+                "Depósito Pedido (3 dig CP)": r.depPedido,
+                "Sucursal Planta JDE": r.sucJde,
+                "Bultos Pedidos": r.bultosPedido,
+                "Piezas JDE": r.piezasJde,
+                "Diferencia Bultos": r.difBultos,
+                "Peso Pedidos [kg]": Number(r.pesoPedido.toFixed(2)),
+                "Peso JDE [kg]": Number(r.pesoJde.toFixed(2)),
+                "Nº Carga JDE": r.cargaJde,
+                "Estado JDE": r.estJde,
+                "Observación": r.observacion
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(dataExport);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Validacion_JDE");
+
+            const hoyStr = new Date().toISOString().slice(0, 10);
+            XLSX.writeFile(wb, `Control_Pedidos_vs_JDE_${hoyStr}.xlsx`);
+        }
+    </script>
+</body>
+</html>
