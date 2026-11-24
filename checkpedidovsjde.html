@@ -20,6 +20,9 @@
                 <button onclick="ejecutarCruce()" id="btnValidar" class="bg-orange-500 hover:bg-orange-600 text-white font-black text-xs px-6 py-3 rounded-xl shadow-lg transition-all flex items-center gap-2">
                     ⚡ EJECUTAR VALIDACIÓN
                 </button>
+                <button onclick="copiarTablaVisible()" id="btnCopiarTabla" class="hidden bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-5 py-3 rounded-xl shadow-md transition-all flex items-center gap-2">
+                    📋 COPIAR TABLA
+                </button>
                 <button onclick="exportarResultadosExcel()" id="btnExportar" class="hidden bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-5 py-3 rounded-xl shadow-md transition-all flex items-center gap-2">
                     📥 EXPORTAR RESULTADO (.XLSX)
                 </button>
@@ -122,8 +125,8 @@
                         </select>
                     </div>
                     <div>
-                        <label class="text-[11px] font-bold text-slate-600 uppercase block">Buscar Embarque / Cliente:</label>
-                        <input type="text" id="buscadorTexto" onkeyup="renderizarTabla()" placeholder="Ej: 375145 o MAXICONSUMO..." class="p-2 rounded-lg border border-slate-300 text-xs bg-white outline-none w-64">
+                        <label class="text-[11px] font-bold text-slate-600 uppercase block">Buscar Embarque / Cliente / Customer:</label>
+                        <input type="text" id="buscadorTexto" onkeyup="renderizarTabla()" placeholder="Ej: 375145, MAXICONSUMO o Customer..." class="p-2 rounded-lg border border-slate-300 text-xs bg-white outline-none w-64">
                     </div>
                 </div>
 
@@ -135,12 +138,13 @@
 
             <!-- TABLA DE AUDITORÍA -->
             <div class="overflow-x-auto border border-slate-200 rounded-2xl shadow-sm max-h-[540px]">
-                <table class="w-full text-left border-collapse text-xs">
+                <table id="tablaAuditoria" class="w-full text-left border-collapse text-xs">
                     <thead class="bg-blue-900 text-white font-bold sticky top-0 z-10">
                         <tr>
                             <th class="p-3">Estado</th>
                             <th class="p-3">Embarque</th>
                             <th class="p-3">Cliente (ID - Nombre)</th>
+                            <th class="p-3">Customer</th>
                             <th class="p-3 text-center">Dep. Base<br><span class="text-[10px] font-normal text-blue-200">(Asumido)</span></th>
                             <th class="p-3 text-center">Suc. Planta<br><span class="text-[10px] font-normal text-blue-200">(JDE)</span></th>
                             <th class="p-3 text-right">Bultos<br>Pedidos</th>
@@ -166,6 +170,7 @@
         let datosPedidosRaw = [];
         let datosJDERaw = [];
         let resultadosCruce = [];
+        let filasFiltradasActuales = [];
 
         // --- CONFIGURACIÓN DRAG & DROP ---
         function configurarDropzone(dropId, inputId, callback) {
@@ -371,13 +376,14 @@
             let lineasDescartadasConCP = 0;
             let lineasEvaluadasSinCP = 0;
 
-            // A. Agrupar Planilla de Pedidos SOLO para filas SIN CP
+            // Índices en "Base pedidos":
+            // 0: ID Cliente | 1: Embarque | 4: Cantidad 2 - Bultos | 12: Peso [kg] | 15: Nombre Cliente | 23: Customer (Col X) | 24: CP (Col Y)
             const mapaPedidos = new Map();
 
             datosPedidosRaw.forEach(r => {
                 const cpVal = String(r[24] ?? '').trim();
                 
-                // REGLA 2: Si tiene CP (Carta de Porte), desestimar la línea
+                // Si tiene CP (Carta de Porte), desestimar la línea
                 if (cpVal !== "") {
                     lineasDescartadasConCP++;
                     return;
@@ -388,6 +394,7 @@
 
                 lineasEvaluadasSinCP++;
                 const embNorm = normalizarCodigo(embOrig);
+                const customerVal = String(r[23] ?? '').trim();
 
                 if (!mapaPedidos.has(embNorm)) {
                     mapaPedidos.set(embNorm, {
@@ -396,6 +403,7 @@
                         depEsperado: DEPOSITO_DEFAULT,
                         idCliente: String(r[0] ?? '').trim(),
                         nombreCliente: String(r[15] ?? '').trim(),
+                        customersSet: new Set(),
                         bultos: 0,
                         peso: 0,
                         lineas: 0
@@ -403,18 +411,17 @@
                 }
 
                 const item = mapaPedidos.get(embNorm);
+                if (customerVal) item.customersSet.add(customerVal);
                 item.bultos += parsearNumero(r[4]);
                 item.peso += parsearNumero(r[12]);
                 item.lineas += 1;
             });
 
-            // Mostrar resumen de filtrado de CP
             const banner = document.getElementById('bannerInfoFiltro');
             banner.classList.remove('hidden');
             document.getElementById('textoBannerFiltro').innerHTML = 
                 `📋 Se analizaron <b>${lineasEvaluadasSinCP}</b> líneas sin CP (${mapaPedidos.size} embarques únicos) y se desestimaron <b>${lineasDescartadasConCP}</b> líneas que ya tenían CP asignado.`;
 
-            // B. Indexar JDE por Embarque
             const mapaJdePorEmbarque = new Map();
             datosJDERaw.forEach(j => {
                 if (!mapaJdePorEmbarque.has(j.embarqueNorm)) {
@@ -423,7 +430,6 @@
                 mapaJdePorEmbarque.get(j.embarqueNorm).push(j);
             });
 
-            // C. Evaluar cada embarque sin CP contra JDE
             resultadosCruce = [];
 
             mapaPedidos.forEach((ped, embNorm) => {
@@ -439,6 +445,8 @@
                 let difBultos = 0;
                 let observacion = '';
 
+                const customerStr = Array.from(ped.customersSet).join(', ') || '-';
+
                 if (registrosJde && registrosJde.length > 0) {
                     const sucursalesUnicas = [...new Set(registrosJde.map(x => x.sucursalOrig).filter(Boolean))];
                     const sucursalesNormUnicas = [...new Set(registrosJde.map(x => x.sucursalNorm).filter(Boolean))];
@@ -451,30 +459,26 @@
                     
                     difBultos = Number((ped.bultos - piezasJde).toFixed(2));
 
-                    // REGLA 1: Validar que el depósito en JDE sea 101 (solo marcar Dif. Depósito si trae algo distinto a 101)
                     const tieneSucursalDistinta101 = sucursalesNormUnicas.some(s => s !== DEPOSITO_DEFAULT);
 
                     if (tieneSucursalDistinta101) {
                         estadoCodigo = 'DIF_DEPOSITO';
                         estadoLabel = '🏢 DIF. DEPÓSITO';
-                        observacion = `Sucursal Planta en JDE (${sucJde}) es distinta de 101.` +
-                            (Math.abs(difBultos) >= 0.01 ? ` Además difieren bultos (${difBultos}).` : '');
+                        observacion = 'El deposito no es 101';
                     } else if (Math.abs(difBultos) < 0.01) {
                         estadoCodigo = 'OK';
                         estadoLabel = '✅ OK';
-                        observacion = 'Coincide embarque, depósito 101 y cantidad de bultos.';
+                        observacion = 'Todo coincide';
                     } else {
                         estadoCodigo = 'DIF_BULTOS';
                         estadoLabel = '⚠️ DIF. BULTOS';
-                        observacion = difBultos > 0
-                            ? `Faltan ${difBultos} bultos en JDE respecto al pedido.`
-                            : `JDE tiene ${Math.abs(difBultos)} piezas de más respecto al pedido.`;
+                        observacion = 'Diferencia de cantidades';
                     }
                 } else {
                     estadoCodigo = 'NO_EN_JDE';
                     estadoLabel = '❌ NO EN JDE';
                     difBultos = ped.bultos;
-                    observacion = 'El embarque sin CP no figura en la bajada P4915.';
+                    observacion = 'No aparece el embarque';
                 }
 
                 resultadosCruce.push({
@@ -482,6 +486,7 @@
                     estadoLabel,
                     embarque: ped.embarqueOrig,
                     cliente: `${ped.idCliente} - ${ped.nombreCliente}`,
+                    customer: customerStr,
                     depPedido: ped.depEsperado,
                     sucJde,
                     bultosPedido: ped.bultos,
@@ -495,7 +500,6 @@
                 });
             });
 
-            // Ordenar priorizando diferencias/errores arriba y OK abajo
             const prioridadOrden = { 'NO_EN_JDE': 1, 'DIF_DEPOSITO': 2, 'DIF_BULTOS': 3, 'OK': 4 };
             resultadosCruce.sort((a, b) => prioridadOrden[a.estadoCodigo] - prioridadOrden[b.estadoCodigo]);
 
@@ -503,6 +507,7 @@
             renderizarTabla();
 
             document.getElementById('panelResultados').classList.remove('hidden');
+            document.getElementById('btnCopiarTabla').classList.remove('hidden');
             document.getElementById('btnExportar').classList.remove('hidden');
         }
 
@@ -515,7 +520,6 @@
             document.getElementById('kpiDifDeposito').innerText = countDifDep;
             document.getElementById('kpiNoJde').innerText = resultadosCruce.filter(r => r.estadoCodigo === 'NO_EN_JDE').length;
 
-            // Mostrar u ocultar la tarjeta y opción de filtro de Dif. Depósito según si existe algún caso != 101
             const cardDep = document.getElementById('cardKpiDifDeposito');
             const optDep = document.getElementById('optDifDeposito');
             const gridKpis = document.getElementById('gridKpis');
@@ -543,11 +547,11 @@
             const estFiltro = document.getElementById('filtroEstado').value;
             const texto = normalizarTexto(document.getElementById('buscadorTexto').value);
 
-            const filtrados = resultadosCruce.filter(r => {
+            filasFiltradasActuales = resultadosCruce.filter(r => {
                 if (estFiltro === 'SOLO_ERRORES' && r.estadoCodigo === 'OK') return false;
                 if (estFiltro !== 'TODOS' && estFiltro !== 'SOLO_ERRORES' && r.estadoCodigo !== estFiltro) return false;
                 if (texto) {
-                    const blob = normalizarTexto(`${r.embarque} ${r.cliente} ${r.cargaJde}`);
+                    const blob = normalizarTexto(`${r.embarque} ${r.cliente} ${r.customer} ${r.cargaJde}`);
                     if (!blob.includes(texto)) return false;
                 }
                 return true;
@@ -557,7 +561,7 @@
             let sumJde = 0;
 
             const tbody = document.getElementById('tbodyResultados');
-            tbody.innerHTML = filtrados.map(r => {
+            tbody.innerHTML = filasFiltradasActuales.map(r => {
                 sumPed += r.bultosPedido;
                 sumJde += r.piezasJde;
 
@@ -584,6 +588,7 @@
                         </td>
                         <td class="p-3 font-black text-blue-900">${r.embarque}</td>
                         <td class="p-3">${r.cliente}</td>
+                        <td class="p-3 font-semibold text-slate-700">${r.customer}</td>
                         <td class="p-3 text-center font-bold text-slate-600">${r.depPedido}</td>
                         <td class="p-3 text-center font-bold">${r.sucJde}</td>
                         <td class="p-3 text-right font-bold text-blue-900">${r.bultosPedido.toLocaleString('es-AR')}</td>
@@ -593,13 +598,90 @@
                         <td class="p-3 text-right text-slate-600">${r.pesoJde.toFixed(2)}</td>
                         <td class="p-3 font-mono">${r.cargaJde}</td>
                         <td class="p-3">${r.estJde}</td>
-                        <td class="p-3 text-slate-700">${r.observacion}</td>
+                        <td class="p-3 text-slate-700 whitespace-nowrap">${r.observacion}</td>
                     </tr>
                 `;
             }).join('');
 
             document.getElementById('sumBultosPed').innerText = sumPed.toLocaleString('es-AR');
             document.getElementById('sumPiezasJde').innerText = sumJde.toLocaleString('es-AR');
+        }
+
+        // --- COPIAR TABLA VISIBLE (MAIL / EXCEL) ---
+        function copiarTablaVisible() {
+            if (!filasFiltradasActuales || filasFiltradasActuales.length === 0) {
+                return alert("No hay filas visibles para copiar.");
+            }
+
+            const headers = [
+                "Estado", "Embarque", "Cliente (ID - Nombre)", "Customer",
+                "Dep. Base", "Suc. Planta JDE", "Bultos Pedidos", "Piezas JDE",
+                "Dif. Bultos", "Peso Ped. [kg]", "Peso JDE [kg]", "Nº Carga JDE",
+                "Est. JDE", "Observación"
+            ];
+
+            let html = `<table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:10pt;"><thead><tr style="background:#1e3a8a;color:#ffffff;font-weight:bold;">`;
+            headers.forEach(h => { html += `<th>${h}</th>`; });
+            html += `</tr></thead><tbody>`;
+
+            let plain = headers.join("\t") + "\n";
+
+            filasFiltradasActuales.forEach(r => {
+                const estadoLimpio = r.estadoLabel.replace(/[^\w\s.ÁÉÍÓÚáéíóúÑñ]/g, '').trim();
+                const vals = [
+                    estadoLimpio,
+                    r.embarque,
+                    r.cliente,
+                    r.customer,
+                    r.depPedido,
+                    r.sucJde,
+                    r.bultosPedido,
+                    r.piezasJde,
+                    r.difBultos,
+                    r.pesoPedido.toFixed(2).replace('.', ','),
+                    r.pesoJde.toFixed(2).replace('.', ','),
+                    r.cargaJde,
+                    r.estJde,
+                    r.observacion
+                ];
+                html += `<tr>` + vals.map(v => `<td>${v}</td>`).join('') + `</tr>`;
+                plain += vals.join("\t") + "\n";
+            });
+
+            html += `</tbody></table>`;
+
+            if (navigator.clipboard && window.ClipboardItem) {
+                const blobHtml = new Blob([html], { type: 'text/html' });
+                const blobText = new Blob([plain], { type: 'text/plain' });
+                navigator.clipboard.write([
+                    new ClipboardItem({ 'text/html': blobHtml, 'text/plain': blobText })
+                ]).then(() => {
+                    alert(`✓ Se copiaron ${filasFiltradasActuales.length} filas. Ya podés pegar en Excel o en el correo.`);
+                }).catch(() => fallbackCopy(html));
+            } else {
+                fallbackCopy(html);
+            }
+        }
+
+        function fallbackCopy(html) {
+            const div = document.createElement('div');
+            div.innerHTML = html;
+            div.style.position = 'fixed';
+            div.style.opacity = '0';
+            document.body.appendChild(div);
+            const range = document.createRange();
+            range.selectNode(div);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+            try {
+                document.execCommand('copy');
+                alert(`✓ Se copiaron ${filasFiltradasActuales.length} filas. Ya podés pegar en Excel o en el correo.`);
+            } catch (e) {
+                alert("No se pudo copiar automáticamente.");
+            }
+            sel.removeAllRanges();
+            document.body.removeChild(div);
         }
 
         // --- 4. EXPORTAR RESULTADOS A EXCEL ---
@@ -610,6 +692,7 @@
                 "Estado Validación": r.estadoLabel.replace(/[^\w\s.ÁÉÍÓÚáéíóúÑñ]/g, '').trim(),
                 "Nº Embarque": r.embarque,
                 "Cliente": r.cliente,
+                "Customer": r.customer,
                 "Depósito Base": r.depPedido,
                 "Sucursal Planta JDE": r.sucJde,
                 "Bultos Pedidos": r.bultosPedido,
