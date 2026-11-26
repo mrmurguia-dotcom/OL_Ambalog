@@ -761,7 +761,7 @@ async function ejecutarConsultaEjecutiva() {
                         cli.documentos.forEach(doc => {
                             let nroDoc = String(doc.numero || 'N/A').trim();
                             let tipoDoc = String(doc.tipo || 'FACTURA').trim();
-                            let keyDoc = `${cp}_${nroDoc}_${tipoDoc}`;
+                            let keyDoc = `${fechaFila}_${cp}_${nroDoc}_${tipoDoc}`;
 
                             if (!mapaDocumentosUnicos.has(keyDoc)) {
                                 mapaDocumentosUnicos.set(keyDoc, {
@@ -887,16 +887,25 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla, pendientesGlobal
 
         let demandaTotalFecha = bultosPendientesFecha + bultosGrillaFecha;
 
-        // Usar exactamente los documentos únicos de Logística para cada CP y fecha.
-        let docsFecha = documentosGlobal.filter(d => cpsGrillaFecha.has(d.cp));
+        let docsFecha = documentosGlobal.filter(d => cpsGrillaFecha.has(d.cp) && normalizarFechaAISO(d.fechaGrilla) === fecha);
         let factFecha = 0;
+        // Mismo criterio que logística: sumar los documentos de cada fila,
+        // incluyendo CP principal y complementarios, sin filtrar por fecha del documento.
+        grillasFecha.forEach(g => {
+            const cps = obtenerTodasLasCPsDeFila(g);
+            documentosGlobal.forEach(d => {
+                if (cps.includes(d.cp)) {
+                    factFecha += (Number(d.cajas) || 0) + (Number(d.unidades) || 0);
+                }
+            });
+        });
         let rechFecha = 0;
         let rechInternosFecha = 0;
         let rechExternosFecha = 0;
 
         docsFecha.forEach(d => {
             let totalLinea = (Number(d.cajas) || 0) + (Number(d.unidades) || 0);
-            factFecha += totalLinea;
+
 
             let bRech = 0;
             if (d.bultosRechazados !== '' && d.bultosRechazados !== undefined && !isNaN(d.bultosRechazados)) {
