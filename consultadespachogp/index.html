@@ -761,7 +761,7 @@ async function ejecutarConsultaEjecutiva() {
                         cli.documentos.forEach(doc => {
                             let nroDoc = String(doc.numero || 'N/A').trim();
                             let tipoDoc = String(doc.tipo || 'FACTURA').trim();
-                            let keyDoc = `${fechaFila}_${cp}_${nroDoc}_${tipoDoc}`;
+                            let keyDoc = `${cp}_${nroDoc}_${tipoDoc}`;
 
                             if (!mapaDocumentosUnicos.has(keyDoc)) {
                                 mapaDocumentosUnicos.set(keyDoc, {
@@ -887,7 +887,8 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla, pendientesGlobal
 
         let demandaTotalFecha = bultosPendientesFecha + bultosGrillaFecha;
 
-        let docsFecha = documentosGlobal.filter(d => cpsGrillaFecha.has(d.cp) && normalizarFechaAISO(d.fechaGrilla) === fecha);
+        // Usar exactamente los documentos únicos de Logística para cada CP y fecha.
+        let docsFecha = documentosGlobal.filter(d => cpsGrillaFecha.has(d.cp));
         let factFecha = 0;
         let rechFecha = 0;
         let rechInternosFecha = 0;
