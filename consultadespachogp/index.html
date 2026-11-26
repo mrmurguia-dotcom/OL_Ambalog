@@ -548,7 +548,6 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
         });
     }
 
-    // Actualizar contador en Vista Logística
     const contadorLog = document.getElementById('contadorLogistica');
     if (contadorLog) {
         contadorLog.innerText = `${filtrados.length} registro${filtrados.length === 1 ? '' : 's'} cargado${filtrados.length === 1 ? '' : 's'}`;
@@ -691,7 +690,6 @@ async function ejecutarConsultaEjecutiva() {
     tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-blue-900 font-bold italic animate-pulse">🔄 Consultando grilla y pedidos pendientes del servidor, por favor espere...</td></tr>`;
 
     try {
-        // Armar lista de fechas ISO en el rango seleccionado
         let fechasRango = [];
         if (f1) {
             let curr = new Date(f1 + 'T00:00:00');
@@ -702,7 +700,6 @@ async function ejecutarConsultaEjecutiva() {
             }
         }
 
-        // Consultar Grilla + todas las filas de cada fecha (con y sin CP) mediante consultarPedidos
         const [respGrilla, ...respsPorFecha] = await Promise.all([
             fetch(WEB_APP_URL, {
                 method: 'POST',
@@ -744,10 +741,6 @@ async function ejecutarConsultaEjecutiva() {
         filtradosGrilla.forEach(g => {
             obtenerTodasLasCPsDeFila(g).forEach(cp => cpsSet.add(cp));
         });
-        pendientesGlobal.forEach(p => {
-            let cp = String(p.data[24] || '').trim();
-            if (cp) cpsSet.add(cp);
-        });
 
         let cpsUnicas = [...cpsSet];
         documentosGlobal = [];
@@ -768,7 +761,7 @@ async function ejecutarConsultaEjecutiva() {
                         cli.documentos.forEach(doc => {
                             let nroDoc = String(doc.numero || 'N/A').trim();
                             let tipoDoc = String(doc.tipo || 'FACTURA').trim();
-                            let keyDoc = `${cp}_${nroDoc}_${tipoDoc}`;
+                            let keyDoc = `${fechaFila}_${cp}_${nroDoc}_${tipoDoc}`;
 
                             if (!mapaDocumentosUnicos.has(keyDoc)) {
                                 mapaDocumentosUnicos.set(keyDoc, {
@@ -869,12 +862,12 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla, pendientesGlobal
     fechasUnicas.forEach(fecha => {
         let grillasFecha = filtradosGrilla.filter(g => normalizarFechaAISO(g.fechaGrilla) === fecha);
         let bultosGrillaFecha = 0;
-        let cpsDeFecha = [];
+        let cpsGrillaFecha = new Set();
         let cuentaSegundaVuelta = 0;
 
         grillasFecha.forEach(g => { 
             bultosGrillaFecha += Number(g.bultos) || 0; 
-            obtenerTodasLasCPsDeFila(g).forEach(c => cpsDeFecha.push(c));
+            obtenerTodasLasCPsDeFila(g).forEach(c => cpsGrillaFecha.add(c));
 
             let vueltaVal = String(g.vuelta || '').trim().toUpperCase();
             if (vueltaVal.includes('2')) {
@@ -882,22 +875,19 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla, pendientesGlobal
             }
         });
 
-        // Suma TODOS los pedidos pendientes de la fecha, TENGAN O NO Carta de Porte
         let bultosPendientesFecha = 0;
         if (pendientesGlobal) {
             pendientesGlobal.forEach(p => {
                 let fIso = normalizarFechaAISO(p.fechaPedido);
                 if (fIso === fecha) {
                     bultosPendientesFecha += Number(p.data[4]) || 0;
-                    let cp = String(p.data[24] || '').trim();
-                    if (cp) cpsDeFecha.push(cp);
                 }
             });
         }
 
         let demandaTotalFecha = bultosPendientesFecha + bultosGrillaFecha;
 
-        let docsFecha = documentosGlobal.filter(d => cpsDeFecha.includes(d.cp));
+        let docsFecha = documentosGlobal.filter(d => cpsGrillaFecha.has(d.cp) && normalizarFechaAISO(d.fechaGrilla) === fecha);
         let factFecha = 0;
         let rechFecha = 0;
         let rechInternosFecha = 0;
@@ -1226,7 +1216,6 @@ function renderizarComercial() {
         docsFiltrados = docsFiltrados.filter(d => (!d.motivo || d.motivo.trim() === '') && (!d.observacion || d.observacion.trim() === ''));
     }
 
-    // Actualizar contador en Vista Comercial
     const contadorCom = document.getElementById('contadorComercial');
     if (contadorCom) {
         contadorCom.innerText = `${docsFiltrados.length} registro${docsFiltrados.length === 1 ? '' : 's'} cargado${docsFiltrados.length === 1 ? '' : 's'}`;
