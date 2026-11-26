@@ -359,6 +359,7 @@ const WEB_APP_FC_URL = "https://script.google.com/macros/s/AKfycbzlPL8lhl8n_H2ki
 let grillaGlobal = [];
 let documentosGlobal = [];
 let listaDiferenciasGlobal = [];
+let datosEjecutivaParaExportar = [];
 
 let chartEjecutivaBarrasInstancia = null;
 let chartEjecutivaTortaInstancia = null;
@@ -847,6 +848,7 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla, pendientesGlobal
 
     const tbody = document.getElementById('tbodyEjecutivaTabla');
     if (fechasUnicas.length === 0) {
+        datosEjecutivaParaExportar = [];
         tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-slate-400 italic">No hay registros ejecutivos para las fechas seleccionadas.</td></tr>`;
         if (chartEjecutivaBarrasInstancia) chartEjecutivaBarrasInstancia.destroy();
         if (chartEjecutivaTortaInstancia) chartEjecutivaTortaInstancia.destroy();
@@ -854,6 +856,7 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla, pendientesGlobal
     }
 
     let filasHtml = '';
+    datosEjecutivaParaExportar = [];
     let tPendientes = 0, tGrilla = 0, tDemanda = 0, tFact = 0, tRech = 0, tExt = 0, totalViajesSegundaVuelta = 0;
     
     let chartLabels = [];
@@ -897,6 +900,8 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla, pendientesGlobal
         let docsFecha = documentosGlobal.filter(d => cpsDeFecha.includes(d.cp));
         let factFecha = 0;
         let rechFecha = 0;
+        let rechInternosFecha = 0;
+        let rechExternosFecha = 0;
 
         docsFecha.forEach(d => {
             let totalLinea = (Number(d.cajas) || 0) + (Number(d.unidades) || 0);
@@ -916,8 +921,10 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla, pendientesGlobal
                 let mot = String(d.motivo || d.observacion || '').toLowerCase();
                 if (mot.includes('ambalog') || mot.includes('operacion') || mot.includes('logistica') || mot.includes('interno') || mot.includes('rotura') || mot.includes('faltante')) {
                     totalRechInternos += bRech;
+                    rechInternosFecha += bRech;
                 } else {
                     totalRechExternos += bRech;
+                    rechExternosFecha += bRech;
                 }
             }
         });
@@ -925,6 +932,29 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla, pendientesGlobal
         let efectividadFecha = factFecha > 0 ? (((factFecha - rechFecha) / factFecha) * 100).toFixed(1) : 100;
         let extracostoBultos = factFecha > 9000 ? factFecha - 9000 : 0;
         let tieneSegundaVuelta = cuentaSegundaVuelta > 0;
+
+        let tipoRechazoTexto = '-';
+        if (rechInternosFecha > 0 && rechExternosFecha > 0) {
+            tipoRechazoTexto = `Operador (${rechInternosFecha}) / Cliente (${rechExternosFecha})`;
+        } else if (rechInternosFecha > 0) {
+            tipoRechazoTexto = 'Operador';
+        } else if (rechExternosFecha > 0) {
+            tipoRechazoTexto = 'Cliente';
+        }
+
+        datosEjecutivaParaExportar.push({
+            fecha: fecha,
+            pendientes: Math.round(bultosPendientesFecha).toLocaleString('es-ES'),
+            grilla: Math.round(bultosGrillaFecha).toLocaleString('es-ES'),
+            demanda: Math.round(demandaTotalFecha).toLocaleString('es-ES'),
+            facturado: Math.round(factFecha).toLocaleString('es-ES'),
+            rechazados: Math.round(rechFecha).toLocaleString('es-ES'),
+            efectividad: `${efectividadFecha}%`,
+            segundaVuelta: cuentaSegundaVuelta,
+            extracostoBultos: extracostoBultos,
+            tieneSegundaVuelta: tieneSegundaVuelta,
+            tipoRechazo: tipoRechazoTexto
+        });
 
         let badgeUmbral = "";
         if (extracostoBultos > 0 && tieneSegundaVuelta) {
@@ -1044,11 +1074,80 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla, pendientesGlobal
 }
 
 function copiarTablaEjecutiva() {
-    let tabla = document.getElementById('tablaEjecutivaExportable');
+    if (!datosEjecutivaParaExportar || datosEjecutivaParaExportar.length === 0) {
+        alert('No hay datos para copiar. Realizá una consulta primero.');
+        return;
+    }
+
+    let datosOrdenados = [...datosEjecutivaParaExportar].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
+    let tablaTemp = document.createElement('table');
+    tablaTemp.style.borderCollapse = 'collapse';
+    tablaTemp.style.fontFamily = 'Arial, sans-serif';
+    tablaTemp.style.fontSize = '10pt';
+
+    let thead = `
+        <thead>
+            <tr style="background-color: #0f172a; color: #ffffff; font-family: Arial, sans-serif; font-size: 10pt; font-weight: bold;">
+                <th style="border: 1px solid #cbd5e1; padding: 6px;">Fecha</th>
+                <th style="border: 1px solid #cbd5e1; padding: 6px;">Pendientes de Ruteo</th>
+                <th style="border: 1px solid #cbd5e1; padding: 6px;">Pedidos en GRILLA</th>
+                <th style="border: 1px solid #cbd5e1; padding: 6px;">Demanda Total</th>
+                <th style="border: 1px solid #cbd5e1; padding: 6px;">Bultos Facturados (Real)</th>
+                <th style="border: 1px solid #cbd5e1; padding: 6px;">Bultos Rechazados</th>
+                <th style="border: 1px solid #cbd5e1; padding: 6px;">Efectividad (%)</th>
+                <th style="border: 1px solid #cbd5e1; padding: 6px;">2ª Vuelta</th>
+                <th style="border: 1px solid #cbd5e1; padding: 6px;">Control Extracosto</th>
+                <th style="border: 1px solid #cbd5e1; padding: 6px;">Tipo de Rechazo</th>
+            </tr>
+        </thead>
+    `;
+
+    let tbodyRows = datosOrdenados.map(d => {
+        let estiloSegundaVuelta = d.segundaVuelta > 0
+            ? 'font-family: Arial, sans-serif; font-size: 10pt; color: #ff0000; font-weight: bold;'
+            : 'font-family: Arial, sans-serif; font-size: 10pt; color: #64748b;';
+
+        let hayExtracosto = d.extracostoBultos > 0 || d.tieneSegundaVuelta;
+        let estiloExtracosto = hayExtracosto
+            ? 'font-family: Arial, sans-serif; font-size: 10pt; color: #ff0000; font-weight: bold;'
+            : 'font-family: Arial, sans-serif; font-size: 10pt; color: #166534;';
+
+        let textoExtracosto = 'En rango (<9k) sin 2ªv';
+        if (d.extracostoBultos > 0 && d.tieneSegundaVuelta) {
+            textoExtracosto = `Exceso bultos: ${d.extracostoBultos.toLocaleString('es-ES')} + 2ª Vuelta`;
+        } else if (d.extracostoBultos > 0) {
+            textoExtracosto = `Exceso bultos: ${d.extracostoBultos.toLocaleString('es-ES')}`;
+        } else if (d.tieneSegundaVuelta) {
+            textoExtracosto = 'Extracosto por 2ª Vuelta';
+        }
+
+        return `
+            <tr style="font-family: Arial, sans-serif; font-size: 10pt;">
+                <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center;">${d.fecha}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center;">${d.pendientes}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center;">${d.grilla}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center;">${d.demanda}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center;">${d.facturado}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center;">${d.rechazados}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center;">${d.efectividad}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center; ${estiloSegundaVuelta}">${d.segundaVuelta}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center; ${estiloExtracosto}">${textoExtracosto}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center;">${d.tipoRechazo}</td>
+            </tr>
+        `;
+    }).join('');
+
+    tablaTemp.innerHTML = `${thead}<tbody>${tbodyRows}</tbody>`;
+    tablaTemp.style.position = 'fixed';
+    tablaTemp.style.left = '-9999px';
+    document.body.appendChild(tablaTemp);
+
     let rango = document.createRange();
-    rango.selectNode(tabla);
+    rango.selectNode(tablaTemp);
     window.getSelection().removeAllRanges();
     window.getSelection().addRange(rango);
+
     try {
         let exito = document.execCommand('copy');
         if (exito) {
@@ -1059,7 +1158,9 @@ function copiarTablaEjecutiva() {
     } catch (err) {
         alert('Error al intentar copiar la tabla.');
     }
+
     window.getSelection().removeAllRanges();
+    document.body.removeChild(tablaTemp);
 }
 
 // --- VISTA COMERCIAL ---
