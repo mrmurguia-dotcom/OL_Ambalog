@@ -929,7 +929,9 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla, pendientesGlobal
             }
         });
 
-        let efectividadFecha = factFecha > 0 ? (((factFecha - rechFecha) / factFecha) * 100).toFixed(1) : 100;
+        let efectividadNum = factFecha > 0 ? Number((((factFecha - rechFecha) / factFecha) * 100).toFixed(1)) : 100;
+        let efectividadFecha = factFecha > 0 ? efectividadNum.toFixed(1) : '100';
+        let efectividadExport = efectividadNum.toLocaleString('es-ES', { maximumFractionDigits: 1 });
         let extracostoBultos = factFecha > 9000 ? factFecha - 9000 : 0;
         let tieneSegundaVuelta = cuentaSegundaVuelta > 0;
 
@@ -948,8 +950,9 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla, pendientesGlobal
             grilla: Math.round(bultosGrillaFecha).toLocaleString('es-ES'),
             demanda: Math.round(demandaTotalFecha).toLocaleString('es-ES'),
             facturado: Math.round(factFecha).toLocaleString('es-ES'),
+            rechazadosNum: Math.round(rechFecha),
             rechazados: Math.round(rechFecha).toLocaleString('es-ES'),
-            efectividad: `${efectividadFecha}%`,
+            efectividad: efectividadExport,
             segundaVuelta: cuentaSegundaVuelta,
             extracostoBultos: extracostoBultos,
             tieneSegundaVuelta: tieneSegundaVuelta,
@@ -1104,6 +1107,10 @@ function copiarTablaEjecutiva() {
     `;
 
     let tbodyRows = datosOrdenados.map(d => {
+        let estiloRechazados = d.rechazadosNum > 0
+            ? 'font-family: Arial, sans-serif; font-size: 10pt; color: #ff0000; font-weight: bold;'
+            : 'font-family: Arial, sans-serif; font-size: 10pt;';
+
         let estiloSegundaVuelta = d.segundaVuelta > 0
             ? 'font-family: Arial, sans-serif; font-size: 10pt; color: #ff0000; font-weight: bold;'
             : 'font-family: Arial, sans-serif; font-size: 10pt; color: #64748b;';
@@ -1129,7 +1136,7 @@ function copiarTablaEjecutiva() {
                 <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center;">${d.grilla}</td>
                 <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center;">${d.demanda}</td>
                 <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center;">${d.facturado}</td>
-                <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center;">${d.rechazados}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center; ${estiloRechazados}">${d.rechazados}</td>
                 <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center;">${d.efectividad}</td>
                 <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center; ${estiloSegundaVuelta}">${d.segundaVuelta}</td>
                 <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center; ${estiloExtracosto}">${textoExtracosto}</td>
