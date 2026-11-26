@@ -458,7 +458,7 @@ async function ejecutarConsultaLogistica() {
         documentosGlobal = [];
         let mapaDocumentosUnicos = new Map();
 
-        let promesasDocs = cpsUnicas.map(async (cp) => {
+        let cargarDoc = async (cp) => {
             try {
                 const respDoc = await fetch(WEB_APP_URL, {
                     method: 'POST',
@@ -498,10 +498,12 @@ async function ejecutarConsultaLogistica() {
                 }
             } catch (e) {
                 console.error("Error al obtener documentos para CP:", cp, e);
+                throw new Error("No se pudieron cargar los documentos de la CP " + cp + ". Reintente la consulta.");
             }
-        });
-
-        await Promise.all(promesasDocs);
+        };
+        for (let i = 0; i < cpsUnicas.length; i += 5) {
+            await Promise.all(cpsUnicas.slice(i, i + 5).map(cargarDoc));
+        }
         documentosGlobal = Array.from(mapaDocumentosUnicos.values());
 
         renderizarLogisticaConDatosFiltrados(filtradosGrilla);
@@ -746,7 +748,7 @@ async function ejecutarConsultaEjecutiva() {
         documentosGlobal = [];
         let mapaDocumentosUnicos = new Map();
 
-        let promesasDocs = cpsUnicas.map(async (cp) => {
+        let cargarDoc = async (cp) => {
             try {
                 const respDoc = await fetch(WEB_APP_URL, {
                     method: 'POST',
@@ -786,10 +788,12 @@ async function ejecutarConsultaEjecutiva() {
                 }
             } catch (e) {
                 console.error("Error al obtener documentos para CP:", cp, e);
+                throw new Error("No se pudieron cargar los documentos de la CP " + cp + ". Reintente la consulta.");
             }
-        });
-
-        await Promise.all(promesasDocs);
+        };
+        for (let i = 0; i < cpsUnicas.length; i += 5) {
+            await Promise.all(cpsUnicas.slice(i, i + 5).map(cargarDoc));
+        }
         documentosGlobal = Array.from(mapaDocumentosUnicos.values());
 
         renderizarMetricasEjecutivasCompletas(filtradosGrilla, pendientesGlobal, f1, f2);
