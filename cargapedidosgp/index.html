@@ -108,9 +108,15 @@
                     </div>
                 </div>
                 
-                <div class="bg-white px-5 py-2 rounded-xl shadow-sm border border-slate-300 flex items-center gap-3">
-                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">Total Bultos:</span>
-                    <span id="badgeBultosTotal" class="text-2xl font-black text-emerald-600">0</span>
+                <div class="flex flex-wrap items-center gap-3">
+                    <div class="bg-white px-5 py-2 rounded-xl shadow-sm border border-slate-300 flex items-center gap-3">
+                        <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">Total Litros:</span>
+                        <span id="badgeLitrosTotal" class="text-2xl font-black text-sky-700">0</span>
+                    </div>
+                    <div class="bg-white px-5 py-2 rounded-xl shadow-sm border border-slate-300 flex items-center gap-3">
+                        <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">Total Bultos:</span>
+                        <span id="badgeBultosTotal" class="text-2xl font-black text-emerald-600">0</span>
+                    </div>
                 </div>
             </div>
             
@@ -423,7 +429,7 @@
             dibujarTablaDinamica();
         }
 
-        function actualizarTotalBultos(totalBultos) {
+        function actualizarTotalBultos(totalBultos, totalLitros = 0) {
             const badge = document.getElementById('badgeBultosTotal');
             badge.innerText = totalBultos.toLocaleString('es-ES', { maximumFractionDigits: 2 });
             
@@ -431,6 +437,11 @@
                 badge.className = "text-2xl font-black text-emerald-600";
             } else {
                 badge.className = "text-2xl font-black text-red-600";
+            }
+
+            const badgeLitros = document.getElementById('badgeLitrosTotal');
+            if (badgeLitros) {
+                badgeLitros.innerText = totalLitros.toLocaleString('es-ES', { maximumFractionDigits: 2 });
             }
         }
 
@@ -442,6 +453,7 @@
             let acumuladoBultos = 0;
             let acumuladoPeso = 0;
             let acumuladoPallets = 0;
+            let acumuladoLitros = 0;
 
             if (vistaActual === 'general') {
                 const customerFiltro = document.getElementById('filtroCustomer').value;
@@ -471,11 +483,12 @@
                     let key = `${cp}_${transporte}_${idCliente}_${nombreCliente}_${prioridad}_${segundaVuelta}_${canal}_${customerVal}_${localidad}_${direccion}_${turno}`;
 
                     if (!agruparGeneral[key]) {
-                        agruparGeneral[key] = { cp, transporte, idCliente, nombreCliente, prioridad, segundaVuelta, canal, customer: customerVal, localidad, direccion, turno, bultos: 0, peso: 0, pallets: 0 };
+                        agruparGeneral[key] = { cp, transporte, idCliente, nombreCliente, prioridad, segundaVuelta, canal, customer: customerVal, localidad, direccion, turno, bultos: 0, peso: 0, pallets: 0, litros: 0 };
                     }
                     agruparGeneral[key].bultos += Number(r[4]) || 0;
                     agruparGeneral[key].peso += Number(r[12]) || 0;
                     agruparGeneral[key].pallets += Number(r[3]) || 0;
+                    agruparGeneral[key].litros += Number(r[32]) || 0;
                 });
 
                 const cols = ["CP", "Transporte 2", "ID del Cliente", "Nombre Cliente", "Prioridad", "2da Vuelta", "Canal", "Customer", "Localidad", "Dirección", "Turno (Hora)", "Bultos", "Peso [kg]", "Pallets"];
@@ -486,6 +499,7 @@
                     acumuladoBultos += item.bultos;
                     acumuladoPeso += item.peso;
                     acumuladoPallets += item.pallets;
+                    acumuladoLitros += item.litros;
 
                     return `
                         <tr class="hover:bg-slate-50">
@@ -535,6 +549,7 @@
                     let b = Number(r[4]) || 0;
                     let p = Number(r[12]) || 0;
                     let pal = Number(r[3]) || 0;
+                    let lts = Number(r[32]) || 0;
 
                     agrupar[key].bultos += b;
                     agrupar[key].peso += p;
@@ -543,6 +558,7 @@
                     acumuladoBultos += b;
                     acumuladoPeso += p;
                     acumuladoPallets += pal;
+                    acumuladoLitros += lts;
                 });
 
                 const cols = ["CP", "Transporte 2", "Nombre del Reparto", "Cantidad de Clientes", "Bultos", "Peso [kg]", "Pallets"];
@@ -576,7 +592,7 @@
                 document.getElementById('resumenTexto').innerText = `Dinámica por Cliente / Reparto (${Object.keys(agrupar).length} grupos)`;
             }
 
-            actualizarTotalBultos(acumuladoBultos);
+            actualizarTotalBultos(acumuladoBultos, acumuladoLitros);
         }
 
         // --- VENTANA EMERGENTE PARA MOSTRAR PEDIDO Y EMBARQUE AGRUPADO ---
