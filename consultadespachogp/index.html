@@ -69,7 +69,7 @@
             </div>
 
             <!-- TARJETAS DE MÉTRICAS LOGÍSTICAS -->
-            <div class="grid grid-cols-1 md:grid-cols-5 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200 items-center">
+            <div class="grid grid-cols-1 md:grid-cols-6 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200 items-center">
                 <div class="bg-white p-3 rounded-xl border shadow-sm">
                     <span class="text-[10px] font-bold text-slate-400 uppercase">Bultos Programados</span>
                     <p id="logTotalProg" class="text-xl font-black text-blue-900">0</p>
@@ -85,6 +85,10 @@
                 <div class="bg-white p-3 rounded-xl border shadow-sm">
                     <span class="text-[10px] font-bold text-slate-400 uppercase">Bultos Rechazados</span>
                     <p id="logTotalRechazados" class="text-xl font-black text-red-600">0</p>
+                </div>
+                <div class="bg-white p-3 rounded-xl border shadow-sm">
+                    <span id="logLabelLitros" class="text-[10px] font-bold text-slate-400 uppercase">Litros</span>
+                    <p id="logTotalLitros" class="text-xl font-black text-sky-700">0</p>
                 </div>
                 <div class="bg-white p-3 rounded-xl border shadow-sm flex flex-col justify-between">
                     <span class="text-[10px] font-bold text-slate-400 uppercase">Efectividad</span>
@@ -175,13 +179,14 @@
                             <th class="p-3 text-center">Demanda Total</th>
                             <th class="p-3 text-center">Bultos Facturados (Real)</th>
                             <th class="p-3 text-center">Bultos Rechazados</th>
+                            <th class="p-3 text-center">Litros</th>
                             <th class="p-3 text-center">Efectividad (%)</th>
                             <th class="p-3 text-center">2ª Vuelta</th>
                             <th class="p-3 text-center">Control Extracosto</th>
                         </tr>
                     </thead>
                     <tbody id="tbodyEjecutivaTabla" class="divide-y divide-slate-100 text-slate-800">
-                        <tr><td colspan="9" class="p-6 text-center text-slate-400 italic">Seleccioná fecha(s) y hacé click en Consultar.</td></tr>
+                        <tr><td colspan="10" class="p-6 text-center text-slate-400 italic">Seleccioná fecha(s) y hacé click en Consultar.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -189,7 +194,7 @@
             <!-- GRÁFICOS DINÁMICOS -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
                 <div class="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-3">
-                    <h3 class="text-sm font-black text-blue-900">Demanda Total vs. Bultos Facturados por Fecha</h3>
+                    <h3 class="text-sm font-black text-blue-900">Litros Programados vs. Litros Facturados por Fecha</h3>
                     <div class="h-64 flex items-center justify-center">
                         <canvas id="chartEjecutivaBarras"></canvas>
                     </div>
@@ -358,8 +363,68 @@ const WEB_APP_FC_URL = "https://script.google.com/macros/s/AKfycbzlPL8lhl8n_H2ki
 
 let grillaGlobal = [];
 let documentosGlobal = [];
+let pedidosGlobal = [];
 let listaDiferenciasGlobal = [];
 let datosEjecutivaParaExportar = [];
+
+function obtenerFechasRangoISO(f1, f2) {
+    let fechas = [];
+    if (!f1) return fechas;
+    let curr = new Date(f1 + 'T00:00:00');
+    let endDate = f2 ? new Date(f2 + 'T00:00:00') : new Date(f1 + 'T00:00:00');
+    while (curr <= endDate) {
+        fechas.push(curr.toISOString().split('T')[0]);
+        curr.setDate(curr.getDate() + 1);
+    }
+    return fechas;
+}
+
+async function cargarPedidosParaFechas(f1, f2) {
+    const fechasRango = obtenerFechasRangoISO(f1, f2);
+    const resps = await Promise.all(
+        fechasRango.map(fIso => {
+            const [y, m, d] = fIso.split('-');
+            return fetch(WEB_APP_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'consultarPedidos', fecha: `${d}-${m}-${y}` })
+            }).then(r => r.json()).then(json => ({ fIso, json }));
+        })
+    );
+    let acum = [];
+    resps.forEach(({ fIso, json }) => {
+        if (json && json.status === "success" && Array.isArray(json.filas)) {
+            json.filas.forEach((r, idx) => {
+                acum.push({ fechaPedido: fIso, filaReal: idx + 2, data: r });
+            });
+        }
+    });
+    pedidosGlobal = acum;
+    return acum;
+}
+
+function calcularLitrosDeCPs(cpsLista, bultosProg, bultosFact) {
+    let cpsSet = new Set(cpsLista.map(c => String(c || '').trim()).filter(Boolean));
+    let litrosPedidos = 0;
+    pedidosGlobal.forEach(p => {
+        let cpPed = String(p.data[24] || '').trim();
+        if (cpsSet.has(cpPed)) {
+            litrosPedidos += Number(p.data[32]) || 0;
+        }
+    });
+    const difBultos = bultosFact - bultosProg;
+    if (difBultos !== 0) {
+        return {
+            litros: Math.max(0, litrosPedidos + (difBultos * 4.5)),
+            estimado: true,
+            litrosProgramados: litrosPedidos
+        };
+    }
+    return {
+        litros: litrosPedidos,
+        estimado: false,
+        litrosProgramados: litrosPedidos
+    };
+}
 
 let chartEjecutivaBarrasInstancia = null;
 let chartEjecutivaTortaInstancia = null;
@@ -432,17 +497,20 @@ async function ejecutarConsultaLogistica() {
     tbody.innerHTML = `<tr><td colspan="15" class="p-8 text-center text-blue-900 font-bold italic animate-pulse">🔄 Consultando datos y descargando novedades del servidor, por favor espere...</td></tr>`;
 
     try {
-        const respGrilla = await fetch(WEB_APP_URL, {
-            method: 'POST',
-            body: JSON.stringify({ action: 'obtenerGrillaRegistrada' })
-        });
+        const f1 = document.getElementById('logFecha1').value;
+        const f2 = document.getElementById('logFecha2').value;
+
+        const [respGrilla] = await Promise.all([
+            fetch(WEB_APP_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'obtenerGrillaRegistrada' })
+            }),
+            cargarPedidosParaFechas(f1, f2)
+        ]);
         const resGrilla = await respGrilla.json();
         if (resGrilla.status === "success") {
             grillaGlobal = resGrilla.grilla || [];
         }
-
-        const f1 = document.getElementById('logFecha1').value;
-        const f2 = document.getElementById('logFecha2').value;
 
         let filtradosGrilla = grillaGlobal.filter(g => {
             let fechaG = normalizarFechaAISO(g.fechaGrilla);
@@ -561,12 +629,15 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
         document.getElementById('logTotalFact').innerText = '0';
         document.getElementById('logTotalEntregados').innerText = '0';
         document.getElementById('logTotalRechazados').innerText = '0';
+        document.getElementById('logTotalLitros').innerText = '0';
+        document.getElementById('logLabelLitros').innerText = 'Litros';
         document.getElementById('logEfectividad').innerText = '100%';
         document.getElementById('alertaDiferenciaContainer').classList.add('hidden');
         return;
     }
 
-    let totProg = 0, totFact = 0, totEnt = 0, totRech = 0;
+    let totProg = 0, totFact = 0, totEnt = 0, totRech = 0, totLitros = 0;
+    let hayLitrosEstimados = false;
     listaDiferenciasGlobal = [];
 
     filtrados.forEach(g => {
@@ -599,6 +670,10 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
                 diferencia: bultosFactCP - bultosProg
             });
         }
+
+        const resLitrosCP = calcularLitrosDeCPs(cpsDeFila, bultosProg, bultosFactCP);
+        totLitros += resLitrosCP.litros;
+        if (resLitrosCP.estimado) hayLitrosEstimados = true;
 
         totProg += bultosProg;
         totFact += bultosFactCP;
@@ -666,6 +741,8 @@ function renderizarLogisticaConDatosFiltrados(filtrados) {
     document.getElementById('logTotalFact').innerText = totFact.toLocaleString('es-ES');
     document.getElementById('logTotalEntregados').innerText = totEnt.toLocaleString('es-ES');
     document.getElementById('logTotalRechazados').innerText = totRech.toLocaleString('es-ES');
+    document.getElementById('logTotalLitros').innerText = Math.round(totLitros).toLocaleString('es-ES');
+    document.getElementById('logLabelLitros').innerText = hayLitrosEstimados ? 'Litros (Est. c/dif.)' : 'Litros';
     document.getElementById('logEfectividad').innerText = `${efectividad}%`;
 
     const contenedorAlerta = document.getElementById('alertaDiferenciaContainer');
@@ -689,7 +766,7 @@ async function ejecutarConsultaEjecutiva() {
 
     btnConsultar.disabled = true;
     btnConsultar.innerText = "⏳ Consultando...";
-    tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-blue-900 font-bold italic animate-pulse">🔄 Consultando grilla y pedidos pendientes del servidor, por favor espere...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" class="p-8 text-center text-blue-900 font-bold italic animate-pulse">🔄 Consultando grilla y pedidos pendientes del servidor, por favor espere...</td></tr>`;
 
     try {
         let fechasRango = [];
@@ -722,9 +799,11 @@ async function ejecutarConsultaEjecutiva() {
         }
 
         let pendientesGlobal = [];
+        pedidosGlobal = [];
         respsPorFecha.forEach(({ fIso, json }) => {
             if (json && json.status === "success" && Array.isArray(json.filas)) {
                 json.filas.forEach((r, idx) => {
+                    pedidosGlobal.push({ fechaPedido: fIso, filaReal: idx + 2, data: r });
                     let grillaVal = String(r[31] || '').trim().toUpperCase();
                     if (grillaVal !== "SI") {
                         pendientesGlobal.push({ fechaPedido: fIso, filaReal: idx + 2, data: r });
@@ -802,7 +881,7 @@ async function ejecutarConsultaEjecutiva() {
 
     } catch (err) {
         console.error("Error al conectar con el servidor:", err);
-        tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-red-600 font-bold">❌ Error al conectar con el servidor. Intente nuevamente.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-red-600 font-bold">❌ Error al conectar con el servidor. Intente nuevamente.</td></tr>`;
     } finally {
         btnConsultar.disabled = false;
         btnConsultar.innerText = "🔍 Consultar";
@@ -846,7 +925,7 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla, pendientesGlobal
     const tbody = document.getElementById('tbodyEjecutivaTabla');
     if (fechasUnicas.length === 0) {
         datosEjecutivaParaExportar = [];
-        tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-slate-400 italic">No hay registros ejecutivos para las fechas seleccionadas.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-slate-400 italic">No hay registros ejecutivos para las fechas seleccionadas.</td></tr>`;
         if (chartEjecutivaBarrasInstancia) chartEjecutivaBarrasInstancia.destroy();
         if (chartEjecutivaTortaInstancia) chartEjecutivaTortaInstancia.destroy();
         return;
@@ -854,11 +933,11 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla, pendientesGlobal
 
     let filasHtml = '';
     datosEjecutivaParaExportar = [];
-    let tPendientes = 0, tGrilla = 0, tDemanda = 0, tFact = 0, tRech = 0, tExt = 0, totalViajesSegundaVuelta = 0;
+    let tPendientes = 0, tGrilla = 0, tDemanda = 0, tFact = 0, tRech = 0, tLitros = 0, tExt = 0, totalViajesSegundaVuelta = 0;
     
     let chartLabels = [];
-    let chartDemandaData = [];
-    let chartFactData = [];
+    let chartLitrosProgData = [];
+    let chartLitrosFactData = [];
 
     let totalRechInternos = 0;
     let totalRechExternos = 0;
@@ -893,15 +972,28 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla, pendientesGlobal
 
         let docsFecha = documentosGlobal.filter(d => cpsGrillaFecha.has(d.cp) && normalizarFechaAISO(d.fechaGrilla) === fecha);
         let factFecha = 0;
+        let litrosFactFecha = 0;
         // Mismo criterio que logística: sumar los documentos de cada fila,
         // incluyendo CP principal y complementarios, sin filtrar por fecha del documento.
         grillasFecha.forEach(g => {
             const cps = obtenerTodasLasCPsDeFila(g);
+            let bultosProgFila = Math.round(Number(g.bultos) || 0);
+            let bultosFactFila = 0;
             documentosGlobal.forEach(d => {
                 if (cps.includes(d.cp)) {
-                    factFecha += (Number(d.cajas) || 0) + (Number(d.unidades) || 0);
+                    bultosFactFila += (Number(d.cajas) || 0) + (Number(d.unidades) || 0);
                 }
             });
+            factFecha += bultosFactFila;
+            const resLitrosFila = calcularLitrosDeCPs(cps, bultosProgFila, bultosFactFila);
+            litrosFactFecha += resLitrosFila.litros;
+        });
+
+        let litrosProgFecha = 0;
+        pedidosGlobal.forEach(p => {
+            if (normalizarFechaAISO(p.fechaPedido) === fecha) {
+                litrosProgFecha += Number(p.data[32]) || 0;
+            }
         });
         let rechFecha = 0;
         let rechInternosFecha = 0;
@@ -956,6 +1048,7 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla, pendientesGlobal
             facturado: Math.round(factFecha).toLocaleString('es-ES'),
             rechazadosNum: Math.round(rechFecha),
             rechazados: Math.round(rechFecha).toLocaleString('es-ES'),
+            litros: Math.round(litrosFactFecha).toLocaleString('es-ES'),
             efectividad: efectividadExport,
             segundaVuelta: cuentaSegundaVuelta,
             extracostoBultos: extracostoBultos,
@@ -983,12 +1076,13 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla, pendientesGlobal
         tDemanda += demandaTotalFecha;
         tFact += factFecha;
         tRech += rechFecha;
+        tLitros += litrosFactFecha;
         tExt += extracostoBultos;
         totalViajesSegundaVuelta += cuentaSegundaVuelta;
 
         chartLabels.push(fecha);
-        chartDemandaData.push(demandaTotalFecha);
-        chartFactData.push(factFecha);
+        chartLitrosProgData.push(Math.round(litrosProgFecha));
+        chartLitrosFactData.push(Math.round(litrosFactFecha));
 
         filasHtml += `
             <tr class="hover:bg-slate-50 border-b">
@@ -998,6 +1092,7 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla, pendientesGlobal
                 <td class="p-3 text-center font-black text-slate-900">${Math.round(demandaTotalFecha).toLocaleString('es-ES')}</td>
                 <td class="p-3 text-center font-black text-indigo-900">${Math.round(factFecha).toLocaleString('es-ES')}</td>
                 <td class="p-3 text-center font-bold text-red-600">${Math.round(rechFecha).toLocaleString('es-ES')}</td>
+                <td class="p-3 text-center font-black text-sky-700">${Math.round(litrosFactFecha).toLocaleString('es-ES')}</td>
                 <td class="p-3 text-center font-black text-emerald-700">${efectividadFecha}%</td>
                 <td class="p-3 text-center">${badgeSegundaVuelta}</td>
                 <td class="p-3 text-center">${badgeUmbral}</td>
@@ -1018,6 +1113,7 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla, pendientesGlobal
             <td class="p-3 text-center">${Math.round(tDemanda).toLocaleString('es-ES')}</td>
             <td class="p-3 text-center text-indigo-300">${Math.round(tFact).toLocaleString('es-ES')}</td>
             <td class="p-3 text-center text-red-400">${Math.round(tRech).toLocaleString('es-ES')}</td>
+            <td class="p-3 text-center text-sky-300">${Math.round(tLitros).toLocaleString('es-ES')}</td>
             <td class="p-3 text-center text-emerald-400">${efTotal}%</td>
             <td class="p-3 text-center text-amber-300">${totalViajesSegundaVuelta} viajes</td>
             <td class="p-3 text-center">${badgeTotalUmbral}</td>
@@ -1035,14 +1131,14 @@ function renderizarMetricasEjecutivasCompletas(filtradosGrilla, pendientesGlobal
             labels: chartLabels,
             datasets: [
                 {
-                    label: 'Demanda Total',
-                    data: chartDemandaData,
+                    label: 'Litros Programados',
+                    data: chartLitrosProgData,
                     backgroundColor: '#3b82f6',
                     borderRadius: 6
                 },
                 {
-                    label: 'Facturado Real (Salido a calle)',
-                    data: chartFactData,
+                    label: 'Litros Facturados',
+                    data: chartLitrosFactData,
                     backgroundColor: '#6366f1',
                     borderRadius: 6
                 }
@@ -1102,6 +1198,7 @@ function copiarTablaEjecutiva() {
                 <th style="border: 1px solid #cbd5e1; padding: 6px;">Demanda Total</th>
                 <th style="border: 1px solid #cbd5e1; padding: 6px;">Bultos Facturados (Real)</th>
                 <th style="border: 1px solid #cbd5e1; padding: 6px;">Bultos Rechazados</th>
+                <th style="border: 1px solid #cbd5e1; padding: 6px;">Litros</th>
                 <th style="border: 1px solid #cbd5e1; padding: 6px;">Efectividad (%)</th>
                 <th style="border: 1px solid #cbd5e1; padding: 6px;">2ª Vuelta</th>
                 <th style="border: 1px solid #cbd5e1; padding: 6px;">Control Extracosto</th>
@@ -1141,6 +1238,7 @@ function copiarTablaEjecutiva() {
                 <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center;">${d.demanda}</td>
                 <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center;">${d.facturado}</td>
                 <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center; ${estiloRechazados}">${d.rechazados}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center;">${d.litros}</td>
                 <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center;">${d.efectividad}</td>
                 <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center; ${estiloSegundaVuelta}">${d.segundaVuelta}</td>
                 <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center; ${estiloExtracosto}">${textoExtracosto}</td>
